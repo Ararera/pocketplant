@@ -10,7 +10,8 @@
     <meta name="theme-color" content="#1a1b1e">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/628/628283.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="icon" type="image/png" href="icon-192.png">
 
     <style>
         :root {
@@ -253,6 +254,31 @@
         }
         @keyframes orbit { 0% { transform: rotate(var(--rot)) translateX(50px) scale(0.5); opacity: 0; } 20% { opacity: 1; } 100% { transform: rotate(calc(var(--rot) + 360deg)) translateX(70px) scale(1.2); opacity: 0; } }
         @keyframes floatUp { 0% { transform: translateY(10px) scale(0.9); opacity: 0; } 20% { opacity: 1; transform: translateY(0) scale(1); } 100% { transform: translateY(-40px) scale(1); opacity: 0; } }
+
+        /* Debug Styles */
+        .debug-btn {
+            position: absolute; top: 10px; left: 10px; z-index: 1000;
+            background: rgba(0,0,0,0.5); color: #0f0; border: 1px solid #0f0;
+            padding: 5px 10px; border-radius: 5px; font-family: monospace; font-size: 10px;
+            cursor: pointer;
+            display: none;
+        }
+        .debug-panel {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 1001; color: #0f0; font-family: monospace;
+            padding: 20px; overflow-y: auto; box-sizing: border-box;
+        }
+        .debug-panel.open { display: block; }
+        .debug-section { margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .debug-row { display: flex; justify-content: space-between; margin: 5px 0; }
+        .debug-action-btn {
+            background: #333; color: #fff; border: 1px solid #555; padding: 5px 10px;
+            margin: 5px; cursor: pointer; width: 100%;
+        }
+        .debug-log {
+            height: 150px; overflow-y: auto; border: 1px solid #333; padding: 5px;
+            background: #111; font-size: 10px; white-space: pre-wrap;
+        }
     </style>
 </head>
 <body>
@@ -260,6 +286,35 @@
     <div class="grain-overlay"></div>
     <div class="rain-container" id="rainContainer"></div>
     <div class="rainbow" id="rainbowContainer"></div>
+
+    <!-- Debug Button -->
+    <button class="debug-btn" onclick="toggleDebug()">🐞 DEBUG</button>
+
+    <!-- Debug Overlay -->
+    <div class="debug-panel" id="debugPanel">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h2 style="margin:0;">DEBUG CONSOLE</h2>
+            <button class="debug-action-btn" style="width:auto;" onclick="toggleDebug()">CLOSE</button>
+        </div>
+
+        <div class="debug-section">
+            <h3>Actions</h3>
+            <button class="debug-action-btn" onclick="debugMaxStats()">❤️ Max Stats</button>
+            <button class="debug-action-btn" onclick="debugGrow()">🌿 +1000 Growth</button>
+            <button class="debug-action-btn" onclick="debugNearDeath()">💀 Near Death</button>
+            <button class="debug-action-btn" onclick="debugReset()">🗑️ Hard Reset</button>
+        </div>
+
+        <div class="debug-section">
+            <h3>Live State</h3>
+            <div id="debugStateView" style="font-size:10px;"></div>
+        </div>
+
+        <div class="debug-section">
+            <h3>Logs</h3>
+            <div class="debug-log" id="debugLog"></div>
+        </div>
+    </div>
 
     <!-- Top Status -->
     <div class="status-area" id="statusArea">
@@ -360,7 +415,11 @@
             <div class="menu-title" style="color: var(--accent-pink);">Ascension</div>
             <div style="margin-bottom: 20px;">
                 <div class="gh-preview-box" style="height: 120px; margin-bottom: 10px;">
-                    <svg id="harvestPreviewSVG" viewBox="0 0 200 250"></svg>
+                    <svg id="harvestPreviewSVG" viewBox="0 0 200 250">
+                        <defs id="harvestDefs"></defs>
+                        <g id="harvestPotGroup"></g>
+                        <g id="harvestPlantGroup"></g>
+                    </svg>
                 </div>
                 <p style="font-size: 0.85rem; opacity: 0.8; margin-bottom: 20px; font-weight: 300; line-height: 1.4;">Your plant is ready to join the Garden of Memory.<br>Name your legacy before it fades.</p>
             </div>
@@ -374,7 +433,13 @@
     <div class="menu-overlay" id="archiveOverlay">
         <div class="menu-card" style="max-width: 280px;">
             <div class="menu-title" id="archiveName">Name</div>
-            <div class="gh-preview-box"><svg id="archiveSVG" viewBox="0 0 200 250"></svg></div>
+            <div class="gh-preview-box">
+                <svg id="archiveSVG" viewBox="0 0 200 250">
+                    <defs id="archiveDefs"></defs>
+                    <g id="archivePotGroup"></g>
+                    <g id="archivePlantGroup"></g>
+                </svg>
+            </div>
             <div class="menu-stat"><span>Cycle</span> <span id="archiveGen">1</span></div>
             <div class="menu-stat"><span>Lived</span> <span id="archiveAge">10 Suns</span></div>
             <button class="btn-base remember-btn" onclick="loveArchivePlant()">❤️ Remember</button>
@@ -542,6 +607,12 @@
                 defs.innerHTML += patterns;
                 const prevDefs = document.getElementById('previewDefs');
                 if(prevDefs) prevDefs.innerHTML += patterns;
+                
+                // Inject for harvest and archive if they exist (though they might not be in DOM yet or need reinjection)
+                const hDefs = document.getElementById('harvestDefs');
+                if(hDefs) hDefs.innerHTML = patterns;
+                const aDefs = document.getElementById('archiveDefs');
+                if(aDefs) aDefs.innerHTML = patterns;
             }
         }
 
@@ -567,14 +638,47 @@
             }
         }
 
+        function renderPot(group, config) {
+            group.innerHTML = '';
+            
+            const dirt = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
+            dirt.setAttribute("cx", 100); dirt.setAttribute("cy", 190); dirt.setAttribute("rx", 28); dirt.setAttribute("ry", 6);
+            dirt.setAttribute("fill", "#5d4037");
+            group.appendChild(dirt);
+
+            const body = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            body.setAttribute("d", "M72 190 L128 190 L118 230 L82 230 Z");
+            body.setAttribute("fill", config.potColor);
+            group.appendChild(body);
+
+            const rim = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            rim.setAttribute("d", "M68 185 L132 185 L130 195 L70 195 Z");
+            rim.setAttribute("fill", config.potColor);
+            rim.setAttribute("style", "filter: brightness(1.1);");
+            group.appendChild(rim);
+            
+            if(config.potPattern && config.potPattern !== 'none') {
+                const pat = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                pat.setAttribute("d", "M72 195 L128 195 L118 230 L82 230 Z");
+                pat.setAttribute("fill", `url(#${config.potPattern})`); // This relies on the pattern being available in defs
+                pat.setAttribute("style", "opacity: 0.9; stroke: none;");
+                group.appendChild(pat);
+            }
+        }
+
         /* --- RENDER PLANT --- */
         function renderPlant(containerId, dna, stage, isGhost = false) {
             const group = document.getElementById(containerId);
             if (!group) return; 
             group.innerHTML = ''; 
 
-            if (!isGhost && (containerId === 'plantGroup' || containerId === 'previewPlantGroup')) {
-                const defs = document.getElementById(containerId === 'plantGroup' ? 'plantDefs' : 'previewDefs');
+            if (!isGhost && ['plantGroup', 'previewPlantGroup', 'harvestPlantGroup', 'archivePlantGroup'].includes(containerId)) {
+                let defsId = 'plantDefs';
+                if(containerId === 'previewPlantGroup') defsId = 'previewDefs';
+                if(containerId === 'harvestPlantGroup') defsId = 'harvestDefs';
+                if(containerId === 'archivePlantGroup') defsId = 'archiveDefs';
+
+                const defs = document.getElementById(defsId);
                  if(defs && !document.getElementById(containerId+'_stemGrad')) {
                      defs.innerHTML += `
                         <linearGradient id="${containerId}_stemGrad" x1="0%" y1="100%" x2="0%" y2="0%">
@@ -1050,16 +1154,7 @@
             audio.love(); 
         }
 
-        /* --- HELP & POT CUSTOMIZATION --- */
-        function openHelp() {
-            els.menu.classList.remove('open');
-            els.helpOverlay.classList.add('open');
-        }
-        function closeHelp() {
-            els.helpOverlay.classList.remove('open');
-            els.menu.classList.add('open');
-        }
-
+        /* --- POT CUSTOMIZATION --- */
         function openPotDesigner() {
             // Render Preview Plant
             const g = document.getElementById('previewPlantGroup');
@@ -1080,26 +1175,47 @@
             els.harvestNameInput.value = state.name === defName ? "" : state.name;
             els.harvestNameInput.placeholder = defName;
             
-            const svg = document.getElementById('harvestPreviewSVG'); svg.innerHTML = '';
-            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-            g.setAttribute('id', 'hPrev'); svg.appendChild(g);
-            renderPlant('hPrev', state.dna, state.stage);
+            // Only clear the groups, NOT the defs
+            const potG = document.getElementById('harvestPotGroup');
+            const plantG = document.getElementById('harvestPlantGroup');
+            if(potG) potG.innerHTML = '';
+            if(plantG) plantG.innerHTML = '';
+
+            // Render Pot
+            renderPot(potG, { 
+                potColor: state.potColor, 
+                potPattern: state.potPattern, 
+                potPatternColor: state.potPatternColor 
+            });
+
+            // Render Plant
+            renderPlant('harvestPlantGroup', state.dna, state.stage);
 
             els.harvestOverlay.classList.add('open'); toggleMenu();
         }
         
         function finalizeHarvest() {
+            // 1. Push to history with POT CONFIG
             state.name = els.harvestNameInput.value.trim() || state.name;
             if(!state.history) state.history = [];
-            state.history.push({ name: state.name, dna: state.dna, days: state.day, gen: state.generation, lastLoved: Date.now() });
+            state.history.push({ 
+                name: state.name, 
+                dna: state.dna, 
+                days: state.day, 
+                gen: state.generation, 
+                lastLoved: Date.now(),
+                potColor: state.potColor,
+                potPattern: state.potPattern,
+                potPatternColor: state.potPatternColor
+            });
             
-            // New Gen
-            state.generation++; state.day = 1; state.stage = 1; state.growth = 0;
-            state.water = 20; state.sun = 50; state.love = 50; // NEW START STATS
-            state.name = "Sprout"; state.dna = generateDNA();
-            state.isRainOn = false; state.isSunLampOn = false;
+            // 2. Call Reset (Soft)
+            resetGame(false);
             
-            saveState(); location.reload(); 
+            // 3. UI Cleanup
+            els.harvestOverlay.classList.remove('open');
+            // resetGame closes menu, so we are good.
+            spawnFloatingText("Ascended! 🌸", "var(--accent-pink)");
         }
 
         /* --- HELPERS --- */
@@ -1135,38 +1251,65 @@
             toggleMenu();
         }
 
+        /* --- RESET LOGIC --- */
         function finalizeReset() {
-             if (gameInterval) clearInterval(gameInterval);
-            localStorage.clear();
+            resetGame(true); // Hard Reset
+        }
+
+        function resetGame(isFullWipe) {
+            if (gameInterval) clearInterval(gameInterval);
+            
+            let oldHistory = [];
+            if (!isFullWipe && state.history) {
+                oldHistory = state.history; // Keep history on Soft Reset
+            }
+
+            if (isFullWipe) {
+                localStorage.clear();
+            }
+
             state = {
                 water: 20, sun: 50, love: 50, growth: 0,
                 stage: 1, isSunLampOn: false, isRainOn: false,
-                day: 1, generation: 1, name: "Sprout",
+                day: 1, generation: isFullWipe ? 1 : (state.generation + 1), 
+                name: "Sprout",
                 dna: generateDNA(), 
+                // We keep pot styles even on soft reset for better UX, unless it's a hard wipe
+                potColor: isFullWipe ? POT_COLORS[0] : state.potColor,
+                potPattern: isFullWipe ? 'none' : state.potPattern,
+                potPatternColor: isFullWipe ? 'rgba(255,255,255,0.5)' : state.potPatternColor,
                 timeAtZero: 0, 
                 isDead: false,
-                history: [], 
+                history: oldHistory, 
                 lastSave: Date.now(),
-                growthMultiplier: 1 
+                growthMultiplier: 1,
+                singCooldownUntil: 0,
+                fertilizeCooldownUntil: 0
             };
+
             els.deathOverlay.classList.remove('open');
             els.plantHero.classList.remove('dead-plant');
             els.plantHero.classList.add('breathing');
-            isPlayingMelody = false;
+            
             els.btnSing.disabled = false;
             els.btnSing.innerText = "🎵 Sing to Plant";
+            
             updateName(state.name);
             els.nameInput.value = state.name;
+            
             applyTheme();
+            updatePotVisuals();
             renderPlant('plantGroup', state.dna, state.stage);
             render();
             updateMenuStats(); 
+            
             els.menu.classList.remove('open');
             els.potOverlay.classList.remove('open');
             els.harvestOverlay.classList.remove('open');
             els.archiveOverlay.classList.remove('open');
             els.resetOverlay.classList.remove('open');
-            spawnFloatingText("Game Reset", "white");
+            
+            spawnFloatingText(isFullWipe ? "Full Wipe" : "New Life 🌱", "white");
             startGameLoop();
         }
         
@@ -1229,14 +1372,31 @@
             document.getElementById('menuAge').innerText = state.day + " Suns";
             document.getElementById('menuHealth').innerText = Math.floor((state.water+state.sun+state.love)/3) + "%";
             
-            // Time to next
+            // Time to next logic (Fixed)
             let txt = "Max Growth";
-            if(state.stage < 5) {
-                const need = Math.max(0, CONFIG.stages[state.stage] - state.growth);
-                const secs = Math.ceil(need / (CONFIG.growthRate * state.growthMultiplier));
-                txt = `${Math.floor(secs/60)}m ${secs%60}s`;
+            const isHappy = state.water > CONFIG.threshold && state.sun > CONFIG.threshold && state.love > CONFIG.threshold;
+            
+            if (state.stage < 5) {
+                if (!isHappy) {
+                    txt = "⚠️ Stalled (Needs Care)";
+                    document.getElementById('menuNextStageTime').style.color = '#ff6b6b';
+                } else {
+                    const need = Math.max(0, CONFIG.stages[state.stage] - state.growth);
+                    const secs = Math.ceil(need / (CONFIG.growthRate * state.growthMultiplier));
+                    txt = `${Math.floor(secs/60)}m ${secs%60}s`;
+                    document.getElementById('menuNextStageTime').style.color = 'inherit';
+                }
+            } else {
+                 document.getElementById('menuNextStageTime').style.color = 'var(--accent-sun)';
             }
             document.getElementById('menuNextStageTime').innerText = txt;
+
+            // Show Ascend Button if Stage 5
+            if (state.stage >= 5) {
+                els.btnHarvest.classList.add('visible');
+            } else {
+                els.btnHarvest.classList.remove('visible');
+            }
             
             // Greenhouse
             const gh = els.greenhouseList; gh.innerHTML = "";
@@ -1248,13 +1408,23 @@
                     document.getElementById('archiveName').innerText = h.name;
                     document.getElementById('archiveGen').innerText = h.gen;
                     document.getElementById('archiveAge').innerText = h.days + " Suns";
-                    const svg = document.getElementById('archiveSVG'); svg.innerHTML = "";
-                    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-                    g.id = "archP"; svg.appendChild(g);
                     
-                    // Inject gradient defs for archive if needed, or simple fill
-                    // For archive, simple fill is safer/easier
-                    renderPlant('archP', h.dna, 5, true); 
+                    // Render Pot & Plant for Archive without wiping defs
+                    const potG = document.getElementById('archivePotGroup');
+                    const plantG = document.getElementById('archivePlantGroup');
+                    if(potG) potG.innerHTML = '';
+                    if(plantG) plantG.innerHTML = '';
+
+                    // Fallback for old saves without pot data
+                    const potConf = {
+                        potColor: h.potColor || POT_COLORS[0],
+                        potPattern: h.potPattern || 'none',
+                        potPatternColor: h.potPatternColor || 'rgba(255,255,255,0.5)'
+                    };
+
+                    renderPot(potG, potConf);
+                    renderPlant('archivePlantGroup', h.dna, 5, false); // isGhost = false for full color
+                    
                     els.archiveOverlay.classList.add('open');
                 };
                 gh.appendChild(d);
@@ -1267,6 +1437,54 @@
         } else {
             init();
         }
+
+        // --- DEBUG FUNCTIONS ---
+        function toggleDebug() {
+            const p = document.getElementById('debugPanel');
+            p.classList.toggle('open');
+            updateDebugView();
+        }
+
+        function updateDebugView() {
+            if(!document.getElementById('debugPanel').classList.contains('open')) return;
+            document.getElementById('debugStateView').innerText = JSON.stringify(state, null, 2);
+            requestAnimationFrame(updateDebugView);
+        }
+
+        function debugMaxStats() {
+            state.water = 100; state.sun = 100; state.love = 100;
+            render(); log("Stats Maxed");
+        }
+        
+        function debugGrow() {
+            state.growth += 1000;
+            grow(); render(); log("Growth +1000");
+        }
+
+        function debugNearDeath() {
+            state.water = 0; state.sun = 0; state.love = 0;
+            state.timeAtZero = CONFIG.deathTimeLimit - 10000; // 10s to live
+            render(); log("Set to Near Death");
+        }
+
+        function debugReset() {
+            finalizeReset();
+            log("Hard Reset executed");
+        }
+
+        // Override console.log to show in debug panel
+        const originalLog = console.log;
+        const logContainer = document.getElementById('debugLog');
+        function log(...args) {
+            originalLog.apply(console, args);
+            if(logContainer) {
+                const l = document.createElement('div');
+                l.innerText = "> " + args.join(' ');
+                logContainer.prepend(l);
+                if(logContainer.children.length > 50) logContainer.lastChild.remove();
+            }
+        }
+        console.log = log;
     </script>
 </body>
 </html>
