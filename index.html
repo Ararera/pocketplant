@@ -1154,7 +1154,16 @@
             audio.love(); 
         }
 
-        /* --- POT CUSTOMIZATION --- */
+        /* --- HELP & POT CUSTOMIZATION --- */
+        function openHelp() {
+            els.menu.classList.remove('open');
+            els.helpOverlay.classList.add('open');
+        }
+        function closeHelp() {
+            els.helpOverlay.classList.remove('open');
+            els.menu.classList.add('open');
+        }
+
         function openPotDesigner() {
             // Render Preview Plant
             const g = document.getElementById('previewPlantGroup');
