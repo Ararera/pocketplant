@@ -1230,10 +1230,24 @@
 
         /* --- VISUALS --- */
         let lastDistressState = null;
+        let lastRenderValues = { day: null, generation: null, name: null };
         function render() {
             if (!els.water) return; 
             updateOrb(els.water, state.water); updateOrb(els.sun, state.sun); updateOrb(els.love, state.love);
-            els.day.innerText = `Sun ${state.day}`; els.genBadge.innerText = `CYCLE ${state.generation}`; els.nameDisplay.innerText = state.name;
+            
+            // Only update text if values changed to prevent flashing
+            if (lastRenderValues.day !== state.day) {
+                els.day.innerText = `Sun ${state.day}`;
+                lastRenderValues.day = state.day;
+            }
+            if (lastRenderValues.generation !== state.generation) {
+                els.genBadge.innerText = `CYCLE ${state.generation}`;
+                lastRenderValues.generation = state.generation;
+            }
+            if (lastRenderValues.name !== state.name) {
+                els.nameDisplay.innerText = state.name;
+                lastRenderValues.name = state.name;
+            }
             
             els.btnSun.classList.toggle('sun-active', state.isSunLampOn);
             els.btnRain.classList.toggle('rain-active', state.isRainOn);
@@ -1659,6 +1673,29 @@
                     state.isDead = true;
                     els.deathOverlay.classList.add('open');
                     els.plantHero.classList.add('dead-plant');
+                }
+            }
+
+            // Calculate offline growth if plant was happy
+            const wasHappy = state.water > CONFIG.threshold && state.sun > CONFIG.threshold && state.love > CONFIG.threshold;
+            if (wasHappy && !state.isDead) {
+                const offlineGrowth = ticksOffline * CONFIG.growthRate * state.growthMultiplier * CONFIG.offlineDecayFactor;
+                state.growth += offlineGrowth;
+                
+                // Check for stage evolution
+                let nextStage = 1;
+                if (state.growth > CONFIG.stages[4]) nextStage = 5;
+                else if (state.growth > CONFIG.stages[3]) nextStage = 4;
+                else if (state.growth > CONFIG.stages[2]) nextStage = 3;
+                else if (state.growth > CONFIG.stages[1]) nextStage = 2;
+
+                if (nextStage > state.stage) {
+                    if (state.name === getStageName(state.stage)) {
+                        state.name = getStageName(nextStage);
+                        updateName(state.name);
+                    }
+                    state.stage = nextStage;
+                    renderPlant('plantGroup', state.dna, state.stage);
                 }
             }
 
