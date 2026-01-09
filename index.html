@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <!-- PWA Setup -->
+    <title>Pocket Sprout</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1a1b1e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/628/628283.png">
+
+    <style>
+        :root {
+            --bg-dark: #141517; 
+            --bg-light: #232529; 
+            --spotlight: #1f2125;
+            --text-color: #e0e0e0;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            
+            --accent-blue: #4dabf7;
+            --accent-pink: #faa2c1;
+            --accent-sun: #ffd43b;
+            --accent-rain: #748ffc;
+            --pot-color: #e07a5f; /* Default Terracotta */
+            --pot-pat-color: rgba(255,255,255,0.5); /* Default Pattern */
+        }
+
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            margin: 0; padding: 0; width: 100vw; height: 100vh;
+            background-color: var(--bg-dark);
+            background-image: radial-gradient(circle at center, var(--spotlight) 0%, #0d0e10 85%);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text-color);
+            overflow: hidden;
+            display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+            transition: background 2s ease; 
+        }
+
+        body.sun-mode {
+            background-color: var(--bg-light);
+            background-image: radial-gradient(circle at center, #3a3d42 0%, #1a1b1e 85%);
+        }
+
+        /* --- Texture --- */
+        .grain-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 100; opacity: 0.04;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E");
+        }
+
+        /* --- Header --- */
+        .status-area {
+            padding-top: 60px; opacity: 0; /* Hidden by default to prevent flash */
+            text-align: center; z-index: 10;
+            transition: opacity 0.5s ease;
+        }
+        .status-area.loaded { opacity: 0.7; }
+        
+        .gen-badge {
+            display: inline-block; font-size: 0.7rem; letter-spacing: 2px;
+            text-transform: uppercase; opacity: 0.6; margin-bottom: 8px; font-weight: 300;
+        }
+        .plant-name { font-size: 1.4rem; font-weight: 200; letter-spacing: 1px; }
+        .day-counter { font-size: 0.8rem; opacity: 0.4; margin-top: 5px; font-weight: 300; }
+
+        /* --- Atmosphere --- */
+        .rain-container, .rainbow {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 15; opacity: 0; transition: opacity 1s;
+        }
+        .rain-container { overflow: hidden; }
+        .rain-container.active { opacity: 0.6; }
+        .raindrop {
+            position: absolute; width: 1px; height: 20px;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.4));
+            animation: fall 0.7s linear infinite;
+        }
+        .rainbow {
+            z-index: 12; transition: opacity 2s ease;
+            background: radial-gradient(circle at 50% 120%, rgba(0,0,0,0) 40%, rgba(148,0,211,0.05) 45%, rgba(75,0,130,0.05) 50%, rgba(0,0,255,0.05) 55%, rgba(0,255,0,0.05) 60%, rgba(255,255,0,0.05) 65%, rgba(255,127,0,0.05) 70%, rgba(255,0,0,0.05) 75%, rgba(0,0,0,0) 80%);
+        }
+        .rainbow.visible { opacity: 0.6; }
+        @keyframes fall { to { transform: translateY(100vh); } }
+
+        /* --- Stage --- */
+        .stage-container { position: relative; flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; }
+        .plant-wrapper { position: relative; cursor: pointer; transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); z-index: 20; }
+        
+        .breathing { animation: breathe var(--breathe-speed, 6s) ease-in-out infinite; }
+        @keyframes breathe { 0% { transform: scale(1) translateY(0); } 50% { transform: scale(1.02) translateY(-2px); } 100% { transform: scale(1) translateY(0); } }
+        .plant-bounce { transform: scale(0.97) translateY(2px) !important; }
+        .plant-plump { animation: plump 0.4s ease-out; }
+        @keyframes plump { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+        .plant-refuse { animation: shake 0.4s ease-in-out !important; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px) rotate(-2deg); } 75% { transform: translateX(4px) rotate(2deg); } }
+        .evolving { animation: evolveFlash 1.5s ease-in-out; }
+        @keyframes evolveFlash { 0% { filter: brightness(1); } 50% { filter: brightness(1.5) drop-shadow(0 0 15px rgba(255,255,255,0.5)); } 100% { filter: brightness(1); } }
+        
+        .dead-plant { filter: grayscale(90%) contrast(1.2) brightness(0.7) sepia(0.2); animation: none !important; transform: rotate(3deg) translateY(15px); transition: all 2s ease; }
+
+        /* --- Distress States for PlantGroup --- */
+        #plantGroup { 
+            transition: filter 1s ease, transform 1s ease; 
+            transform-origin: 100px 190px; /* Origin at the soil */
+        }
+        .distress-thirsty { 
+            filter: sepia(0.5) saturate(1.4) hue-rotate(-20deg); /* Dry/Yellowish */
+            transform: rotate(3deg) scaleY(0.95); 
+        }
+        .distress-starved { 
+            filter: grayscale(0.8) brightness(1.1) opacity(0.8); /* Pale/Ghostly */
+            transform: scale(0.95);
+        }
+        .distress-critical {
+            filter: sepia(0.9) saturate(2) hue-rotate(-30deg) contrast(1.2); /* Very dead looking */
+            transform: rotate(5deg) scaleY(0.85);
+        }
+
+        .plant-graphics {
+            width: 250px; height: 380px; display: flex; flex-direction: column;
+            align-items: center; justify-content: flex-end;
+            filter: drop-shadow(0 25px 25px rgba(0,0,0,0.4));
+            transform-origin: bottom center; transition: transform 1s ease;
+        }
+        .svg-plant { width: 100%; height: 100%; overflow: visible; }
+        
+        .leaf { transition: fill 1s ease; stroke-width: 0; }
+        .stem { fill: none; stroke-linecap: round; transition: stroke 1s ease; }
+        .flower { stroke-width: 1; transition: stroke 1s ease, fill 1s ease; }
+        .petal { stroke: none; transition: fill 1s ease; opacity: 0.9; }
+        .bud { stroke: white; stroke-width: 1; transition: fill 1s ease; }
+        .pot-body { fill: var(--pot-color); transition: fill 0.5s ease; stroke: none; }
+        .dirt { fill: #5d4037; stroke: none; } 
+        .shadow { fill: rgba(0,0,0,0.4); filter: blur(8px); }
+
+        /* --- Vitals --- */
+        .vitals-ring {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.8);
+            width: 320px; height: 320px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.03);
+            pointer-events: none; opacity: 0; transition: opacity 0.5s ease, transform 0.5s ease;
+            display: flex; align-items: center; justify-content: center; z-index: 5;
+        }
+        .vitals-ring.active { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        .stat-orb {
+            position: absolute; width: 24px; height: 24px; border-radius: 50%; background: transparent;
+            border: 2px solid rgba(255,255,255,0.4); transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.5s, border-color 0.5s;
+        }
+        .stat-water { top: 0; left: 50%; transform: translateX(-50%); }
+        .stat-sun { bottom: 25%; right: 7%; }
+        .stat-love { bottom: 25%; left: 7%; }
+        .ring-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+        .ring-circle { fill: none; stroke: rgba(255,255,255,0.03); stroke-width: 1; }
+
+        /* --- UI Overlays --- */
+        .menu-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 15, 15, 0.85); backdrop-filter: blur(20px);
+            z-index: 150; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.4s ease;
+        }
+        .menu-overlay.open { opacity: 1; pointer-events: auto; }
+        
+        .menu-card {
+            background: rgba(30, 32, 35, 0.95); border: 1px solid rgba(255,255,255,0.08);
+            padding: 35px; border-radius: 24px; width: 85%; max-width: 320px;
+            text-align: center; box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+            max-height: 80vh; overflow-y: auto; position: relative;
+        }
+        
+        .menu-title { font-size: 1.1rem; margin-bottom: 25px; font-weight: 300; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.8); }
+        .name-input {
+            background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: #fff;
+            font-size: 1.3rem; font-weight: 300; text-align: center; padding: 12px;
+            border-radius: 12px; width: 100%; margin-bottom: 25px; font-family: inherit;
+        }
+        .name-input:focus { outline: none; border-color: rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); }
+        .menu-stat { display: flex; justify-content: space-between; margin: 12px 0; font-size: 0.9rem; opacity: 0.7; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px; font-weight: 300; }
+        
+        .greenhouse-list {
+            margin-top: 25px; text-align: left; max-height: 140px; overflow-y: auto;
+            background: rgba(0,0,0,0.15); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,0.03);
+        }
+        .greenhouse-item {
+            display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; padding: 10px;
+            margin-bottom: 6px; border-radius: 8px; background: rgba(255,255,255,0.03); cursor: pointer; transition: background 0.2s;
+        }
+        .greenhouse-item:active { background: rgba(255,255,255,0.08); }
+        .gh-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 10px; opacity: 0.8; }
+        .gh-preview-box { width: 150px; height: 180px; margin: 0 auto 20px auto; border-radius: 100px 100px 20px 20px; background: rgba(255,255,255,0.02); position: relative; overflow: visible; }
+        .gh-preview-box svg { width: 100%; height: 100%; overflow: visible; }
+
+        .btn-base {
+            margin-top: 15px; padding: 14px 30px; border: none; border-radius: 16px;
+            font-weight: 500; cursor: pointer; width: 100%; font-size: 0.9rem;
+            transition: transform 0.1s, opacity 0.2s; letter-spacing: 0.5px;
+        }
+        .btn-base:active { transform: scale(0.98); }
+        .close-btn { background: transparent; border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); }
+        .harvest-btn { background: linear-gradient(135deg, #f06595, #cc5de8); color: white; box-shadow: 0 10px 20px rgba(240, 101, 149, 0.2); display: none; }
+        .harvest-btn.visible { display: block; animation: pulseBtn 3s infinite; }
+        @keyframes pulseBtn { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(240, 101, 149, 0.4); } 70% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(240, 101, 149, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(240, 101, 149, 0); } }
+        .remember-btn { background: #f06595; color: white; }
+        .piano-btn { background: linear-gradient(135deg, #5c7cfa, #7950f2); color: white; border: none; margin-top: 20px; box-shadow: 0 10px 20px rgba(92, 124, 250, 0.2); transition: filter 0.3s, opacity 0.3s; }
+        .piano-btn:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(1); box-shadow: none; }
+        
+        .fertilize-btn { background: linear-gradient(135deg, #795548, #8d6e63); color: white; border: none; margin-top: 10px; box-shadow: 0 10px 20px rgba(121, 85, 72, 0.2); transition: filter 0.3s, opacity 0.3s; }
+        .fertilize-btn:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(1); box-shadow: none; }
+
+        .style-btn { background: transparent; border: 1px solid var(--pot-color); color: var(--pot-color); margin-top: 10px; }
+
+        /* Pot Designer */
+        .section-label { font-size: 0.8rem; opacity: 0.6; text-align: left; margin: 15px 0 5px 5px; text-transform: uppercase; letter-spacing: 1px; }
+        .color-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 10px; }
+        .color-swatch { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .color-swatch.active { border-color: white; transform: scale(1.2); box-shadow: 0 0 10px white; }
+        
+        .pattern-grid { display: flex; justify-content: space-between; margin-bottom: 15px; }
+        .pattern-btn { width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .pattern-btn.active { background: rgba(255,255,255,0.2); border-color: white; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+
+        /* --- Action Dock --- */
+        .dock-container {
+            margin-bottom: 50px; width: 85%; max-width: 320px; height: 70px;
+            background: var(--glass-bg); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border); border-radius: 35px;
+            display: flex; align-items: center; justify-content: space-evenly;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3); z-index: 100;
+        }
+        .action-btn { background: none; border: none; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.4); cursor: pointer; transition: all 0.2s ease; }
+        .action-btn:active { transform: scale(0.9); }
+        .action-btn.active { color: white; background: rgba(255,255,255,0.08); }
+        .action-btn.sun-active { color: var(--accent-sun); text-shadow: 0 0 15px rgba(255, 212, 59, 0.5); }
+        .action-btn.rain-active { color: var(--accent-rain); text-shadow: 0 0 15px rgba(116, 143, 252, 0.5); }
+        .action-btn svg { width: 22px; height: 22px; }
+
+        .particle, .musical-note, .floating-text { position: absolute; pointer-events: none; z-index: 50; }
+        .particle { animation: particleFade 2s ease-out forwards; opacity: 0.8; font-size: 1rem; }
+        .musical-note { color: var(--accent-pink); font-size: 1.5rem; animation: orbit 2.5s linear forwards; }
+        .floating-text { animation: floatUp 2s cubic-bezier(0.23, 1, 0.32, 1) forwards; font-size: 1rem; font-weight: 500; text-shadow: 0 2px 10px rgba(0,0,0,0.3); z-index: 200; opacity: 0; }
+        
+        @keyframes particleFade { 0% { transform: translate(0, 0) scale(0.5); opacity: 0; } 30% { opacity: 0.8; } 100% { transform: translate(var(--mx), var(--my)) scale(1.5); opacity: 0; } }
+        /* Fixed Spiral Animation to allow Rotation var */
+        @keyframes spiral { 
+            0% { transform: rotate(var(--rot)) translateX(30px) scale(0.5); opacity: 0; } 
+            20% { opacity: 1; } 
+            100% { transform: rotate(calc(var(--rot) + 360deg)) translateX(120px) scale(1.5); opacity: 0; } 
+        }
+        @keyframes orbit { 0% { transform: rotate(var(--rot)) translateX(50px) scale(0.5); opacity: 0; } 20% { opacity: 1; } 100% { transform: rotate(calc(var(--rot) + 360deg)) translateX(70px) scale(1.2); opacity: 0; } }
+        @keyframes floatUp { 0% { transform: translateY(10px) scale(0.9); opacity: 0; } 20% { opacity: 1; transform: translateY(0) scale(1); } 100% { transform: translateY(-40px) scale(1); opacity: 0; } }
+    </style>
+</head>
+<body>
+
+    <div class="grain-overlay"></div>
+    <div class="rain-container" id="rainContainer"></div>
+    <div class="rainbow" id="rainbowContainer"></div>
+
+    <!-- Top Status -->
+    <div class="status-area" id="statusArea">
+        <div class="gen-badge" id="genBadge"></div>
+        <div class="plant-name" id="plantNameDisplay"></div>
+        <div class="day-counter" id="dayDisplay"></div>
+    </div>
+    
+    <!-- Main Menu Overlay -->
+    <div class="menu-overlay" id="menuOverlay">
+        <div class="menu-card">
+            <div class="menu-title">Pocket Sprout <span style="font-size: 0.7rem; opacity: 0.5; vertical-align: middle;">v1.12</span></div>
+            
+            <input type="text" id="nameInput" class="name-input" placeholder="Name your plant" maxlength="12" onchange="updateName(this.value)">
+
+            <div class="menu-stat"><span>🧬 Cycle</span> <span id="menuGen">1</span></div>
+            <div class="menu-stat"><span>⏳ Age</span> <span id="menuAge">1 Day</span></div>
+
+            <div class="menu-stat"><span>🌱 Phase</span> <span id="menuStage">Sprout</span></div>
+            <div class="menu-stat"><span>⏱️ Evolution</span> <span id="menuNextStageTime">--:--</span></div>
+            <div class="menu-stat"><span>❤️ Vigor</span> <span id="menuHealth">100%</span></div>
+            
+            <div class="menu-title" style="margin-top: 20px; font-size: 0.8rem;">📜 Lineage Log</div>
+            <div class="greenhouse-list" id="greenhouseList">
+                <div style="text-align: center; opacity: 0.5; font-size: 0.8rem;">No ancestors yet.</div>
+            </div>
+            
+            <button class="btn-base style-btn" onclick="openPotDesigner()">🎨 Style Pot</button>
+            <button class="btn-base style-btn" onclick="openHelp()">📖 How to Play</button>
+
+            <button class="btn-base harvest-btn" id="btnHarvest" onclick="harvestPlant()">🌸 Ascend & Rebirth</button>
+            <button class="btn-base close-btn" onclick="toggleMenu()">Close</button>
+            
+            <button class="btn-base piano-btn" id="btnSing" onclick="playAutoMelody()">🎵 Sing to Plant</button>
+            <button class="btn-base fertilize-btn" id="btnFertilize" onclick="fertilizePlant()">🍂 Fertilize Soil</button>
+            
+            <div style="margin-top: 15px; font-size: 0.7rem; opacity: 0.3;">
+                <span onclick="confirmReset()" style="cursor: pointer; text-decoration: underline;">Compost & Restart (Wipe)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Overlay -->
+    <div class="menu-overlay" id="helpOverlay">
+        <div class="menu-card">
+            <div class="menu-title">How to Play</div>
+            <div style="text-align: left; font-size: 0.85rem; opacity: 0.8; line-height: 1.5; margin-bottom: 20px;">
+                <p><b>1. Essentials 💧☀️❤️</b><br>
+                Keep your plant's Water, Sun, and Love meters balanced. Not too little, not too much.</p>
+                
+                <p><b>2. Controls 🎮</b><br>
+                • <b>Tap Plant:</b> Give Love<br>
+                • <b>Rain Cloud:</b> Auto-water over time<br>
+                • <b>Sun Lamp:</b> Boost Sun (Careful!)<br>
+                • <b>Menu:</b> Sing, Fertilize, & Style</p>
+
+                <p><b>3. Lifecycle 🧬</b><br>
+                Grow from Sprout to Blooming. Then, <b>Harvest</b> to ascend, saving it to your Lineage and starting a new generation.</p>
+            </div>
+            <button class="btn-base close-btn" onclick="closeHelp()">Got it</button>
+        </div>
+    </div>
+
+    <!-- Pot Designer Overlay -->
+    <div class="menu-overlay" id="potOverlay">
+        <div class="menu-card">
+            <div class="menu-title">Customize Pot</div>
+            <div class="gh-preview-box" style="height: 180px; margin-bottom: 10px;">
+                <svg id="potPreviewSVG" viewBox="0 0 200 250">
+                    <defs id="previewDefs"></defs>
+                    <ellipse cx="100" cy="230" rx="40" ry="6" class="shadow" />
+                    <g id="previewPlantGroup"></g> <!-- Moved up for layering -->
+                    <g id="previewPotGroup">
+                        <ellipse cx="100" cy="190" rx="28" ry="6" class="dirt" />
+                        <path d="M72 190 L128 190 L118 230 L82 230 Z" class="pot-body" />
+                        <path d="M68 185 L132 185 L130 195 L70 195 Z" class="pot-body" style="filter: brightness(1.1);" />
+                        <path id="previewPotPattern" d="M72 195 L128 195 L118 230 L82 230 Z" fill="none" style="opacity: 0.9; stroke: none;" />
+                    </g>
+                </svg>
+            </div>
+            
+            <div class="section-label">Pot Color</div>
+            <div class="color-grid" id="colorGrid"></div>
+            
+            <div class="section-label">Pattern</div>
+            <div class="pattern-grid" id="patternGrid"></div>
+            
+            <div class="section-label">Pattern Color</div>
+            <div class="color-grid" id="patternColorGrid"></div>
+
+            <button class="btn-base" style="background: white; color: black; margin-top: 20px;" onclick="closePotDesigner()">Done</button>
+        </div>
+    </div>
+
+    <!-- Harvest Overlay -->
+    <div class="menu-overlay" id="harvestOverlay">
+        <div class="menu-card">
+            <div class="menu-title" style="color: var(--accent-pink);">Ascension</div>
+            <div style="margin-bottom: 20px;">
+                <div class="gh-preview-box" style="height: 120px; margin-bottom: 10px;">
+                    <svg id="harvestPreviewSVG" viewBox="0 0 200 250"></svg>
+                </div>
+                <p style="font-size: 0.85rem; opacity: 0.8; margin-bottom: 20px; font-weight: 300; line-height: 1.4;">Your plant is ready to join the Garden of Memory.<br>Name your legacy before it fades.</p>
+            </div>
+            <input type="text" id="harvestNameInput" class="name-input" placeholder="Legacy Name" maxlength="12">
+            <button class="btn-base harvest-btn visible" onclick="finalizeHarvest()">✨ Ascend</button>
+            <button class="btn-base close-btn" onclick="closeHarvestModal()">Stay Here</button>
+        </div>
+    </div>
+
+    <!-- Archive Overlay -->
+    <div class="menu-overlay" id="archiveOverlay">
+        <div class="menu-card" style="max-width: 280px;">
+            <div class="menu-title" id="archiveName">Name</div>
+            <div class="gh-preview-box"><svg id="archiveSVG" viewBox="0 0 200 250"></svg></div>
+            <div class="menu-stat"><span>Cycle</span> <span id="archiveGen">1</span></div>
+            <div class="menu-stat"><span>Lived</span> <span id="archiveAge">10 Suns</span></div>
+            <button class="btn-base remember-btn" onclick="loveArchivePlant()">❤️ Remember</button>
+            <button class="btn-base close-btn" onclick="closeArchive()">Close</button>
+        </div>
+    </div>
+
+    <!-- Reset Overlay -->
+    <div class="menu-overlay" id="resetOverlay">
+        <div class="menu-card" style="border: 1px solid #4a1515; background: rgba(20, 5, 5, 0.95);">
+            <div class="menu-title" style="color: #ff6b6b;">Wipe Save?</div>
+            <p style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 25px; line-height: 1.5;">
+                This will delete your current plant and <b>all history</b> from the Lineage Log.<br><br>This cannot be undone.
+            </p>
+            <button class="btn-base" style="background: #e03131; color: white; margin-bottom: 10px;" onclick="finalizeReset()">🗑️ Delete Everything</button>
+            <button class="btn-base close-btn" onclick="closeResetOverlay()">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Death Overlay -->
+    <div class="menu-overlay" id="deathOverlay" style="background: radial-gradient(circle at center, rgba(30,10,10,0.95) 0%, rgba(5,5,5,1) 100%);">
+        <div class="menu-card" style="border: 1px solid #4a1515; background: rgba(20, 5, 5, 0.9);">
+            <div class="menu-title" style="color: #ff6b6b; letter-spacing: 4px;">WITHERED</div>
+            <p style="opacity: 0.8; font-size: 0.9rem; line-height: 1.6; font-weight: 300;">Neglected in the dark, this life has returned to the soil.<br>Its cycle is broken.</p>
+            <button class="btn-base" style="background: #e03131; color: white; margin-top: 30px; box-shadow: 0 10px 20px rgba(224, 49, 49, 0.2);" onclick="resetGame(false)">🍂 Plant New Seed</button>
+        </div>
+    </div>
+
+    <!-- Main Game Area -->
+    <div class="stage-container">
+        <div class="vitals-ring" id="vitals">
+            <svg class="ring-svg" viewBox="0 0 100 100"><circle class="ring-circle" cx="50" cy="50" r="48"></circle></svg>
+            <div class="stat-orb stat-water" id="orbWater"></div>
+            <div class="stat-orb stat-sun" id="orbSun"></div>
+            <div class="stat-orb stat-love" id="orbLove"></div>
+        </div>
+        <div class="plant-wrapper breathing" id="plantHero">
+            <div class="plant-graphics" id="plantGraphics">
+                <svg class="svg-plant" id="mainPlantSVG" viewBox="0 0 200 250">
+                    <defs id="plantDefs"></defs>
+                    <ellipse cx="100" cy="230" rx="40" ry="6" class="shadow" />
+                    <!-- Swapped Order: Plant First (Behind), then Pot (Front) -->
+                    <g id="plantGroup"></g>
+                    <!-- Pot Graphics -->
+                    <g id="potGroup">
+                        <ellipse cx="100" cy="190" rx="28" ry="6" class="dirt" />
+                        <path d="M72 190 L128 190 L118 230 L82 230 Z" class="pot-body" />
+                        <path d="M68 185 L132 185 L130 195 L70 195 Z" class="pot-body" style="filter: brightness(1.1);" />
+                        <path id="potPatternPath" d="M72 195 L128 195 L118 230 L82 230 Z" fill="url(#patNone)" style="opacity: 0.9; stroke: none;" />
+                    </g>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Action Dock -->
+    <div class="dock-container">
+        <button class="action-btn" id="btnRain" onclick="interact('rain')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9"></path><path d="M16 14v6"></path><path d="M8 14v6"></path><path d="M12 16v6"></path></svg>
+        </button>
+        <button class="action-btn" id="btnMenu" onclick="toggleMenu()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"></path><path d="M12 2a8 8 0 1 0 0 16"></path></svg>
+        </button>
+        <button class="action-btn" id="btnSun" onclick="interact('sun')">
+             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+    </div>
+
+    <script>
+        /* --- CONSTANTS --- */
+        const POT_COLORS = [
+            '#e07a5f', '#d4a373', '#8d99ae', '#ef476f', '#118ab2', '#06d6a0', '#ffd166', '#a8dadc', '#457b9d', '#e63946',
+            '#f1faee', '#2a9d8f', '#264653', '#f4a261', '#e76f51', '#cdb4db', '#ffc8dd', '#ffafcc', '#bde0fe', '#a2d2ff',
+            '#606c38', '#283618', '#fefae0', '#dda15e', '#bc6c25', '#333333'
+        ];
+        
+        const CONFIG = {
+            decayRate: { water: 0.05, sun: 0.05, love: 0.05 },
+            growthRate: 0.5,
+            tickRate: 1000, 
+            threshold: 40,
+            stages: [0, 200, 1000, 2500, 5000], 
+            deathTimeLimit: 9 * 60 * 60 * 1000,
+            offlineDecayFactor: 0.1 
+        };
+
+        /* --- STATE --- */
+        let state = {
+            water: 20, sun: 50, love: 50, growth: 0, 
+            stage: 1, isSunLampOn: false, isRainOn: false,
+            day: 1, generation: 1, name: "Sprout",
+            dna: null, 
+            potColor: POT_COLORS[0], potPattern: 'none', potPatternColor: 'rgba(255,255,255,0.5)',
+            timeAtZero: 0, isDead: false, history: [], lastSave: Date.now(),
+            growthMultiplier: 1, singCooldownUntil: 0, fertilizeCooldownUntil: 0
+        };
+
+        let els = {};
+
+        const audio = {
+            ctx: null,
+            rainOsc: null,
+            rainGain: null,
+            isRainPlaying: false,
+            init: function() { if(!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+            play: function(freq, type, dur) {
+                if(!this.ctx) this.init(); if(this.ctx.state === 'suspended') this.ctx.resume();
+                const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
+                o.type = type; o.frequency.value = freq;
+                g.gain.setValueAtTime(0.01, this.ctx.currentTime); g.gain.linearRampToValueAtTime(0.05, this.ctx.currentTime + 0.05); g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
+                o.connect(g); g.connect(this.ctx.destination);
+                o.start(); o.stop(this.ctx.currentTime + dur);
+            },
+            toggleRainSound: function(isActive) {
+                if (!this.ctx) this.init();
+                if (isActive) {
+                    if (this.isRainPlaying) return;
+                    this.isRainPlaying = true;
+                    if(this.ctx.state === 'suspended') this.ctx.resume();
+                    const bufferSize = this.ctx.sampleRate * 2;
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.1; 
+                    this.rainOsc = this.ctx.createBufferSource();
+                    this.rainOsc.buffer = buffer; this.rainOsc.loop = true;
+                    this.rainGain = this.ctx.createGain(); this.rainGain.gain.value = 0;
+                    this.rainOsc.connect(this.rainGain); this.rainGain.connect(this.ctx.destination);
+                    this.rainOsc.start(); this.rainGain.gain.linearRampToValueAtTime(0.05, this.ctx.currentTime + 2);
+                } else {
+                    if (!this.isRainPlaying) return;
+                    this.isRainPlaying = false;
+                    if (this.rainGain) {
+                        this.rainGain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 1);
+                        setTimeout(() => { if(this.rainOsc) this.rainOsc.stop(); }, 1000);
+                    }
+                }
+            },
+            water: function() { this.play(800, 'sine', 0.2); },
+            sun: function() { this.play(300, 'triangle', 0.5); },
+            love: function() { this.play(150, 'sine', 0.5); },
+            err: function() { this.play(100, 'sawtooth', 0.2); },
+            playPianoNote(freq) { this.play(freq, 'triangle', 0.4); }
+        };
+
+        function generateDNA() {
+            return {
+                stemCurveX: (Math.random() * 40) - 20, stemCurveY: Math.random() * 30,
+                leafType: Math.random() > 0.6 ? 'pointy' : (Math.random() > 0.3 ? 'round' : 'oak'),
+                leafScale: 0.7 + Math.random() * 0.5,
+                flowerCount: Math.floor(Math.random() * 3) + 1, petalCount: Math.floor(Math.random() * 4) + 5, petalStyle: Math.random() > 0.5 ? 'round' : 'pointy',
+                colorH: 80 + Math.random() * 60, colorS: 40 + Math.random() * 30, colorL: 30 + Math.random() * 20,
+                flowerColor: `hsl(${Math.random() * 360}, 70%, 65%)`
+            };
+        }
+
+        function injectPotPatterns() {
+            const defs = document.getElementById('plantDefs');
+            if(defs) {
+                const patterns = `
+                    <pattern id="patDots" x="0" y="0" width="18" height="18" patternUnits="userSpaceOnUse"><circle cx="9" cy="9" r="4" fill="var(--pot-pat-color)"/></pattern>
+                    <pattern id="patStripes" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="20" stroke="var(--pot-pat-color)" stroke-width="8" /></pattern>
+                    <pattern id="patHearts" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse"><path d="M10 18 L3 8 Q1 3 7 3 Q10 3 10 7 Q10 3 13 3 Q19 3 17 8 z" fill="var(--pot-pat-color)" transform="translate(1,1)"/></pattern>
+                    <pattern id="patNotes" x="0" y="0" width="28" height="28" patternUnits="userSpaceOnUse"><text x="4" y="24" font-size="24" fill="var(--pot-pat-color)">♪</text></pattern>
+                `;
+                defs.innerHTML += patterns;
+                const prevDefs = document.getElementById('previewDefs');
+                if(prevDefs) prevDefs.innerHTML += patterns;
+            }
+        }
+
+        /* --- VISUALS HELPERS --- */
+        function updatePotVisuals() {
+            document.documentElement.style.setProperty('--pot-color', state.potColor);
+            document.documentElement.style.setProperty('--pot-pat-color', state.potPatternColor);
+
+            const pattern = state.potPattern === 'none' ? 'none' : `url(#${state.potPattern})`;
+            if (els.potPatternPath) els.potPatternPath.setAttribute('fill', pattern);
+            if (els.previewPotPattern) els.previewPotPattern.setAttribute('fill', pattern);
+            
+            const colorSwatches = els.colorGrid.children;
+            for(let el of colorSwatches) el.classList.toggle('active', el.style.background.includes(state.potColor));
+            
+            const patColSwatches = els.patternColorGrid.children;
+            for(let el of patColSwatches) el.classList.toggle('active', el.style.background.includes(state.potPatternColor));
+            
+            const patBtns = document.getElementById('patternGrid').children;
+            for(let btn of patBtns) {
+                 if(btn.getAttribute('onclick').includes(state.potPattern)) btn.classList.add('active');
+                 else btn.classList.remove('active');
+            }
+        }
+
+        /* --- RENDER PLANT --- */
+        function renderPlant(containerId, dna, stage, isGhost = false) {
+            const group = document.getElementById(containerId);
+            if (!group) return; 
+            group.innerHTML = ''; 
+
+            if (!isGhost && (containerId === 'plantGroup' || containerId === 'previewPlantGroup')) {
+                const defs = document.getElementById(containerId === 'plantGroup' ? 'plantDefs' : 'previewDefs');
+                 if(defs && !document.getElementById(containerId+'_stemGrad')) {
+                     defs.innerHTML += `
+                        <linearGradient id="${containerId}_stemGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                            <stop offset="0%" style="stop-color:hsl(${dna.colorH}, ${dna.colorS}%, ${dna.colorL}%);stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:hsl(${dna.colorH}, ${dna.colorS}%, ${dna.colorL + 20}%);stop-opacity:1" />
+                        </linearGradient>
+                        <linearGradient id="${containerId}_leafGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                            <stop offset="0%" style="stop-color:hsl(${dna.colorH}, ${dna.colorS}%, ${dna.colorL + 5}%);stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:hsl(${dna.colorH}, ${dna.colorS}%, ${dna.colorL + 25}%);stop-opacity:1" />
+                        </linearGradient>
+                    `;
+                 }
+            }
+
+            const startX = 100; const startY = 190;
+            const midY = 150;
+            const topY = 110 - dna.stemCurveY;
+            const mainEndX = 100 + dna.stemCurveX;
+            const mainEndY = topY;
+
+            const strokeStyle = isGhost ? "none" : `url(#${containerId}_stemGrad)`;
+            const fillStyle = isGhost ? "" : `url(#${containerId}_leafGrad)`;
+
+            if (stage >= 1) {
+                const s1End = 170;
+                const path = createPath(startX, startY, 100 + (dna.stemCurveX*0.1), 180, 100 + (dna.stemCurveX*0.2), s1End, 4);
+                styleElement(path, strokeStyle, "none"); group.appendChild(path);
+                renderLeaf(group, dna, 100 + (dna.stemCurveX*0.2), s1End, -45, 1, fillStyle);
+                renderLeaf(group, dna, 100 + (dna.stemCurveX*0.2), s1End, 45, 1, fillStyle);
+            }
+            if (stage >= 2) {
+                const s2End = 140;
+                const path = createPath(100 + (dna.stemCurveX*0.2), 170, 100 + (dna.stemCurveX*0.4), 155, 100 + (dna.stemCurveX*0.5), s2End, 3);
+                styleElement(path, strokeStyle, "none"); group.appendChild(path);
+                renderLeaf(group, dna, 100 + (dna.stemCurveX*0.5), s2End, -60, 2, fillStyle);
+                renderLeaf(group, dna, 100 + (dna.stemCurveX*0.5), s2End, 60, 2, fillStyle);
+            }
+            if (stage >= 3) {
+                const path = createPath(100 + (dna.stemCurveX*0.5), 140, 100 + (dna.stemCurveX*0.8), 125, mainEndX, mainEndY, 3);
+                styleElement(path, strokeStyle, "none"); group.appendChild(path);
+                renderLeaf(group, dna, mainEndX, mainEndY, -30, 3, fillStyle);
+                renderLeaf(group, dna, mainEndX, mainEndY, 30, 3, fillStyle);
+
+                if (dna.flowerCount >= 2) {
+                    const b1X = mainEndX - 30; const b1Y = mainEndY + 10;
+                    const b1 = createPath(100 + (dna.stemCurveX*0.5), 140, mainEndX - 15, 130, b1X, b1Y, 2);
+                    styleElement(b1, strokeStyle, "none"); group.appendChild(b1);
+                    renderLeaf(group, dna, b1X, b1Y, -45, 3, fillStyle);
+                }
+                if (dna.flowerCount >= 3) {
+                    const b2X = mainEndX + 30; const b2Y = mainEndY + 15;
+                    const b2 = createPath(100 + (dna.stemCurveX*0.5), 140, mainEndX + 15, 130, b2X, b2Y, 2);
+                    styleElement(b2, strokeStyle, "none"); group.appendChild(b2);
+                    renderLeaf(group, dna, b2X, b2Y, 45, 3, fillStyle);
+                }
+            }
+            if (stage >= 4 && stage < 5) {
+                renderBud(group, dna, mainEndX, mainEndY, isGhost);
+                if (dna.flowerCount >= 2) renderBud(group, dna, mainEndX - 30, mainEndY + 10, isGhost);
+                if (dna.flowerCount >= 3) renderBud(group, dna, mainEndX + 30, mainEndY + 15, isGhost);
+            }
+            if (stage >= 5) {
+                renderFlower(group, dna, mainEndX, mainEndY, isGhost);
+                if (dna.flowerCount >= 2) renderFlower(group, dna, mainEndX - 30, mainEndY + 10, isGhost);
+                if (dna.flowerCount >= 3) renderFlower(group, dna, mainEndX + 30, mainEndY + 15, isGhost);
+            }
+        }
+
+        function createPath(sx, sy, cx, cy, ex, ey, width) {
+            const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            p.setAttribute("d", `M${sx} ${sy} Q${cx} ${cy} ${ex} ${ey}`);
+            p.setAttribute("stroke-width", width);
+            return p;
+        }
+        function styleElement(el, stroke, fill) {
+            el.setAttribute("class", "stem");
+            if(stroke) el.style.stroke = stroke;
+            if(fill) el.style.fill = fill;
+        }
+        function renderLeaf(group, dna, x, y, angleDeg, stage, fillStyle) {
+            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.setAttribute("class", "leaf-wrapper");
+            const variance = (Math.random() * 20) - 10;
+            g.setAttribute("transform", `translate(${x}, ${y}) rotate(${angleDeg + variance})`);
+            const leaf = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            leaf.setAttribute("class", "leaf");
+            if(fillStyle) leaf.style.fill = fillStyle;
+            let d = "";
+            const s = dna.leafScale * (1 - (stage * 0.1));
+            if (dna.leafType === 'round') d = `M0 0 Q${-15*s} ${-20*s} 0 ${-40*s} Q${15*s} ${-20*s} 0 0`;
+            else if (dna.leafType === 'pointy') d = `M0 0 Q${-10*s} ${-25*s} 0 ${-50*s} Q${10*s} ${-25*s} 0 0`;
+            else d = `M0 0 C${-15*s} ${-10*s} ${-20*s} ${-30*s} 0 ${-45*s} C${20*s} ${-30*s} ${15*s} ${-10*s} 0 0`;
+            leaf.setAttribute("d", d);
+            const anim = document.createElementNS("http://www.w3.org/2000/svg", "animateTransform");
+            anim.setAttribute("attributeName", "transform"); anim.setAttribute("type", "rotate"); anim.setAttribute("additive", "sum"); 
+            anim.setAttribute("values", `-4 0 0; 4 0 0; -4 0 0`); anim.setAttribute("dur", (4 + Math.random() * 2) + "s"); anim.setAttribute("repeatCount", "indefinite");
+            if (stage > 0) g.appendChild(anim);
+            g.appendChild(leaf); group.appendChild(g);
+        }
+        function renderBud(group, dna, x, y, isGhost) {
+            const bud = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            bud.setAttribute("cx", x); bud.setAttribute("cy", y); bud.setAttribute("r", 6);
+            bud.setAttribute("class", "bud");
+            if (!isGhost) bud.style.fill = `hsl(${dna.colorH}, ${dna.colorS}%, 70%)`;
+            group.appendChild(bud);
+        }
+        function renderFlower(group, dna, x, y, isGhost) {
+            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.setAttribute("transform", `translate(${x}, ${y})`);
+            for(let i=0; i<dna.petalCount; i++) {
+                const angle = (360 / dna.petalCount) * i;
+                const petal = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                petal.setAttribute("class", "petal");
+                if (!isGhost) petal.style.fill = dna.flowerColor;
+                let d = "";
+                if(dna.petalStyle === 'pointy') d = "M0 0 Q5 -15 0 -25 Q-5 -15 0 0";
+                else d = "M0 0 Q8 -15 0 -20 Q-8 -15 0 0";
+                petal.setAttribute("d", d); petal.setAttribute("transform", `rotate(${angle})`); g.appendChild(petal);
+            }
+            const center = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            center.setAttribute("r", 4); center.setAttribute("fill", "#ffd43b"); g.appendChild(center);
+            const anim = document.createElementNS("http://www.w3.org/2000/svg", "animateTransform");
+            anim.setAttribute("attributeName", "transform"); anim.setAttribute("type", "scale"); anim.setAttribute("additive", "sum"); 
+            anim.setAttribute("values", "0; 1"); anim.setAttribute("dur", "0.8s"); anim.setAttribute("fill", "freeze");
+            g.appendChild(anim); group.appendChild(g);
+        }
+
+        /* --- INIT --- */
+        function init() {
+            // Populate DOM Elements here to ensure they exist
+            els = {
+                statusArea: document.getElementById('statusArea'),
+                water: document.getElementById('orbWater'), sun: document.getElementById('orbSun'), love: document.getElementById('orbLove'),
+                ring: document.getElementById('vitals'), plantHero: document.getElementById('plantHero'),
+                day: document.getElementById('dayDisplay'), nameDisplay: document.getElementById('plantNameDisplay'), genBadge: document.getElementById('genBadge'),
+                nameInput: document.getElementById('nameInput'),
+                btnSun: document.getElementById('btnSun'), btnRain: document.getElementById('btnRain'), btnSing: document.getElementById('btnSing'), btnFertilize: document.getElementById('btnFertilize'),
+                menu: document.getElementById('menuOverlay'), btnHarvest: document.getElementById('btnHarvest'),
+                rainContainer: document.getElementById('rainContainer'), rainbow: document.getElementById('rainbowContainer'),
+                greenhouseList: document.getElementById('greenhouseList'),
+                plantGroup: document.getElementById('plantGroup'), potGroup: document.getElementById('potGroup'),
+                archiveOverlay: document.getElementById('archiveOverlay'), deathOverlay: document.getElementById('deathOverlay'), harvestOverlay: document.getElementById('harvestOverlay'),
+                potOverlay: document.getElementById('potOverlay'), colorGrid: document.getElementById('colorGrid'), patternGrid: document.getElementById('patternGrid'),
+                harvestNameInput: document.getElementById('harvestNameInput'), harvestPreviewSVG: document.getElementById('harvestPreviewSVG'),
+                plantGraphics: document.getElementById('plantGraphics'),
+                potPatternPath: document.getElementById('potPatternPath'),
+                previewPotPattern: document.getElementById('previewPotPattern'),
+                patternColorGrid: document.getElementById('patternColorGrid'),
+                resetOverlay: document.getElementById('resetOverlay'),
+                helpOverlay: document.getElementById('helpOverlay') // Add help overlay to els
+            };
+            
+            // Add Raindrops Loop
+            const container = document.getElementById('rainContainer');
+            for (let i=0; i<30; i++) {
+                const d = document.createElement('div');
+                d.classList.add('raindrop');
+                d.style.left = Math.random() * 100 + '%';
+                d.style.animationDuration = (0.5 + Math.random() * 0.5) + 's';
+                d.style.animationDelay = Math.random() + 's';
+                container.appendChild(d);
+            }
+
+            if(!state.dna) state.dna = generateDNA();
+            injectPotPatterns();
+            loadState();
+            
+            // Render Pot Palette
+            els.colorGrid.innerHTML = POT_COLORS.map(c => `<div class="color-swatch" style="background:${c}" onclick="setPotColor('${c}')"></div>`).join('');
+            
+            // Render Pattern Color Palette
+            els.patternColorGrid.innerHTML = POT_COLORS.map(c => `<div class="color-swatch" style="background:${c}" onclick="setPotPatternColor('${c}')"></div>`).join('');
+
+            const patterns = ['none', 'patDots', 'patStripes', 'patHearts', 'patNotes'];
+            els.patternGrid.innerHTML = patterns.map(p => {
+                let label = p === 'none' ? '🚫' : (p === 'patDots' ? '●' : (p === 'patStripes' ? '///' : (p === 'patHearts' ? '♥' : '♪')));
+                return `<div class="pattern-btn" onclick="setPotPattern('${p}')">${label}</div>`;
+            }).join('');
+
+            applyTheme();
+            updatePotVisuals();
+            renderPlant('plantGroup', state.dna, state.stage);
+            
+            // Show UI after data is ready to prevent flash
+            els.statusArea.classList.add('loaded');
+            
+            startGameLoop();
+            
+            // Event Listeners
+            els.plantHero.addEventListener('mousedown', () => handlePress(true));
+            els.plantHero.addEventListener('touchstart', (e) => { e.preventDefault(); handlePress(true); });
+            els.plantHero.addEventListener('mouseup', () => handlePress(false));
+            els.plantHero.addEventListener('touchend', (e) => { e.preventDefault(); handlePress(false); });
+            
+            document.addEventListener("visibilitychange", handleVisibility);
+            window.addEventListener("pagehide", saveState);
+            
+            // Check Cooldowns on load
+            checkSingCooldown();
+            checkFertilizeCooldown();
+        }
+
+        /* --- GAME LOOP --- */
+        let gameInterval;
+        function startGameLoop() {
+            if (gameInterval) clearInterval(gameInterval);
+            gameInterval = setInterval(() => {
+                try {
+                    if (state.isDead) return;
+                    decay(); checkDeath(); grow();
+                    if (Date.now() % 30000 < 1000) saveState();
+                    render();
+                } catch (e) { console.error(e); }
+            }, CONFIG.tickRate);
+            setInterval(() => {
+                checkSingCooldown();
+                checkFertilizeCooldown();
+            }, 1000);
+        }
+
+        function decay() {
+            if (state.isRainOn) {
+                state.water = Math.min(100, state.water + 0.2); 
+                if (state.water >= 95 && Math.random() > 0.9) {
+                    state.love = Math.max(0, state.love - 2); 
+                    spawnFloatingText("Too Wet! 🚫", "#ff6b6b"); audio.err();
+                }
+            } else {
+                state.water = Math.max(0, state.water - CONFIG.decayRate.water);
+            }
+            if (state.isSunLampOn) {
+                state.sun = Math.min(100, state.sun + 0.5);
+                if (state.sun > 90) {
+                    state.water = Math.max(0, state.water - 0.2); 
+                    if (Math.random() > 0.95) spawnFloatingText("Scorching! 🥵", "orange"); 
+                }
+            } else {
+                state.sun = Math.max(0, state.sun - CONFIG.decayRate.sun);
+            }
+            state.love = Math.max(0, state.love - CONFIG.decayRate.love);
+        }
+
+        function checkDeath() {
+            if (state.water <= 0 && state.sun <= 0 && state.love <= 0) {
+                state.timeAtZero += CONFIG.tickRate;
+            } else {
+                state.timeAtZero = 0;
+            }
+            if (state.timeAtZero > CONFIG.deathTimeLimit) {
+                state.isDead = true;
+                els.deathOverlay.classList.add('open');
+                els.plantHero.classList.add('dead-plant');
+                saveState();
+            }
+        }
+
+        function grow() {
+            const isHappy = state.water > CONFIG.threshold && state.sun > CONFIG.threshold && state.love > CONFIG.threshold;
+            if (isHappy) state.growth += (CONFIG.growthRate * state.growthMultiplier);
+            
+            // Evolution Check
+            let nextStage = 1;
+            if (state.growth > CONFIG.stages[4]) nextStage = 5;
+            else if (state.growth > CONFIG.stages[3]) nextStage = 4;
+            else if (state.growth > CONFIG.stages[2]) nextStage = 3;
+            else if (state.growth > CONFIG.stages[1]) nextStage = 2;
+
+            if (nextStage > state.stage) {
+                if (state.name === getStageName(state.stage)) {
+                    state.name = getStageName(nextStage);
+                    updateName(state.name);
+                }
+                state.stage = nextStage;
+                renderPlant('plantGroup', state.dna, state.stage);
+                spawnFloatingText("✨ EVOLVED!", "white");
+            }
+        }
+
+        /* --- VISUALS --- */
+        function render() {
+            if (!els.water) return; 
+            updateOrb(els.water, state.water); updateOrb(els.sun, state.sun); updateOrb(els.love, state.love);
+            els.day.innerText = `Sun ${state.day}`; els.genBadge.innerText = `CYCLE ${state.generation}`; els.nameDisplay.innerText = state.name;
+            
+            els.btnSun.classList.toggle('sun-active', state.isSunLampOn);
+            els.btnRain.classList.toggle('rain-active', state.isRainOn);
+
+            let scale = 1 + (state.growth / 6000); 
+            if(els.plantGraphics) els.plantGraphics.style.transform = `scale(${Math.min(1.4, scale)})`;
+            
+            // --- NEW DISTRESS LOGIC ---
+            const pg = document.getElementById('plantGroup');
+            if(pg) {
+                pg.classList.remove('distress-thirsty', 'distress-starved', 'distress-critical');
+                if (state.water < 30 && state.sun < 30) pg.classList.add('distress-critical');
+                else if (state.water < 30) pg.classList.add('distress-thirsty');
+                else if (state.sun < 30) pg.classList.add('distress-starved');
+            }
+
+            if (els.menu.classList.contains('open')) updateMenuStats();
+        }
+
+        function updateOrb(el, val) {
+            const scale = 0.4 + (val / 100) * 0.8; 
+            let color = "white";
+            if (el.id === 'orbWater') color = "var(--accent-blue)";
+            if (el.id === 'orbSun') color = "var(--accent-sun)";
+            if (el.id === 'orbLove') color = "var(--accent-pink)";
+            
+            const fill = (Math.max(0, val) / 100) * 12; 
+            let shadow = `inset 0 0 0 ${fill}px ${color}`;
+            if (val > 80) shadow += `, 0 0 15px ${color}`;
+            if (val < 30) { el.style.borderColor = "#ff6b6b"; shadow += `, 0 0 10px #ff6b6b`; }
+            else el.style.borderColor = "rgba(255,255,255,0.5)";
+            
+            el.style.boxShadow = shadow;
+            el.style.transform = `translateX(${el.id==='orbWater'?'-50%':'0'}) scale(${scale})`;
+        }
+        
+        function updatePotVisuals() {
+            document.documentElement.style.setProperty('--pot-color', state.potColor);
+            document.documentElement.style.setProperty('--pot-pat-color', state.potPatternColor);
+
+            const pattern = state.potPattern === 'none' ? 'none' : `url(#${state.potPattern})`;
+            if (els.potPatternPath) els.potPatternPath.setAttribute('fill', pattern);
+            if (els.previewPotPattern) els.previewPotPattern.setAttribute('fill', pattern);
+            
+            const colorSwatches = els.colorGrid.children;
+            for(let el of colorSwatches) el.classList.toggle('active', el.style.background.includes(state.potColor));
+            
+            const patColSwatches = els.patternColorGrid.children;
+            for(let el of patColSwatches) el.classList.toggle('active', el.style.background.includes(state.potPatternColor));
+            
+            const patBtns = document.getElementById('patternGrid').children;
+            for(let btn of patBtns) {
+                 if(btn.getAttribute('onclick').includes(state.potPattern)) btn.classList.add('active');
+                 else btn.classList.remove('active');
+            }
+        }
+
+        /* --- INTERACTION --- */
+        let pressTimer, isPressed = false;
+        function handlePress(isDown) {
+            if (state.isDead) return;
+            if (isDown) {
+                isPressed = true; els.plantHero.classList.add('plant-bounce');
+                pressTimer = setTimeout(() => { els.ring.classList.add('active'); }, 300);
+            } else {
+                if (!isPressed) return; isPressed = false;
+                clearTimeout(pressTimer); els.plantHero.classList.remove('plant-bounce');
+                if (els.ring.classList.contains('active')) els.ring.classList.remove('active');
+                else interact('love');
+            }
+        }
+
+        function interact(type) {
+            if (state.isDead) return;
+            audio.init();
+
+            if (type === 'water') {
+                if (state.water >= 90) { state.love -= 5; spawnFloatingText("Too Wet! 🚫", "#ff6b6b"); audio.err(); return; }
+                state.water = Math.min(100, state.water + 30); spawnFloatingText("+💧", "var(--accent-blue)"); audio.water(); spawnParticles('water');
+            } else if (type === 'love') {
+                if (state.love >= 90) { state.love -= 5; spawnFloatingText("Need Space! 🚫", "#ff6b6b"); audio.err(); return; }
+                state.love = Math.min(100, state.love + 15); spawnFloatingText("❤️", "var(--accent-pink)"); audio.love(); spawnParticles('love');
+            } else if (type === 'sun') {
+                state.isSunLampOn = !state.isSunLampOn; 
+                spawnFloatingText(state.isSunLampOn?"☀️ ON":"🌑 OFF", "var(--accent-sun)"); 
+                audio.sun(); 
+                if(state.isSunLampOn) spawnParticles('sun');
+                applyTheme();
+            } else if (type === 'rain') {
+                state.isRainOn = !state.isRainOn; spawnFloatingText(state.isRainOn?"☁️ Rain ON":"☁️ Rain OFF", "var(--accent-rain)"); applyTheme();
+            }
+            render();
+        }
+        
+        // Re-implemented helper function
+        function spawnParticles(type) {
+            const rect = els.plantHero.getBoundingClientRect();
+            // Center coordinates relative to viewport
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+
+            if (type === 'sun') {
+                // Spawn swirling sun particles
+                const count = 12;
+                for (let i = 0; i < count; i++) {
+                    const p = document.createElement('div');
+                    p.classList.add('particle');
+                    p.style.position = 'fixed';
+                    p.style.left = cx + 'px';
+                    p.style.top = cy + 'px';
+                    p.style.width = '10px';
+                    p.style.height = '10px';
+                    p.style.background = 'var(--accent-sun)';
+                    p.style.borderRadius = '50%';
+                    p.style.boxShadow = '0 0 10px var(--accent-sun)';
+                    p.style.animation = `spiral 2s ease-out forwards`;
+                    p.style.setProperty('--rot', (i * (360/count)) + 'deg');
+                    p.style.zIndex = 100;
+                    document.body.appendChild(p);
+                    setTimeout(() => p.remove(), 2000);
+                }
+            } else {
+                // Existing logic for water/love
+                const count = 5; 
+                for(let i=0; i<count; i++) {
+                    const p = document.createElement('div');
+                    p.classList.add('particle');
+                    p.innerText = type === 'water' ? '💧' : '❤️';
+                    p.style.position = 'fixed';
+                    p.style.left = (cx + (Math.random()*60-30)) + 'px';
+                    p.style.top = cy + 'px';
+                    p.style.fontSize = (0.8 + Math.random()*0.5) + 'rem';
+                    p.style.setProperty('--mx', (Math.random()*100 - 50) + 'px');
+                    p.style.setProperty('--my', (Math.random()* -150 - 50) + 'px');
+                    p.style.animationDelay = (Math.random()*0.2) + 's';
+                    document.body.appendChild(p);
+                    setTimeout(() => p.remove(), 2000);
+                }
+            }
+        }
+
+        /* --- SINGING --- */
+        function checkSingCooldown() {
+            const now = Date.now();
+            if (now < state.singCooldownUntil) {
+                const rem = Math.ceil((state.singCooldownUntil - now) / 1000);
+                els.btnSing.disabled = true;
+                els.btnSing.innerText = `Recharging (${Math.floor(rem/60)}:${(rem%60).toString().padStart(2,'0')})`;
+            } else {
+                els.btnSing.disabled = false;
+                els.btnSing.innerText = "🎵 Sing to Plant";
+            }
+        }
+        
+        function playAutoMelody() {
+            state.singCooldownUntil = Date.now() + 600000; // 10 mins
+            checkSingCooldown(); toggleMenu();
+            spawnFloatingText("🎵 Singing... 🎵", "#748ffc");
+            
+            let i = 0; const notes = [261, 329, 392, 523, 392, 329];
+            const iv = setInterval(() => {
+                if(i>=notes.length) { clearInterval(iv); finishSing(); return; }
+                audio.play(notes[i], 'triangle', 0.3); spawnMusicalNote(); i++;
+            }, 400);
+        }
+        
+        function finishSing() {
+            state.water=100; state.sun=100; state.love=100; state.growthMultiplier=3;
+            setTimeout(() => { state.growthMultiplier=1; }, 60000);
+            spawnFloatingText("Growth x3! 🚀", "#ffd43b");
+        }
+
+        function checkFertilizeCooldown() {
+             const now = Date.now();
+             if (now < state.fertilizeCooldownUntil) {
+                 const rem = Math.ceil((state.fertilizeCooldownUntil - now) / 1000);
+                 els.btnFertilize.disabled = true;
+                 els.btnFertilize.innerText = `Absorbing (${Math.floor(rem/60)}:${(rem%60).toString().padStart(2,'0')})`;
+             } else {
+                 els.btnFertilize.disabled = false;
+                 els.btnFertilize.innerText = "🍂 Fertilize Soil";
+             }
+        }
+        
+        function fertilizePlant() {
+            state.fertilizeCooldownUntil = Date.now() + 300000; // 5 mins
+            checkFertilizeCooldown();
+            toggleMenu(); 
+            spawnFloatingText("Soil Enriched! 🌿", "#8d6e63");
+            audio.love(); 
+        }
+
+        /* --- HELP & POT CUSTOMIZATION --- */
+        function openHelp() {
+            els.menu.classList.remove('open');
+            els.helpOverlay.classList.add('open');
+        }
+        function closeHelp() {
+            els.helpOverlay.classList.remove('open');
+            els.menu.classList.add('open');
+        }
+
+        function openPotDesigner() {
+            // Render Preview Plant
+            const g = document.getElementById('previewPlantGroup');
+            renderPlant('previewPlantGroup', state.dna, state.stage); 
+            // Update preview pot visuals immediately
+            updatePotVisuals();
+            els.potOverlay.classList.add('open');
+            toggleMenu();
+        }
+        function closePotDesigner() { els.potOverlay.classList.remove('open'); saveState(); }
+        function setPotColor(c) { state.potColor = c; updatePotVisuals(); }
+        function setPotPatternColor(c) { state.potPatternColor = c; updatePotVisuals(); }
+        function setPotPattern(p) { state.potPattern = p; updatePotVisuals(); }
+
+        /* --- HARVEST --- */
+        function harvestPlant() {
+            const defName = getStageName(state.stage);
+            els.harvestNameInput.value = state.name === defName ? "" : state.name;
+            els.harvestNameInput.placeholder = defName;
+            
+            const svg = document.getElementById('harvestPreviewSVG'); svg.innerHTML = '';
+            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.setAttribute('id', 'hPrev'); svg.appendChild(g);
+            renderPlant('hPrev', state.dna, state.stage);
+
+            els.harvestOverlay.classList.add('open'); toggleMenu();
+        }
+        
+        function finalizeHarvest() {
+            state.name = els.harvestNameInput.value.trim() || state.name;
+            if(!state.history) state.history = [];
+            state.history.push({ name: state.name, dna: state.dna, days: state.day, gen: state.generation, lastLoved: Date.now() });
+            
+            // New Gen
+            state.generation++; state.day = 1; state.stage = 1; state.growth = 0;
+            state.water = 20; state.sun = 50; state.love = 50; // NEW START STATS
+            state.name = "Sprout"; state.dna = generateDNA();
+            state.isRainOn = false; state.isSunLampOn = false;
+            
+            saveState(); location.reload(); 
+        }
+
+        /* --- HELPERS --- */
+        function spawnFloatingText(text, color) {
+            const el = document.createElement('div'); el.classList.add('floating-text');
+            el.innerText = text; el.style.color = color;
+            const r = els.plantHero.getBoundingClientRect();
+            el.style.left = (r.left + r.width/2 - 20 + (Math.random()*60-30)) + 'px';
+            el.style.top = (r.top - 40 + (Math.random()*40-20)) + 'px'; // Higher float
+            document.body.appendChild(el); setTimeout(()=>el.remove(), 2000);
+        }
+        
+        function spawnMusicalNote() {
+            const el = document.createElement('div'); el.classList.add('musical-note');
+            el.innerText = ['♪','♫','♩'][Math.floor(Math.random()*3)];
+            const r = els.plantHero.getBoundingClientRect();
+            el.style.left = (r.left + r.width/2) + 'px'; el.style.top = (r.top + 60) + 'px'; // Lower spawn
+            el.style.setProperty('--rot', Math.random()*360 + 'deg');
+            document.body.appendChild(el); setTimeout(()=>el.remove(), 2500);
+        }
+
+        function updateName(v) { state.name = v || "Sprout"; els.nameDisplay.innerText = state.name; }
+        function toggleMenu() { 
+            els.menu.classList.toggle('open'); 
+            if(els.menu.classList.contains('open')) updateMenuStats();
+        }
+        function closeHarvestModal() { els.harvestOverlay.classList.remove('open'); }
+        function closeArchive() { els.archiveOverlay.classList.remove('open'); }
+        function closeResetOverlay() { els.resetOverlay.classList.remove('open'); }
+        
+        function confirmReset() {
+            els.resetOverlay.classList.add('open');
+            toggleMenu();
+        }
+
+        function finalizeReset() {
+             if (gameInterval) clearInterval(gameInterval);
+            localStorage.clear();
+            state = {
+                water: 20, sun: 50, love: 50, growth: 0,
+                stage: 1, isSunLampOn: false, isRainOn: false,
+                day: 1, generation: 1, name: "Sprout",
+                dna: generateDNA(), 
+                timeAtZero: 0, 
+                isDead: false,
+                history: [], 
+                lastSave: Date.now(),
+                growthMultiplier: 1 
+            };
+            els.deathOverlay.classList.remove('open');
+            els.plantHero.classList.remove('dead-plant');
+            els.plantHero.classList.add('breathing');
+            isPlayingMelody = false;
+            els.btnSing.disabled = false;
+            els.btnSing.innerText = "🎵 Sing to Plant";
+            updateName(state.name);
+            els.nameInput.value = state.name;
+            applyTheme();
+            renderPlant('plantGroup', state.dna, state.stage);
+            render();
+            updateMenuStats(); 
+            els.menu.classList.remove('open');
+            els.potOverlay.classList.remove('open');
+            els.harvestOverlay.classList.remove('open');
+            els.archiveOverlay.classList.remove('open');
+            els.resetOverlay.classList.remove('open');
+            spawnFloatingText("Game Reset", "white");
+            startGameLoop();
+        }
+        
+        function handleVisibility() {
+            if (document.visibilityState === "visible") {
+                const now = Date.now();
+                const diff = (now - state.lastSave) / 1000;
+                if(diff > 5) {
+                    const decay = diff * CONFIG.decayRate.water * CONFIG.offlineDecayFactor;
+                    state.water = Math.max(0, state.water - decay);
+                    state.sun = Math.max(0, state.sun - decay);
+                    state.love = Math.max(0, state.love - decay);
+                    if(diff > 3600) state.day += Math.floor(diff/3600);
+                    spawnFloatingText("Welcome Back!", "white");
+                }
+                saveState(); render();
+                audio.toggleRainSound(state.isRainOn); // Restore Rain Sound
+            } else {
+                saveState();
+                audio.toggleRainSound(false);
+            }
+        }
+        
+        function saveState() {
+            localStorage.setItem('pocketSproutSave', JSON.stringify(state));
+        }
+
+        function loadState() {
+            const s = localStorage.getItem('pocketSproutSave');
+            if(s) {
+                const l = JSON.parse(s);
+                if(l.dna) state = l;
+                // Patch old saves
+                if(!state.potColor) state.potColor = '#e07a5f';
+                if(!state.potPattern) state.potPattern = 'none';
+                if(!state.potPatternColor) state.potPatternColor = 'rgba(255,255,255,0.5)';
+                if(typeof state.singCooldownUntil === 'undefined') state.singCooldownUntil = 0;
+                if(typeof state.fertilizeCooldownUntil === 'undefined') state.fertilizeCooldownUntil = 0;
+            } else {
+                // First time ever
+                state.water = 20; state.sun = 50; state.love = 50;
+            }
+            if(state.isDead) els.deathOverlay.classList.add('open');
+        }
+        
+        function applyTheme() {
+            document.body.classList.toggle('sun-mode', state.isSunLampOn);
+            els.rainContainer.classList.toggle('active', state.isRainOn);
+            els.rainbow.classList.toggle('visible', state.isSunLampOn && state.isRainOn);
+            audio.toggleRainSound(state.isRainOn);
+        }
+        
+        function getStageName(i) { return ["","Sprout","Sapling","Vegetative","Budding","Blooming"][i]; }
+
+        /* --- MISC RENDER (Menu) --- */
+        function updateMenuStats() {
+            if(document.activeElement !== els.nameInput) els.nameInput.value = state.name;
+            document.getElementById('menuStage').innerText = getStageName(state.stage);
+            document.getElementById('menuGen').innerText = state.generation;
+            document.getElementById('menuAge').innerText = state.day + " Suns";
+            document.getElementById('menuHealth').innerText = Math.floor((state.water+state.sun+state.love)/3) + "%";
+            
+            // Time to next
+            let txt = "Max Growth";
+            if(state.stage < 5) {
+                const need = Math.max(0, CONFIG.stages[state.stage] - state.growth);
+                const secs = Math.ceil(need / (CONFIG.growthRate * state.growthMultiplier));
+                txt = `${Math.floor(secs/60)}m ${secs%60}s`;
+            }
+            document.getElementById('menuNextStageTime').innerText = txt;
+            
+            // Greenhouse
+            const gh = els.greenhouseList; gh.innerHTML = "";
+            if(!state.history.length) gh.innerHTML = "<div style='opacity:0.5;text-align:center'>No ancestors yet.</div>";
+            [...state.history].reverse().forEach((h,i) => {
+                const d = document.createElement('div'); d.className='greenhouse-item';
+                d.innerHTML = `<span><span class='gh-dot' style='background:${h.dna.flowerColor}'></span>${h.name}</span><span style='opacity:0.5'>Cycle ${h.gen}</span>`;
+                d.onclick = () => {
+                    document.getElementById('archiveName').innerText = h.name;
+                    document.getElementById('archiveGen').innerText = h.gen;
+                    document.getElementById('archiveAge').innerText = h.days + " Suns";
+                    const svg = document.getElementById('archiveSVG'); svg.innerHTML = "";
+                    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                    g.id = "archP"; svg.appendChild(g);
+                    
+                    // Inject gradient defs for archive if needed, or simple fill
+                    // For archive, simple fill is safer/easier
+                    renderPlant('archP', h.dna, 5, true); 
+                    els.archiveOverlay.classList.add('open');
+                };
+                gh.appendChild(d);
+            });
+        }
+
+        // Wait for DOM
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+    </script>
+</body>
+</html>
