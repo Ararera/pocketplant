@@ -26,8 +26,8 @@
             --accent-pink: #faa2c1;
             --accent-sun: #ffd43b;
             --accent-rain: #748ffc;
-            --pot-color: #e07a5f; /* Default Terracotta */
-            --pot-pat-color: rgba(255,255,255,0.5); /* Default Pattern */
+            --pot-color: #e07a5f;
+            --pot-pat-color: rgba(255,255,255,0.5);
         }
 
         * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
@@ -55,9 +55,9 @@
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E");
         }
 
-        /* --- Header --- */
+        /* --- UI Elements --- */
         .status-area {
-            padding-top: 60px; opacity: 0; /* Hidden by default to prevent flash */
+            padding-top: 60px; opacity: 0;
             text-align: center; z-index: 10;
             transition: opacity 0.5s ease;
         }
@@ -70,7 +70,6 @@
         .plant-name { font-size: 1.4rem; font-weight: 200; letter-spacing: 1px; }
         .day-counter { font-size: 0.8rem; opacity: 0.4; margin-top: 5px; font-weight: 300; }
 
-        /* --- Atmosphere --- */
         .rain-container, .rainbow {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none; z-index: 15; opacity: 0; transition: opacity 1s;
@@ -89,15 +88,20 @@
         .rainbow.visible { opacity: 0.6; }
         @keyframes fall { to { transform: translateY(100vh); } }
 
-        /* --- Stage --- */
+        /* --- Stage & Plant --- */
         .stage-container { position: relative; flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; }
-        .plant-wrapper { position: relative; cursor: pointer; transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); z-index: 20; }
+        
+        .plant-wrapper { 
+            position: relative; 
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); 
+            z-index: 20; 
+            pointer-events: none;
+        }
         
         .breathing { animation: breathe var(--breathe-speed, 6s) ease-in-out infinite; }
         @keyframes breathe { 0% { transform: scale(1) translateY(0); } 50% { transform: scale(1.02) translateY(-2px); } 100% { transform: scale(1) translateY(0); } }
         .plant-bounce { transform: scale(0.97) translateY(2px) !important; }
         .plant-plump { animation: plump 0.4s ease-out; }
-        @keyframes plump { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
         .plant-refuse { animation: shake 0.4s ease-in-out !important; }
         @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px) rotate(-2deg); } 75% { transform: translateX(4px) rotate(2deg); } }
         .evolving { animation: evolveFlash 1.5s ease-in-out; }
@@ -105,29 +109,31 @@
         
         .dead-plant { filter: grayscale(90%) contrast(1.2) brightness(0.7) sepia(0.2); animation: none !important; transform: rotate(3deg) translateY(15px); transition: all 2s ease; }
 
-        /* --- Distress States for PlantGroup --- */
         #plantGroup { 
             transition: filter 1s ease, transform 1s ease; 
-            transform-origin: 100px 190px; /* Origin at the soil */
+            transform-origin: 100px 190px;
         }
         .distress-thirsty { 
-            filter: sepia(0.5) saturate(1.4) hue-rotate(-20deg); /* Dry/Yellowish */
+            filter: sepia(0.5) saturate(1.4) hue-rotate(-20deg);
             transform: rotate(3deg) scaleY(0.95); 
         }
         .distress-starved { 
-            filter: grayscale(0.8) brightness(1.1) opacity(0.8); /* Pale/Ghostly */
+            filter: grayscale(0.8) brightness(1.1) opacity(0.8);
             transform: scale(0.95);
         }
         .distress-critical {
-            filter: sepia(0.9) saturate(2) hue-rotate(-30deg) contrast(1.2); /* Very dead looking */
+            filter: sepia(0.9) saturate(2) hue-rotate(-30deg) contrast(1.2);
             transform: rotate(5deg) scaleY(0.85);
         }
 
         .plant-graphics {
-            width: 250px; height: 380px; display: flex; flex-direction: column;
+            width: 160px; height: 380px; 
+            display: flex; flex-direction: column;
             align-items: center; justify-content: flex-end;
             filter: drop-shadow(0 25px 25px rgba(0,0,0,0.4));
             transform-origin: bottom center; transition: transform 1s ease;
+            pointer-events: auto;
+            cursor: pointer;
         }
         .svg-plant { width: 100%; height: 100%; overflow: visible; }
         
@@ -140,7 +146,6 @@
         .dirt { fill: #5d4037; stroke: none; } 
         .shadow { fill: rgba(0,0,0,0.4); filter: blur(8px); }
 
-        /* --- Vitals --- */
         .vitals-ring {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.8);
             width: 320px; height: 320px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.03);
@@ -158,7 +163,7 @@
         .ring-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
         .ring-circle { fill: none; stroke: rgba(255,255,255,0.03); stroke-width: 1; }
 
-        /* --- UI Overlays --- */
+        /* --- Menus --- */
         .menu-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(15, 15, 15, 0.85); backdrop-filter: blur(20px);
@@ -183,6 +188,9 @@
         .name-input:focus { outline: none; border-color: rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); }
         .menu-stat { display: flex; justify-content: space-between; margin: 12px 0; font-size: 0.9rem; opacity: 0.7; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px; font-weight: 300; }
         
+        .progress-container { width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+        .progress-bar { height: 100%; background: var(--accent-sun); width: 0%; transition: width 0.3s; }
+
         .greenhouse-list {
             margin-top: 25px; text-align: left; max-height: 140px; overflow-y: auto;
             background: rgba(0,0,0,0.15); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,0.03);
@@ -214,8 +222,9 @@
         .fertilize-btn:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(1); box-shadow: none; }
 
         .style-btn { background: transparent; border: 1px solid var(--pot-color); color: var(--pot-color); margin-top: 10px; }
+        .help-btn { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.8); margin-top: 10px; }
+        .firefly-btn { background: linear-gradient(135deg, #ffd43b, #fcc419); color: #1a1b1e; border: none; margin-top: 20px; box-shadow: 0 5px 15px rgba(255, 212, 59, 0.2); }
 
-        /* Pot Designer */
         .section-label { font-size: 0.8rem; opacity: 0.6; text-align: left; margin: 15px 0 5px 5px; text-transform: uppercase; letter-spacing: 1px; }
         .color-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 10px; }
         .color-swatch { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
@@ -224,6 +233,45 @@
         .pattern-grid { display: flex; justify-content: space-between; margin-bottom: 15px; }
         .pattern-btn { width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
         .pattern-btn.active { background: rgba(255,255,255,0.2); border-color: white; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+
+        /* Firefly Styles (Updated for graceful fade) */
+        .firefly {
+            position: absolute; width: 6px; height: 6px; border-radius: 50%;
+            pointer-events: auto; cursor: pointer; z-index: 120;
+            box-shadow: 0 0 10px 2px currentColor;
+            opacity: 0; /* Start invisible */
+            transition: transform 0.2s;
+            animation: fireflyFloat 10s linear forwards, fireflyLifecycle 10s ease-in-out forwards;
+        }
+        .firefly:active { transform: scale(2); }
+        
+        @keyframes fireflyFloat {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(20px, -20px); }
+            50% { transform: translate(0, 20px); }
+            75% { transform: translate(-20px, -10px); }
+            100% { transform: translate(0, 0); }
+        }
+        @keyframes fireflyLifecycle {
+            0% { opacity: 0; }
+            15% { opacity: 1; }
+            85% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        .firefly-grid {
+            display: grid; grid-template-columns: repeat(16, 1fr); gap: 4px;
+            margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 12px;
+        }
+        .firefly-dot {
+            width: 100%; padding-bottom: 100%; border-radius: 50%;
+            background: rgba(255,255,255,0.05); position: relative;
+        }
+        .firefly-dot.collected::after {
+            content: ''; position: absolute; top: 2px; left: 2px; right: 2px; bottom: 2px;
+            border-radius: 50%; background: var(--ff-color);
+            box-shadow: 0 0 4px var(--ff-color);
+        }
 
         /* --- Action Dock --- */
         .dock-container {
@@ -334,16 +382,28 @@
             <div class="menu-stat"><span>⏳ Age</span> <span id="menuAge">1 Day</span></div>
 
             <div class="menu-stat"><span>🌱 Phase</span> <span id="menuStage">Sprout</span></div>
-            <div class="menu-stat"><span>⏱️ Evolution</span> <span id="menuNextStageTime">--:--</span></div>
+            <!-- Added Progress Bar Container -->
+            <div class="menu-stat" style="flex-direction: column; align-items: flex-start;">
+                <div style="display:flex; justify-content:space-between; width:100%;">
+                    <span>⏱️ Evolution</span> 
+                    <span id="menuNextStageTime">--:--</span>
+                </div>
+                <div class="progress-container">
+                    <div class="progress-bar" id="menuProgressBar"></div>
+                </div>
+            </div>
+
             <div class="menu-stat"><span>❤️ Vigor</span> <span id="menuHealth">100%</span></div>
             
+            <button class="btn-base firefly-btn" onclick="openFireflyLog()">🦋 Firefly Log</button>
+
             <div class="menu-title" style="margin-top: 20px; font-size: 0.8rem;">📜 Lineage Log</div>
             <div class="greenhouse-list" id="greenhouseList">
                 <div style="text-align: center; opacity: 0.5; font-size: 0.8rem;">No ancestors yet.</div>
             </div>
             
             <button class="btn-base style-btn" onclick="openPotDesigner()">🎨 Style Pot</button>
-            <button class="btn-base style-btn" onclick="openHelp()">📖 How to Play</button>
+            <button class="btn-base help-btn" onclick="openHelp()">📖 How to Play</button>
 
             <button class="btn-base harvest-btn" id="btnHarvest" onclick="harvestPlant()">🌸 Ascend & Rebirth</button>
             <button class="btn-base close-btn" onclick="toggleMenu()">Close</button>
@@ -367,14 +427,28 @@
                 
                 <p><b>2. Controls 🎮</b><br>
                 • <b>Tap Plant:</b> Give Love<br>
+                • <b>Tap and Hold:</b> Check Stats<br>
                 • <b>Rain Cloud:</b> Auto-water over time<br>
                 • <b>Sun Lamp:</b> Boost Sun (Careful!)<br>
                 • <b>Menu:</b> Sing, Fertilize, & Style</p>
 
                 <p><b>3. Lifecycle 🧬</b><br>
                 Grow from Sprout to Blooming. Then, <b>Harvest</b> to ascend, saving it to your Lineage and starting a new generation.</p>
+
+                <p><b>4. Fireflies 🦋</b><br>
+                Watch carefully! Catch fireflies to speed up growth. There are 256 unique colors to find.</p>
             </div>
             <button class="btn-base close-btn" onclick="closeHelp()">Got it</button>
+        </div>
+    </div>
+
+    <!-- Firefly Log Overlay -->
+    <div class="menu-overlay" id="fireflyOverlay">
+        <div class="menu-card">
+            <div class="menu-title">Firefly Collection</div>
+            <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 15px;">Caught: <span id="ffCount">0</span> / 256</div>
+            <div class="firefly-grid" id="fireflyGrid"></div>
+            <button class="btn-base close-btn" onclick="closeFireflyLog()">Back</button>
         </div>
     </div>
 
@@ -534,7 +608,8 @@
             dna: null, 
             potColor: POT_COLORS[0], potPattern: 'none', potPatternColor: 'rgba(255,255,255,0.5)',
             timeAtZero: 0, isDead: false, history: [], lastSave: Date.now(),
-            growthMultiplier: 1, singCooldownUntil: 0, fertilizeCooldownUntil: 0
+            growthMultiplier: 1, singCooldownUntil: 0, fertilizeCooldownUntil: 0,
+            fireflies: [] // New: Array of collected IDs (0-255)
         };
 
         let els = {};
@@ -581,7 +656,8 @@
             sun: function() { this.play(300, 'triangle', 0.5); },
             love: function() { this.play(150, 'sine', 0.5); },
             err: function() { this.play(100, 'sawtooth', 0.2); },
-            playPianoNote(freq) { this.play(freq, 'triangle', 0.4); }
+            playPianoNote(freq) { this.play(freq, 'triangle', 0.4); },
+            chime: function() { this.play(600, 'sine', 0.1); this.play(800, 'sine', 0.2); } // Firefly sound
         };
 
         function generateDNA() {
@@ -608,7 +684,6 @@
                 const prevDefs = document.getElementById('previewDefs');
                 if(prevDefs) prevDefs.innerHTML += patterns;
                 
-                // Inject for harvest and archive if they exist (though they might not be in DOM yet or need reinjection)
                 const hDefs = document.getElementById('harvestDefs');
                 if(hDefs) hDefs.innerHTML = patterns;
                 const aDefs = document.getElementById('archiveDefs');
@@ -660,7 +735,7 @@
             if(config.potPattern && config.potPattern !== 'none') {
                 const pat = document.createElementNS("http://www.w3.org/2000/svg", "path");
                 pat.setAttribute("d", "M72 195 L128 195 L118 230 L82 230 Z");
-                pat.setAttribute("fill", `url(#${config.potPattern})`); // This relies on the pattern being available in defs
+                pat.setAttribute("fill", `url(#${config.potPattern})`); 
                 pat.setAttribute("style", "opacity: 0.9; stroke: none;");
                 group.appendChild(pat);
             }
@@ -806,9 +881,18 @@
             g.appendChild(anim); group.appendChild(g);
         }
 
+        /* --- HELP & POT CUSTOMIZATION --- */
+        function openHelp() {
+            els.menu.classList.remove('open');
+            els.helpOverlay.classList.add('open');
+        }
+        function closeHelp() {
+            els.helpOverlay.classList.remove('open');
+            els.menu.classList.add('open');
+        }
+
         /* --- INIT --- */
         function init() {
-            // Populate DOM Elements here to ensure they exist
             els = {
                 statusArea: document.getElementById('statusArea'),
                 water: document.getElementById('orbWater'), sun: document.getElementById('orbSun'), love: document.getElementById('orbLove'),
@@ -828,10 +912,12 @@
                 previewPotPattern: document.getElementById('previewPotPattern'),
                 patternColorGrid: document.getElementById('patternColorGrid'),
                 resetOverlay: document.getElementById('resetOverlay'),
-                helpOverlay: document.getElementById('helpOverlay') // Add help overlay to els
+                helpOverlay: document.getElementById('helpOverlay'), 
+                progressBar: document.getElementById('menuProgressBar'),
+                fireflyOverlay: document.getElementById('fireflyOverlay'),
+                fireflyGrid: document.getElementById('fireflyGrid')
             };
             
-            // Add Raindrops Loop
             const container = document.getElementById('rainContainer');
             for (let i=0; i<30; i++) {
                 const d = document.createElement('div');
@@ -846,10 +932,10 @@
             injectPotPatterns();
             loadState();
             
-            // Render Pot Palette
+            processOfflineProgress();
+
             els.colorGrid.innerHTML = POT_COLORS.map(c => `<div class="color-swatch" style="background:${c}" onclick="setPotColor('${c}')"></div>`).join('');
             
-            // Render Pattern Color Palette
             els.patternColorGrid.innerHTML = POT_COLORS.map(c => `<div class="color-swatch" style="background:${c}" onclick="setPotPatternColor('${c}')"></div>`).join('');
 
             const patterns = ['none', 'patDots', 'patStripes', 'patHearts', 'patNotes'];
@@ -862,12 +948,10 @@
             updatePotVisuals();
             renderPlant('plantGroup', state.dna, state.stage);
             
-            // Show UI after data is ready to prevent flash
             els.statusArea.classList.add('loaded');
             
             startGameLoop();
             
-            // Event Listeners
             els.plantHero.addEventListener('mousedown', () => handlePress(true));
             els.plantHero.addEventListener('touchstart', (e) => { e.preventDefault(); handlePress(true); });
             els.plantHero.addEventListener('mouseup', () => handlePress(false));
@@ -876,20 +960,24 @@
             document.addEventListener("visibilitychange", handleVisibility);
             window.addEventListener("pagehide", saveState);
             
-            // Check Cooldowns on load
             checkSingCooldown();
             checkFertilizeCooldown();
         }
 
         /* --- GAME LOOP --- */
         let gameInterval;
+        let ticks = 0;
         function startGameLoop() {
             if (gameInterval) clearInterval(gameInterval);
             gameInterval = setInterval(() => {
                 try {
+                    ticks++;
                     if (state.isDead) return;
                     decay(); checkDeath(); grow();
-                    if (Date.now() % 30000 < 1000) saveState();
+                    attemptSpawnFirefly();
+                    
+                    if (ticks % 5 === 0) saveState();
+                    
                     render();
                 } catch (e) { console.error(e); }
             }, CONFIG.tickRate);
@@ -897,6 +985,111 @@
                 checkSingCooldown();
                 checkFertilizeCooldown();
             }, 1000);
+        }
+
+        /* --- FIREFLY LOGIC --- */
+        function getFireflyData(id) {
+            const hue = (id / 255) * 360;
+            const color = `hsl(${hue}, 100%, 75%)`;
+            
+            const adjectives = ["Misty", "Radiant", "Glimmering", "Faint", "Shining", "Dusky", "Neon", "Pale", "Vivid", "Dark", "Bright", "Ethereal", "Ghostly", "Lucky", "Royal", "Ancient"];
+            const nouns = ["Spark", "Wisp", "Ember", "Glow", "Orb", "Star", "Dust", "Spirit", "Flare", "Flash", "Beam", "Ray", "Glint", "Shimmer", "Twinkle", "Light"];
+            
+            const adjIndex = (id >> 4) & 15;
+            const nounIndex = id & 15;
+            
+            return {
+                id: id,
+                color: color,
+                name: `${adjectives[adjIndex]} ${nouns[nounIndex]}`
+            };
+        }
+
+        function attemptSpawnFirefly() {
+            if (els.menu.classList.contains('open')) return;
+            
+            if (Math.random() < 0.05) {
+                spawnFirefly();
+            }
+        }
+
+        function spawnFirefly() {
+            const id = Math.floor(Math.random() * 256);
+            const data = getFireflyData(id);
+            
+            const ff = document.createElement('div');
+            ff.classList.add('firefly');
+            ff.style.color = data.color;
+            ff.style.background = data.color;
+            
+            const isLeft = Math.random() > 0.5;
+            const xPos = isLeft ? (10 + Math.random() * 20) : (70 + Math.random() * 20);
+            ff.style.left = xPos + '%';
+            ff.style.top = (15 + Math.random() * 50) + '%'; 
+            
+            ff.onclick = (e) => {
+                e.stopPropagation(); 
+                collectFirefly(id, ff);
+            };
+            
+            document.body.appendChild(ff);
+            
+            setTimeout(() => {
+                if(ff.parentNode) ff.remove();
+            }, 10000);
+        }
+
+        function collectFirefly(id, el) {
+            el.remove();
+            audio.chime(); 
+            
+            state.growth += 2.5; 
+            
+            const data = getFireflyData(id);
+            let isNew = false;
+            
+            if (!state.fireflies) state.fireflies = [];
+            if (!state.fireflies.includes(id)) {
+                state.fireflies.push(id);
+                state.fireflies.sort((a,b) => a - b);
+                isNew = true;
+            }
+            
+            spawnFloatingText(isNew ? `New! ${data.name}` : "+Growth", data.color);
+        }
+
+        function openFireflyLog() {
+            els.menu.classList.remove('open');
+            els.fireflyOverlay.classList.add('open');
+            renderFireflyLog();
+        }
+
+        function closeFireflyLog() {
+            els.fireflyOverlay.classList.remove('open');
+            els.menu.classList.add('open');
+        }
+
+        function renderFireflyLog() {
+            const grid = els.fireflyGrid;
+            grid.innerHTML = '';
+            const collected = state.fireflies || [];
+            
+            document.getElementById('ffCount').innerText = collected.length;
+
+            for (let i = 0; i < 256; i++) {
+                const dot = document.createElement('div');
+                dot.classList.add('firefly-dot');
+                
+                if (collected.includes(i)) {
+                    const data = getFireflyData(i);
+                    dot.classList.add('collected');
+                    dot.style.setProperty('--ff-color', data.color);
+                    dot.title = data.name; 
+                    dot.onclick = () => spawnFloatingText(data.name, data.color);
+                }
+                
+                grid.appendChild(dot);
+            }
         }
 
         function decay() {
@@ -939,7 +1132,6 @@
             const isHappy = state.water > CONFIG.threshold && state.sun > CONFIG.threshold && state.love > CONFIG.threshold;
             if (isHappy) state.growth += (CONFIG.growthRate * state.growthMultiplier);
             
-            // Evolution Check
             let nextStage = 1;
             if (state.growth > CONFIG.stages[4]) nextStage = 5;
             else if (state.growth > CONFIG.stages[3]) nextStage = 4;
@@ -969,7 +1161,6 @@
             let scale = 1 + (state.growth / 6000); 
             if(els.plantGraphics) els.plantGraphics.style.transform = `scale(${Math.min(1.4, scale)})`;
             
-            // --- NEW DISTRESS LOGIC ---
             const pg = document.getElementById('plantGroup');
             if(pg) {
                 pg.classList.remove('distress-thirsty', 'distress-starved', 'distress-critical');
@@ -1045,26 +1236,19 @@
                 if (state.love >= 90) { state.love -= 5; spawnFloatingText("Need Space! 🚫", "#ff6b6b"); audio.err(); return; }
                 state.love = Math.min(100, state.love + 15); spawnFloatingText("❤️", "var(--accent-pink)"); audio.love(); spawnParticles('love');
             } else if (type === 'sun') {
-                state.isSunLampOn = !state.isSunLampOn; 
-                spawnFloatingText(state.isSunLampOn?"☀️ ON":"🌑 OFF", "var(--accent-sun)"); 
-                audio.sun(); 
-                if(state.isSunLampOn) spawnParticles('sun');
-                applyTheme();
+                state.isSunLampOn = !state.isSunLampOn; spawnFloatingText(state.isSunLampOn?"☀️ ON":"🌑 OFF", "var(--accent-sun)"); audio.sun(); applyTheme();
             } else if (type === 'rain') {
                 state.isRainOn = !state.isRainOn; spawnFloatingText(state.isRainOn?"☁️ Rain ON":"☁️ Rain OFF", "var(--accent-rain)"); applyTheme();
             }
             render();
         }
         
-        // Re-implemented helper function
         function spawnParticles(type) {
             const rect = els.plantHero.getBoundingClientRect();
-            // Center coordinates relative to viewport
             const cx = rect.left + rect.width / 2;
             const cy = rect.top + rect.height / 2;
 
             if (type === 'sun') {
-                // Spawn swirling sun particles
                 const count = 12;
                 for (let i = 0; i < count; i++) {
                     const p = document.createElement('div');
@@ -1084,7 +1268,6 @@
                     setTimeout(() => p.remove(), 2000);
                 }
             } else {
-                // Existing logic for water/love
                 const count = 5; 
                 for(let i=0; i<count; i++) {
                     const p = document.createElement('div');
@@ -1111,13 +1294,19 @@
                 els.btnSing.disabled = true;
                 els.btnSing.innerText = `Recharging (${Math.floor(rem/60)}:${(rem%60).toString().padStart(2,'0')})`;
             } else {
-                els.btnSing.disabled = false;
-                els.btnSing.innerText = "🎵 Sing to Plant";
+                const isHappy = state.water > CONFIG.threshold && state.sun > CONFIG.threshold && state.love > CONFIG.threshold;
+                if (!isHappy) {
+                    els.btnSing.disabled = true;
+                    els.btnSing.innerText = "⚠️ Plant Unhappy";
+                } else {
+                    els.btnSing.disabled = false;
+                    els.btnSing.innerText = "🎵 Sing to Plant";
+                }
             }
         }
         
         function playAutoMelody() {
-            state.singCooldownUntil = Date.now() + 600000; // 10 mins
+            state.singCooldownUntil = Date.now() + 600000; 
             checkSingCooldown(); toggleMenu();
             spawnFloatingText("🎵 Singing... 🎵", "#748ffc");
             
@@ -1129,9 +1318,9 @@
         }
         
         function finishSing() {
-            state.water=100; state.sun=100; state.love=100; state.growthMultiplier=3;
-            setTimeout(() => { state.growthMultiplier=1; }, 60000);
-            spawnFloatingText("Growth x3! 🚀", "#ffd43b");
+            state.growth += 150; 
+            spawnFloatingText("-5 Mins Growth! ⏳", "#748ffc");
+            saveState(); 
         }
 
         function checkFertilizeCooldown() {
@@ -1147,28 +1336,16 @@
         }
         
         function fertilizePlant() {
-            state.fertilizeCooldownUntil = Date.now() + 300000; // 5 mins
+            state.fertilizeCooldownUntil = Date.now() + 300000; 
             checkFertilizeCooldown();
             toggleMenu(); 
             spawnFloatingText("Soil Enriched! 🌿", "#8d6e63");
             audio.love(); 
         }
 
-        /* --- HELP & POT CUSTOMIZATION --- */
-        function openHelp() {
-            els.menu.classList.remove('open');
-            els.helpOverlay.classList.add('open');
-        }
-        function closeHelp() {
-            els.helpOverlay.classList.remove('open');
-            els.menu.classList.add('open');
-        }
-
         function openPotDesigner() {
-            // Render Preview Plant
             const g = document.getElementById('previewPlantGroup');
             renderPlant('previewPlantGroup', state.dna, state.stage); 
-            // Update preview pot visuals immediately
             updatePotVisuals();
             els.potOverlay.classList.add('open');
             toggleMenu();
@@ -1184,27 +1361,23 @@
             els.harvestNameInput.value = state.name === defName ? "" : state.name;
             els.harvestNameInput.placeholder = defName;
             
-            // Only clear the groups, NOT the defs
             const potG = document.getElementById('harvestPotGroup');
             const plantG = document.getElementById('harvestPlantGroup');
             if(potG) potG.innerHTML = '';
             if(plantG) plantG.innerHTML = '';
 
-            // Render Pot
             renderPot(potG, { 
                 potColor: state.potColor, 
                 potPattern: state.potPattern, 
                 potPatternColor: state.potPatternColor 
             });
 
-            // Render Plant
             renderPlant('harvestPlantGroup', state.dna, state.stage);
 
             els.harvestOverlay.classList.add('open'); toggleMenu();
         }
         
         function finalizeHarvest() {
-            // 1. Push to history with POT CONFIG
             state.name = els.harvestNameInput.value.trim() || state.name;
             if(!state.history) state.history = [];
             state.history.push({ 
@@ -1218,12 +1391,9 @@
                 potPatternColor: state.potPatternColor
             });
             
-            // 2. Call Reset (Soft)
             resetGame(false);
             
-            // 3. UI Cleanup
             els.harvestOverlay.classList.remove('open');
-            // resetGame closes menu, so we are good.
             spawnFloatingText("Ascended! 🌸", "var(--accent-pink)");
         }
 
@@ -1233,7 +1403,7 @@
             el.innerText = text; el.style.color = color;
             const r = els.plantHero.getBoundingClientRect();
             el.style.left = (r.left + r.width/2 - 20 + (Math.random()*60-30)) + 'px';
-            el.style.top = (r.top - 40 + (Math.random()*40-20)) + 'px'; // Higher float
+            el.style.top = (r.top - 40 + (Math.random()*40-20)) + 'px'; 
             document.body.appendChild(el); setTimeout(()=>el.remove(), 2000);
         }
         
@@ -1241,7 +1411,7 @@
             const el = document.createElement('div'); el.classList.add('musical-note');
             el.innerText = ['♪','♫','♩'][Math.floor(Math.random()*3)];
             const r = els.plantHero.getBoundingClientRect();
-            el.style.left = (r.left + r.width/2) + 'px'; el.style.top = (r.top + 60) + 'px'; // Lower spawn
+            el.style.left = (r.left + r.width/2) + 'px'; el.style.top = (r.top + 60) + 'px'; 
             el.style.setProperty('--rot', Math.random()*360 + 'deg');
             document.body.appendChild(el); setTimeout(()=>el.remove(), 2500);
         }
@@ -1262,7 +1432,7 @@
 
         /* --- RESET LOGIC --- */
         function finalizeReset() {
-            resetGame(true); // Hard Reset
+            resetGame(true); 
         }
 
         function resetGame(isFullWipe) {
@@ -1270,7 +1440,7 @@
             
             let oldHistory = [];
             if (!isFullWipe && state.history) {
-                oldHistory = state.history; // Keep history on Soft Reset
+                oldHistory = state.history; 
             }
 
             if (isFullWipe) {
@@ -1283,7 +1453,6 @@
                 day: 1, generation: isFullWipe ? 1 : (state.generation + 1), 
                 name: "Sprout",
                 dna: generateDNA(), 
-                // We keep pot styles even on soft reset for better UX, unless it's a hard wipe
                 potColor: isFullWipe ? POT_COLORS[0] : state.potColor,
                 potPattern: isFullWipe ? 'none' : state.potPattern,
                 potPatternColor: isFullWipe ? 'rgba(255,255,255,0.5)' : state.potPatternColor,
@@ -1293,7 +1462,8 @@
                 lastSave: Date.now(),
                 growthMultiplier: 1,
                 singCooldownUntil: 0,
-                fertilizeCooldownUntil: 0
+                fertilizeCooldownUntil: 0,
+                fireflies: isFullWipe ? [] : state.fireflies 
             };
 
             els.deathOverlay.classList.remove('open');
@@ -1317,32 +1487,48 @@
             els.harvestOverlay.classList.remove('open');
             els.archiveOverlay.classList.remove('open');
             els.resetOverlay.classList.remove('open');
-            
+            els.fireflyOverlay.classList.remove('open');
+
             spawnFloatingText(isFullWipe ? "Full Wipe" : "New Life 🌱", "white");
             startGameLoop();
         }
         
         function handleVisibility() {
             if (document.visibilityState === "visible") {
-                const now = Date.now();
-                const diff = (now - state.lastSave) / 1000;
-                if(diff > 5) {
-                    const decay = diff * CONFIG.decayRate.water * CONFIG.offlineDecayFactor;
-                    state.water = Math.max(0, state.water - decay);
-                    state.sun = Math.max(0, state.sun - decay);
-                    state.love = Math.max(0, state.love - decay);
-                    if(diff > 3600) state.day += Math.floor(diff/3600);
-                    spawnFloatingText("Welcome Back!", "white");
-                }
-                saveState(); render();
-                audio.toggleRainSound(state.isRainOn); // Restore Rain Sound
+                processOfflineProgress(); 
+                audio.toggleRainSound(state.isRainOn); 
             } else {
                 saveState();
                 audio.toggleRainSound(false);
             }
         }
+
+        function processOfflineProgress() {
+            if(!state.lastSave) return;
+            const now = Date.now();
+            const diff = (now - state.lastSave) / 1000;
+            
+            if(diff < 5) return;
+
+            const decay = diff * CONFIG.decayRate.water * CONFIG.offlineDecayFactor;
+            state.water = Math.max(0, state.water - decay);
+            state.sun = Math.max(0, state.sun - decay);
+            state.love = Math.max(0, state.love - decay);
+
+            if(diff > 3600) {
+                state.day += Math.floor(diff/3600);
+            }
+
+            if(diff > 60) {
+                spawnFloatingText("Welcome Back!", "white");
+            }
+            
+            saveState(); 
+            render();
+        }
         
         function saveState() {
+            state.lastSave = Date.now();
             localStorage.setItem('pocketSproutSave', JSON.stringify(state));
         }
 
@@ -1351,15 +1537,17 @@
             if(s) {
                 const l = JSON.parse(s);
                 if(l.dna) state = l;
-                // Patch old saves
                 if(!state.potColor) state.potColor = '#e07a5f';
                 if(!state.potPattern) state.potPattern = 'none';
                 if(!state.potPatternColor) state.potPatternColor = 'rgba(255,255,255,0.5)';
                 if(typeof state.singCooldownUntil === 'undefined') state.singCooldownUntil = 0;
                 if(typeof state.fertilizeCooldownUntil === 'undefined') state.fertilizeCooldownUntil = 0;
+                if(!state.fireflies) state.fireflies = []; 
+                
+                state.growthMultiplier = 1; 
             } else {
-                // First time ever
                 state.water = 20; state.sun = 50; state.love = 50;
+                state.fireflies = [];
             }
             if(state.isDead) els.deathOverlay.classList.add('open');
         }
@@ -1381,11 +1569,18 @@
             document.getElementById('menuAge').innerText = state.day + " Suns";
             document.getElementById('menuHealth').innerText = Math.floor((state.water+state.sun+state.love)/3) + "%";
             
-            // Time to next logic (Fixed)
             let txt = "Max Growth";
             const isHappy = state.water > CONFIG.threshold && state.sun > CONFIG.threshold && state.love > CONFIG.threshold;
             
             if (state.stage < 5) {
+                const totalNeeded = CONFIG.stages[state.stage];
+                const prevStage = CONFIG.stages[state.stage - 1];
+                const stageProgress = Math.max(0, state.growth - prevStage);
+                const stageTotal = totalNeeded - prevStage;
+                const pct = Math.min(100, (stageProgress / stageTotal) * 100);
+                
+                if (els.progressBar) els.progressBar.style.width = pct + "%";
+
                 if (!isHappy) {
                     txt = "⚠️ Stalled (Needs Care)";
                     document.getElementById('menuNextStageTime').style.color = '#ff6b6b';
@@ -1397,17 +1592,16 @@
                 }
             } else {
                  document.getElementById('menuNextStageTime').style.color = 'var(--accent-sun)';
+                 if (els.progressBar) els.progressBar.style.width = "100%";
             }
             document.getElementById('menuNextStageTime').innerText = txt;
 
-            // Show Ascend Button if Stage 5
             if (state.stage >= 5) {
                 els.btnHarvest.classList.add('visible');
             } else {
                 els.btnHarvest.classList.remove('visible');
             }
             
-            // Greenhouse
             const gh = els.greenhouseList; gh.innerHTML = "";
             if(!state.history.length) gh.innerHTML = "<div style='opacity:0.5;text-align:center'>No ancestors yet.</div>";
             [...state.history].reverse().forEach((h,i) => {
@@ -1418,13 +1612,12 @@
                     document.getElementById('archiveGen').innerText = h.gen;
                     document.getElementById('archiveAge').innerText = h.days + " Suns";
                     
-                    // Render Pot & Plant for Archive without wiping defs
                     const potG = document.getElementById('archivePotGroup');
                     const plantG = document.getElementById('archivePlantGroup');
+                    
                     if(potG) potG.innerHTML = '';
                     if(plantG) plantG.innerHTML = '';
 
-                    // Fallback for old saves without pot data
                     const potConf = {
                         potColor: h.potColor || POT_COLORS[0],
                         potPattern: h.potPattern || 'none',
@@ -1432,7 +1625,7 @@
                     };
 
                     renderPot(potG, potConf);
-                    renderPlant('archivePlantGroup', h.dna, 5, false); // isGhost = false for full color
+                    renderPlant('archivePlantGroup', h.dna, 5, false); 
                     
                     els.archiveOverlay.classList.add('open');
                 };
@@ -1440,7 +1633,6 @@
             });
         }
 
-        // Wait for DOM
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
         } else {
@@ -1472,7 +1664,7 @@
 
         function debugNearDeath() {
             state.water = 0; state.sun = 0; state.love = 0;
-            state.timeAtZero = CONFIG.deathTimeLimit - 10000; // 10s to live
+            state.timeAtZero = CONFIG.deathTimeLimit - 10000; 
             render(); log("Set to Near Death");
         }
 
@@ -1481,7 +1673,6 @@
             log("Hard Reset executed");
         }
 
-        // Override console.log to show in debug panel
         const originalLog = console.log;
         const logContainer = document.getElementById('debugLog');
         function log(...args) {
