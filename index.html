@@ -82,6 +82,9 @@
             padding-top: 60px; opacity: 0;
             text-align: center; z-index: 10;
             transition: opacity 0.5s ease;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            transform: translateZ(0);
         }
         .status-area.loaded { opacity: 0.7; }
         
@@ -89,6 +92,8 @@
             display: inline-block; font-size: 0.7rem; letter-spacing: 2px;
             text-transform: uppercase; opacity: 0.6; margin-bottom: 8px; font-weight: 300;
             padding: 8px 16px; cursor: pointer;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
         }
         .plant-name { font-size: 1.4rem; font-weight: 200; letter-spacing: 1px; }
         .day-counter { font-size: 0.8rem; opacity: 0.4; margin-top: 5px; font-weight: 300; }
@@ -181,6 +186,9 @@
         .stat-orb {
             position: absolute; width: 24px; height: 24px; border-radius: 50%; background: transparent;
             border: 2px solid rgba(255,255,255,0.4); transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.5s, border-color 0.5s;
+            will-change: transform, box-shadow;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
         }
         .stat-water { top: 0; left: 50%; transform: translateX(-50%); }
         .stat-sun { bottom: 25%; right: 7%; }
@@ -644,6 +652,7 @@
         };
 
         /* --- STATE --- */
+        let currentSessionId = Date.now().toString(36) + Math.random().toString(36).substr(2);
         let state = {
             water: 20, sun: 50, love: 50, growth: 0, 
             stage: 1, isSunLampOn: false, isRainOn: false,
@@ -652,7 +661,8 @@
             potColor: POT_COLORS[0], potPattern: 'none', potPatternColor: 'rgba(255,255,255,0.5)',
             timeAtZero: 0, isDead: false, history: [], lastSave: Date.now(),
             growthMultiplier: 1, singCooldownUntil: 0, fertilizeCooldownUntil: 0,
-            fireflies: [] // New: Array of collected IDs (0-255)
+            fireflies: [], // Array of collected IDs (0-255)
+            sessionId: null // Track which session last saved
         };
 
         let els = {};
@@ -1002,6 +1012,15 @@
             
             document.addEventListener("visibilitychange", handleVisibility);
             window.addEventListener("pagehide", saveState);
+            window.addEventListener("beforeunload", saveState);
+            window.addEventListener("blur", saveState);
+            window.addEventListener("freeze", saveState); // Page Lifecycle API
+            window.addEventListener("focus", handleFocus); // Catch app regaining focus
+            window.addEventListener("resume", handleFocus); // Page Lifecycle API
+            
+            // Save on any touch/click as a safety measure
+            document.addEventListener("touchstart", debouncedSave, { passive: true });
+            document.addEventListener("mousedown", debouncedSave);
             
             // Handle back button to close menus
             window.addEventListener('popstate', handleBackButton);
@@ -1010,6 +1029,16 @@
             
             checkSingCooldown();
             checkFertilizeCooldown();
+        }
+        
+        // Debounced save to prevent too many saves on rapid interactions
+        let saveTimeout = null;
+        function debouncedSave() {
+            if (saveTimeout) return;
+            saveTimeout = setTimeout(() => {
+                saveState();
+                saveTimeout = null;
+            }, 1000);
         }
         
         function handleBackButton(event) {
@@ -1054,7 +1083,8 @@
                     decay(); checkDeath(); grow();
                     attemptSpawnFirefly();
                     
-                    if (ticks % 5 === 0) saveState();
+                    // Save every tick for reliability on mobile
+                    saveState();
                     
                     requestAnimationFrame(render);
                 } catch (e) { console.error(e); }
@@ -1252,8 +1282,13 @@
             els.btnSun.classList.toggle('sun-active', state.isSunLampOn);
             els.btnRain.classList.toggle('rain-active', state.isRainOn);
 
-            let scale = 1 + (state.growth / 6000); 
-            if(els.plantGraphics) els.plantGraphics.style.transform = `scale(${Math.min(1.4, scale)})`;
+            // Only update scale when growth changes significantly
+            let scale = Math.min(1.4, 1 + (state.growth / 6000));
+            scale = Math.round(scale * 1000) / 1000; // Round to 3 decimals
+            if(els.plantGraphics && els.plantGraphics._lastScale !== scale) {
+                els.plantGraphics.style.transform = `scale(${scale})`;
+                els.plantGraphics._lastScale = scale;
+            }
             
             const pg = document.getElementById('plantGroup');
             if(pg) {
@@ -1277,17 +1312,30 @@
         }
 
         function updateOrb(el, val) {
-            const scale = 0.4 + (val / 100) * 0.8; 
+            // Round to 1 decimal to prevent constant micro-updates
+            const roundedVal = Math.round(val * 10) / 10;
+            const lastVal = el._lastVal;
+            
+            // Only update if value changed
+            if (lastVal === roundedVal) return;
+            el._lastVal = roundedVal;
+            
+            const scale = 0.4 + (roundedVal / 100) * 0.8; 
             let color = "white";
             if (el.id === 'orbWater') color = "var(--accent-blue)";
             if (el.id === 'orbSun') color = "var(--accent-sun)";
             if (el.id === 'orbLove') color = "var(--accent-pink)";
             
-            const fill = (Math.max(0, val) / 100) * 12; 
+            const fill = (Math.max(0, roundedVal) / 100) * 12; 
             let shadow = `inset 0 0 0 ${fill}px ${color}`;
-            if (val > 80) shadow += `, 0 0 15px ${color}`;
-            if (val < 30) { el.style.borderColor = "#ff6b6b"; shadow += `, 0 0 10px #ff6b6b`; }
-            else el.style.borderColor = "rgba(255,255,255,0.5)";
+            if (roundedVal > 80) shadow += `, 0 0 15px ${color}`;
+            
+            const isLow = roundedVal < 30;
+            if (el._wasLow !== isLow) {
+                el.style.borderColor = isLow ? "#ff6b6b" : "rgba(255,255,255,0.5)";
+                el._wasLow = isLow;
+            }
+            if (isLow) shadow += `, 0 0 10px #ff6b6b`;
             
             el.style.boxShadow = shadow;
             el.style.transform = `translateX(${el.id==='orbWater'?'-50%':'0'}) scale(${scale})`;
@@ -1626,13 +1674,39 @@
                 audio.toggleRainSound(false);
             }
         }
+        
+        function handleFocus() {
+            // Reload state from localStorage in case another tab/instance modified it
+            const saved = localStorage.getItem('pocketSproutSave');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    // Only reload if the saved state is newer than our current state
+                    if (parsed.lastSave > state.lastSave) {
+                        console.log('Reloading newer state from storage');
+                        Object.assign(state, parsed);
+                    }
+                } catch (e) {
+                    console.error('Failed to parse saved state on focus:', e);
+                }
+            }
+            processOfflineProgress();
+            audio.toggleRainSound(state.isRainOn);
+        }
 
         function processOfflineProgress() {
             if(!state.lastSave) return;
             const now = Date.now();
             const diff = (now - state.lastSave) / 1000;
             
-            if(diff < 5) return;
+            // Check if this is a new session (app was fully closed and reopened)
+            const isNewSession = state.sessionId && state.sessionId !== currentSessionId;
+            
+            // Only process if significant time passed OR it's a new session
+            if(diff < 5 && !isNewSession) return;
+            
+            // Log for debugging
+            console.log(`Offline for ${diff}s, new session: ${isNewSession}`);
 
             // Calculate offline changes based on rain/sun toggle states
             const ticksOffline = diff; // seconds offline
@@ -1716,7 +1790,12 @@
         
         function saveState() {
             state.lastSave = Date.now();
-            localStorage.setItem('pocketSproutSave', JSON.stringify(state));
+            state.sessionId = currentSessionId;
+            try {
+                localStorage.setItem('pocketSproutSave', JSON.stringify(state));
+            } catch (e) {
+                console.error('Failed to save:', e);
+            }
         }
 
         function loadState() {
