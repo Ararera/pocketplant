@@ -134,7 +134,35 @@
             100% { filter: brightness(1) blur(0px); transform: scale(1); } 
         }
         
+        .sing-glow { animation: singGlow 3s ease-in-out; }
+        @keyframes singGlow {
+            0% { filter: drop-shadow(0 0 5px #748ffc); }
+            50% { filter: drop-shadow(0 0 20px #748ffc) drop-shadow(0 0 40px #4ade80); }
+            100% { filter: drop-shadow(0 0 0px transparent); }
+        }
+        
+        .progress-boost { animation: progressBoost 1.5s ease-out; }
+        @keyframes progressBoost {
+            0% { box-shadow: 0 0 10px #4ade80, inset 0 0 10px rgba(74, 222, 128, 0.5); }
+            100% { box-shadow: none; }
+        }
+        
         .dead-plant { filter: grayscale(90%) contrast(1.2) brightness(0.7) sepia(0.2); animation: none !important; transform: rotate(3deg) translateY(15px); transition: all 2s ease; }
+        
+        .dormant-plant { 
+            filter: grayscale(50%) brightness(0.8) sepia(0.1); 
+            animation: dormantBreath 4s ease-in-out infinite;
+            transition: all 2s ease; 
+        }
+        @keyframes dormantBreath {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 0.85; }
+        }
+        
+        .dormant-overlay .overlay-box {
+            background: linear-gradient(135deg, #1a1625 0%, #2d1f3d 100%);
+            border: 1px solid rgba(167, 139, 250, 0.3);
+        }
 
         #plantGroup { 
             transition: filter 1s ease, transform 1s ease; 
@@ -152,6 +180,11 @@
             pointer-events: none;
         }
         .svg-plant { width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+        
+        /* Pause all animations when app is backgrounded */
+        body.paused *, body.paused *::before, body.paused *::after {
+            animation-play-state: paused !important;
+        }
         
         /* Hitbox Fix: Pot Interactable */
         #potGroup { cursor: pointer; pointer-events: auto; }
@@ -444,7 +477,8 @@
                 <div style="display:flex; justify-content:space-between; width:100%;"><span>⏱️ Evolution</span> <span id="menuNextStageTime">--:--</span></div>
                 <div class="progress-container"><div class="progress-bar" id="menuProgressBar"></div></div>
             </div>
-            <div class="menu-stat"><span>❤️ Vigor</span> <span id="menuHealth">100%</span></div>
+            <div class="menu-stat"><span>❤️ Vigor</span> <span id="menuHealth" style="font-weight: bold;">Thriving</span></div>
+            <div class="menu-stat" id="menuScars" style="display: none;"><span>🩹 Scars</span> <span id="menuScarList" style="opacity: 0.7; font-size: 0.85rem;"></span></div>
             
             <button class="btn-base firefly-btn" onclick="openFireflyLog()">🦋 Firefly Log</button>
 
@@ -666,16 +700,39 @@
         const FF_BUCKET_SIZE = 32;
 
         const CONFIG = {
-            decayRate: { water: 0.05, sun: 0.05, love: 0.05 },
-            growthRate: 0.5,
+            decayRate: { water: 0.04, sun: 0.04, love: 0.02 }, // Slower decay overall
+            growthRate: 0.4,
             tickRate: 1000, 
             threshold: 40,
-            stages: [0, 200, 1000, 2500, 5000], 
+            stages: [0, 400, 1500, 3500, 7000], // ~12 hours total cycle
             deathTimeLimit: 9 * 60 * 60 * 1000,
-            offlineDecayFactor: 0.1,
+            offlineDecayFactor: 0.08, // Gentler offline decay
             singCooldown: 300000,      // 5 minutes
             fertilizeCooldown: 180000,  // 3 minutes
             maxFireflyStack: 20 // Max of same color
+        };
+
+        // Dreams - shown when returning after absence
+        const DREAMS = [
+            "While you were away, your sprout dreamed of distant mountains...",
+            "Your plant listened to the rain and remembered ancient forests.",
+            "In the quiet hours, roots grew deeper into dreams of rivers.",
+            "A soft wind carried whispers of flowers yet to bloom.",
+            "Your sprout dreamed of dancing with fireflies under moonlight.",
+            "The soil hummed with memories of seeds long past.",
+            "Stars watched over your plant while it dreamed of sunnier days.",
+            "Your plant imagined its future blooms swaying in a gentle breeze.",
+            "Deep in slumber, your sprout felt the heartbeat of the earth.",
+            "Dreams of butterfly wings and morning dew filled the quiet night."
+        ];
+
+        // Qualitative state thresholds
+        const PLANT_STATES = {
+            thriving: { min: 80, label: "Thriving", color: "#4ade80" },
+            content: { min: 60, label: "Content", color: "#a3e635" },
+            restless: { min: 40, label: "Restless", color: "#facc15" },
+            strained: { min: 20, label: "Strained", color: "#fb923c" },
+            dormant: { min: 0, label: "Dormant", color: "#f87171" }
         };
 
         /* --- STATE --- */
@@ -691,7 +748,12 @@
             fireflies: {}, // Object: { id: count }
             sessionId: null,
             showcase: { bg: '#141517' }, // Showcase settings
-            unlockedPatterns: [] 
+            unlockedPatterns: [],
+            // New: Scar and resilience system
+            scars: [], // Array of scar types: 'wilt', 'bend', 'pale', 'stunted'
+            crisisCount: 0, // How many times plant has been in crisis
+            nestedFireflies: [], // Fireflies that nested while away
+            lastDream: null // Last dream shown
         };
 
         let els = {};
@@ -747,13 +809,10 @@
             err: function() { this.play(100, 'sawtooth', 0.2); },
             chime: function() { this.play(600, 'sine', 0.1); this.play(800, 'sine', 0.2); },
             
-            // Background Ambience Sequencer
-            startAmbience: function() {
-                if(this.isMusicPlaying) return;
-                this.isMusicPlaying = true;
-                
-                // Gentle ambient melody
-                const tune = [
+            // Background Ambience with multiple songs
+            songs: [
+                // Song 1: Original gentle melody
+                [
                     {f:440,d:2}, {f:554,d:1}, {f:587,d:1}, {f:554,d:2}, {f:440,d:2},
                     {f:370,d:2}, {f:440,d:1}, {f:554,d:1}, {f:440,d:2}, {f:370,d:2},
                     {f:392,d:2}, {f:494,d:1}, {f:587,d:1}, {f:494,d:2}, {f:392,d:2},
@@ -761,19 +820,67 @@
                     {f:370,d:2}, {f:440,d:1}, {f:554,d:1}, {f:440,d:2}, {f:370,d:2},
                     {f:294,d:2}, {f:370,d:1}, {f:440,d:1}, {f:370,d:2}, {f:294,d:2},
                     {f:330,d:1}, {f:370,d:1}, {f:440,d:4}
-                ];
+                ],
+                // Song 2: G# A pattern
+                [
+                    {f:415,d:1}, {f:440,d:1}, {f:415,d:1}, {f:440,d:1}, {f:415,d:1}, {f:440,d:1}, {f:415,d:1}, {f:440,d:1},
+                    {f:494,d:1}, {f:554,d:1}, {f:494,d:1}, {f:554,d:1}, {f:494,d:1}, {f:554,d:1}, {f:494,d:1}, {f:554,d:1},
+                    {f:415,d:1}, {f:440,d:1}, {f:415,d:1}, {f:440,d:1}, {f:415,d:1}, {f:440,d:1}, {f:415,d:1}, {f:440,d:1}
+                ],
+                // Song 3: F# G A B descending
+                [
+                    {f:370,d:1}, {f:392,d:1}, {f:440,d:1}, {f:494,d:1}, {f:440,d:1}, {f:392,d:1}, {f:370,d:1}, {f:330,d:1},
+                    {f:294,d:1}, {f:330,d:1}, {f:370,d:1}, {f:392,d:1}, {f:370,d:1}, {f:330,d:1}, {f:294,d:1}, {f:277,d:1},
+                    {f:494,d:1}, {f:440,d:1}, {f:392,d:1}, {f:370,d:1}, {f:392,d:1}, {f:440,d:1}, {f:494,d:1}, {f:440,d:1}
+                ],
+                // Song 4: D F# G A pattern
+                [
+                    {f:294,d:1}, {f:370,d:1}, {f:392,d:1}, {f:440,d:1}, {f:494,d:1}, {f:440,d:1}, {f:392,d:1}, {f:370,d:1},
+                    {f:330,d:1}, {f:294,d:1}, {f:330,d:1}, {f:370,d:1}, {f:392,d:1}, {f:440,d:1}, {f:494,d:1}, {f:440,d:1},
+                    {f:392,d:1}, {f:370,d:1}, {f:330,d:1}, {f:294,d:1}, {f:330,d:1}, {f:370,d:1}, {f:392,d:1}, {f:370,d:1}
+                ]
+            ],
+            currentSongIdx: 0,
+            
+            startAmbience: function() {
+                if(this.isMusicPlaying) return;
+                this.isMusicPlaying = true;
                 
+                // Start from a random song
+                this.currentSongIdx = Math.floor(Math.random() * this.songs.length);
+                this.playSong();
+            },
+            
+            playSong: function() {
+                if(!this.isMusicPlaying) return;
+                
+                const tune = this.songs[this.currentSongIdx];
                 let noteIdx = 0;
+                
                 const playNext = () => {
                     if(!this.isMusicPlaying) return;
-                    if(document.visibilityState !== 'visible') { this.bgTimer = setTimeout(playNext, 1000); return; }
+                    if(document.visibilityState !== 'visible') { 
+                        this.bgTimer = setTimeout(playNext, 1000); 
+                        return; 
+                    }
+                    
+                    if(noteIdx >= tune.length) {
+                        // Song finished - pause then play next song
+                        this.currentSongIdx = (this.currentSongIdx + 1) % this.songs.length;
+                        // 3-5 seconds of silence between songs
+                        const silenceDuration = 3000 + Math.random() * 2000;
+                        this.bgTimer = setTimeout(() => this.playSong(), silenceDuration);
+                        return;
+                    }
+                    
                     const n = tune[noteIdx];
                     this.play(n.f, 'triangle', n.d * 0.8, 0.02);
-                    noteIdx = (noteIdx + 1) % tune.length;
+                    noteIdx++;
                     this.bgTimer = setTimeout(playNext, n.d * 600);
                 };
                 playNext();
             },
+            
             stopAmbience: function() {
                 this.isMusicPlaying = false;
                 if(this.bgTimer) clearTimeout(this.bgTimer);
@@ -807,6 +914,8 @@
                 branchAngle: 30 + Math.random() * 40, // 30-70 degrees
                 branchSpread: 20 + Math.random() * 30, // How far branches spread
                 leanDirection: Math.random() > 0.5 ? 1 : -1, // Lean left or right
+                // Leaf/branch count (up to 5 leaf pairs along stem)
+                leafNodes: Math.floor(Math.random() * 3) + 3, // 3-5 leaf nodes
                 // Expanded Variety
                 leafType: Math.random() > 0.6 ? 'pointy' : (Math.random() > 0.3 ? 'round' : (Math.random() > 0.5 ? 'oak' : 'heart')),
                 leafPattern: Math.random() > 0.8 ? 'striped' : 'solid',
@@ -878,6 +987,21 @@
             // Containers that support gradient defs
             const supportedContainers = ['plantGroup', 'previewPlantGroup', 'harvestPlantGroup', 'archivePlantGroup', 'scPlant'];
             const useGradients = supportedContainers.includes(containerId);
+            
+            // Check for scars (only apply to main plant, not previews)
+            const scars = (containerId === 'plantGroup' && state.scars) ? state.scars : [];
+            const hasWilt = scars.includes('wilt');
+            const hasBend = scars.includes('bend');
+            const hasPale = scars.includes('pale');
+            
+            // Adjust colors for pale scar
+            let colorH = dna.colorH;
+            let colorS = dna.colorS;
+            let colorL = dna.colorL;
+            if (hasPale) {
+                colorS = Math.max(20, colorS - 30); // Desaturate
+                colorL = Math.min(70, colorL + 15); // Lighten
+            }
 
             if (!isGhost && useGradients) {
                 let defsId = 'plantDefs';
@@ -894,71 +1018,156 @@
                     if(oldStem) oldStem.remove();
                     if(oldLeaf) oldLeaf.remove();
                     
-                    // Create new gradients with current DNA
+                    // Create new gradients with current DNA (scar-adjusted)
                     defs.innerHTML += `
                         <linearGradient id="${containerId}_stemGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-                            <stop offset="0%" style="stop-color:hsl(${dna.colorH}, ${dna.colorS}%, ${dna.colorL}%);stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:hsl(${dna.colorH}, ${dna.colorS}%, ${dna.colorL + 20}%);stop-opacity:1" />
+                            <stop offset="0%" style="stop-color:hsl(${colorH}, ${colorS}%, ${colorL}%);stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:hsl(${colorH}, ${colorS}%, ${colorL + 20}%);stop-opacity:1" />
                         </linearGradient>
                         <linearGradient id="${containerId}_leafGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-                            <stop offset="0%" style="stop-color:hsl(${dna.colorH}, ${dna.colorS}%, ${dna.colorL + 5}%);stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:hsl(${dna.colorH}, ${dna.colorS}%, ${dna.colorL + 25}%);stop-opacity:1" />
+                            <stop offset="0%" style="stop-color:hsl(${colorH}, ${colorS}%, ${colorL + 5}%);stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:hsl(${colorH}, ${colorS}%, ${colorL + 25}%);stop-opacity:1" />
                         </linearGradient>
                     `;
                 }
             }
 
             // Use gradients if available, otherwise fall back to solid colors
-            const strokeStyle = isGhost ? "none" : (useGradients ? `url(#${containerId}_stemGrad)` : `hsl(${dna.colorH}, ${dna.colorS}%, ${dna.colorL}%)`);
-            const fillStyle = isGhost ? "" : (useGradients ? `url(#${containerId}_leafGrad)` : `hsl(${dna.colorH}, ${dna.colorS}%, ${dna.colorL + 15}%)`);
+            const strokeStyle = isGhost ? "none" : (useGradients ? `url(#${containerId}_stemGrad)` : `hsl(${colorH}, ${colorS}%, ${colorL}%)`);
+            const fillStyle = isGhost ? "" : (useGradients ? `url(#${containerId}_leafGrad)` : `hsl(${colorH}, ${colorS}%, ${colorL + 15}%)`);
             
             // Growth pattern variables
             const lean = dna.leanDirection || 1;
             const spread = dna.branchSpread || 25;
             const angle = dna.branchAngle || 45;
-            const mainEndX = 100 + (dna.stemCurveX * lean);
-            const topY = 110 - dna.stemCurveY;
-
-            // Stage 1: Base stem with first leaves
+            const leafNodes = dna.leafNodes || 4;
+            
+            // Apply bend scar - affects stem curve
+            const bendOffset = hasBend ? (lean * 15) : 0;
+            
+            // Define stem path points (base to top)
+            const stemPoints = [];
+            const baseY = 190;
+            const topY = 100 - (dna.stemCurveY || 20);
+            const totalHeight = baseY - topY;
+            
+            // Generate stem path with curve (and bend scar)
+            for (let i = 0; i <= 10; i++) {
+                const t = i / 10;
+                const y = baseY - (totalHeight * t);
+                // Bezier-like curve for x position, with bend scar offset
+                let curveInfluence = Math.sin(t * Math.PI) * (dna.stemCurveX || 0) * lean * 0.6;
+                // Add bend in middle section
+                if (hasBend && t > 0.3 && t < 0.7) {
+                    curveInfluence += Math.sin((t - 0.3) * Math.PI / 0.4) * bendOffset;
+                }
+                const x = 100 + curveInfluence;
+                stemPoints.push({ x, y, t });
+            }
+            
+            // Wilt scar - affects leaf droop
+            const wiltAngle = hasWilt ? 20 : 0; // Extra droop on leaves
+            for (let i = 0; i <= 10; i++) {
+                const t = i / 10;
+                const y = baseY - (totalHeight * t);
+                // Bezier-like curve for x position
+                const curveInfluence = Math.sin(t * Math.PI) * (dna.stemCurveX || 0) * lean * 0.6;
+                const x = 100 + curveInfluence;
+                stemPoints.push({ x, y, t });
+            }
+            
+            // Helper to get point on stem at a given t (0-1)
+            const getStemPoint = (t) => {
+                const idx = Math.min(Math.floor(t * 10), 9);
+                const nextIdx = Math.min(idx + 1, 10);
+                const localT = (t * 10) - idx;
+                return {
+                    x: stemPoints[idx].x + (stemPoints[nextIdx].x - stemPoints[idx].x) * localT,
+                    y: stemPoints[idx].y + (stemPoints[nextIdx].y - stemPoints[idx].y) * localT
+                };
+            };
+            
+            // Draw main stem as connected segments
+            const drawMainStem = (fromT, toT, width) => {
+                const from = getStemPoint(fromT);
+                const to = getStemPoint(toT);
+                const midT = (fromT + toT) / 2;
+                const mid = getStemPoint(midT);
+                // Add slight random curve
+                const cx = mid.x + (Math.random() * 6 - 3);
+                const cy = mid.y;
+                const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                p.setAttribute("d", `M${from.x} ${from.y} Q${cx} ${cy} ${to.x} ${to.y}`);
+                p.setAttribute("stroke-width", width);
+                p.setAttribute("class", "stem");
+                if(strokeStyle) p.style.stroke = strokeStyle;
+                group.appendChild(p);
+            };
+            
+            // Helper to apply wilt to leaf angle (droop toward ground)
+            const wiltedAngle = (baseAngle) => {
+                if (!hasWilt) return baseAngle;
+                // Make leaves droop downward
+                if (baseAngle < 0) return baseAngle - wiltAngle;
+                return baseAngle + wiltAngle;
+            };
+            
+            // Stage 1: Base stem (0-0.3) with first leaf pair
             if (stage >= 1) {
-                const s1x = 100 + (dna.stemCurveX * 0.2 * lean);
-                drawStem(group, 100, 190, s1x, 160, 4, strokeStyle);
-                renderLeaf(group, dna, s1x, 160, -angle, 1, fillStyle);
-                renderLeaf(group, dna, s1x, 160, angle, 1, fillStyle);
+                drawMainStem(0, 0.3, 4);
+                const leafPt = getStemPoint(0.25);
+                renderLeaf(group, dna, leafPt.x, leafPt.y, wiltedAngle(-angle), 1, fillStyle);
+                renderLeaf(group, dna, leafPt.x, leafPt.y, wiltedAngle(angle), 1, fillStyle);
             }
             
-            // Stage 2: Middle stem section
+            // Stage 2: Middle stem (0.3-0.6) with second leaf pair
             if (stage >= 2) {
-                const s1x = 100 + (dna.stemCurveX * 0.2 * lean);
-                const s2x = 100 + (dna.stemCurveX * 0.5 * lean);
-                drawStem(group, s1x, 160, s2x, 130, 3, strokeStyle);
-                // Alternate or opposite leaf placement
+                drawMainStem(0.3, 0.6, 3);
+                const leafPt = getStemPoint(0.5);
                 if (dna.branchStyle === 'alternate') {
-                    renderLeaf(group, dna, s2x, 135, -angle * lean, 2, fillStyle);
-                    renderLeaf(group, dna, s2x, 125, angle * lean, 2, fillStyle);
+                    const leafPt1 = getStemPoint(0.45);
+                    const leafPt2 = getStemPoint(0.55);
+                    renderLeaf(group, dna, leafPt1.x, leafPt1.y, wiltedAngle(-angle * lean), 2, fillStyle);
+                    renderLeaf(group, dna, leafPt2.x, leafPt2.y, wiltedAngle(angle * lean), 2, fillStyle);
                 } else {
-                    renderLeaf(group, dna, s2x, 130, -angle - 15, 2, fillStyle);
-                    renderLeaf(group, dna, s2x, 130, angle + 15, 2, fillStyle);
+                    renderLeaf(group, dna, leafPt.x, leafPt.y, wiltedAngle(-angle - 15), 2, fillStyle);
+                    renderLeaf(group, dna, leafPt.x, leafPt.y, wiltedAngle(angle + 15), 2, fillStyle);
+                }
+                
+                // Extra leaf node if plant has 4+ leaf nodes
+                if (leafNodes >= 4) {
+                    const extraPt = getStemPoint(0.38);
+                    renderLeaf(group, dna, extraPt.x, extraPt.y, wiltedAngle(-angle * lean * 0.8), 1, fillStyle);
                 }
             }
             
-            // Stage 3: Top section with branches
+            // Stage 3: Top stem (0.6-1.0) with branches and more leaves
             if (stage >= 3) {
-                const s2x = 100 + (dna.stemCurveX * 0.5 * lean);
-                drawStem(group, s2x, 130, mainEndX, topY, 3, strokeStyle);
-                renderLeaf(group, dna, mainEndX, topY, -30, 3, fillStyle);
-                renderLeaf(group, dna, mainEndX, topY, 30, 3, fillStyle);
+                drawMainStem(0.6, 1.0, 3);
+                const topPt = getStemPoint(1.0);
+                renderLeaf(group, dna, topPt.x, topPt.y, wiltedAngle(-30), 3, fillStyle);
+                renderLeaf(group, dna, topPt.x, topPt.y, wiltedAngle(30), 3, fillStyle);
                 
-                // Side Branches - varied directions based on DNA
-                if(dna.flowerCount >= 2) {
-                    const branch1X = mainEndX + (spread * lean * -1); // Opposite to lean
-                    drawStem(group, s2x, 130, branch1X, topY + 10, 2, strokeStyle);
-                    renderLeaf(group, dna, branch1X, topY + 10, -angle * lean * -1, 3, fillStyle);
+                // Extra leaf node if plant has 5 leaf nodes
+                if (leafNodes >= 5) {
+                    const extraPt = getStemPoint(0.7);
+                    renderLeaf(group, dna, extraPt.x, extraPt.y, wiltedAngle(angle * lean), 2, fillStyle);
                 }
-                if(dna.flowerCount >= 3) {
-                    const branch2X = mainEndX + (spread * lean); // Same as lean
-                    drawStem(group, s2x, 130, branch2X, topY + 15, 2, strokeStyle);
-                    renderLeaf(group, dna, branch2X, topY + 15, angle * lean, 3, fillStyle);
+                
+                // Side branches for flowers
+                if (dna.flowerCount >= 2) {
+                    const branchStart = getStemPoint(0.65);
+                    const branchEndX = branchStart.x + (spread * lean * -1);
+                    const branchEndY = topPt.y + 15;
+                    drawStem(group, branchStart.x, branchStart.y, branchEndX, branchEndY, 2, strokeStyle);
+                    renderLeaf(group, dna, branchEndX, branchEndY, -angle * lean * -1, 2, fillStyle);
+                }
+                if (dna.flowerCount >= 3) {
+                    const branchStart = getStemPoint(0.7);
+                    const branchEndX = branchStart.x + (spread * lean);
+                    const branchEndY = topPt.y + 20;
+                    drawStem(group, branchStart.x, branchStart.y, branchEndX, branchEndY, 2, strokeStyle);
+                    renderLeaf(group, dna, branchEndX, branchEndY, angle * lean, 2, fillStyle);
                 }
             }
             
@@ -969,15 +1178,20 @@
             };
 
             if (stage >= 4) {
-                const s2x = 100 + (dna.stemCurveX * 0.5 * lean);
-                renderFlowerOrBud(mainEndX, topY);
-                if(dna.flowerCount >= 2) {
-                    const branch1X = mainEndX + (spread * lean * -1);
-                    renderFlowerOrBud(branch1X, topY + 10);
+                const topPt = getStemPoint(1.0);
+                renderFlowerOrBud(topPt.x, topPt.y);
+                
+                if (dna.flowerCount >= 2) {
+                    const branchStart = getStemPoint(0.65);
+                    const branchEndX = branchStart.x + (spread * lean * -1);
+                    const branchEndY = topPt.y + 15;
+                    renderFlowerOrBud(branchEndX, branchEndY);
                 }
-                if(dna.flowerCount >= 3) {
-                    const branch2X = mainEndX + (spread * lean);
-                    renderFlowerOrBud(branch2X, topY + 15);
+                if (dna.flowerCount >= 3) {
+                    const branchStart = getStemPoint(0.7);
+                    const branchEndX = branchStart.x + (spread * lean);
+                    const branchEndY = topPt.y + 20;
+                    renderFlowerOrBud(branchEndX, branchEndY);
                 }
             }
         }
@@ -1311,7 +1525,8 @@
             unlockInfo.innerHTML = `
                 <b>🎨 Pot Patterns (${totalCaught} catches):</b><br>
                 ● 0 | /// 5 | ♥ 15 | 〰 30 | ♪ 50<br>
-                ▦ 75 | ★ 100 | ◆ 150 | 🌿 200 | ☽ 300
+                ▦ 75 | ★ 100 | ◆ 150 | 🌿 200 | ☽ 300<br>
+                <span style="opacity: 0.7; font-style: italic;">Catch 5 of the same firefly to reveal its color.</span>
             `;
             grid.appendChild(unlockInfo);
             
@@ -1355,15 +1570,47 @@
         }
         function closeFireflyLog() { els.fireflyOverlay.classList.remove('open'); els.menu.classList.add('open'); }
 
-        /* --- GAME LOOP --- */
+        /* --- GAME LOOP (Optimized) --- */
+        let lastStageRendered = 0;
+        let saveDebounceTimer = null;
+        let lastTickTime = Date.now();
+        
         function startGameLoop() {
-            setInterval(() => {
-                if (state.isDead) return;
-                decay(); checkDeath(); grow(); applyGuardianBuffs();
-                attemptSpawnFirefly();
-                saveState();
-                requestAnimationFrame(render);
-            }, CONFIG.tickRate);
+            // Single master tick at 1 second intervals
+            setInterval(gameTick, CONFIG.tickRate);
+        }
+        
+        function gameTick() {
+            if (state.isDead) return;
+            
+            // Skip heavy processing when backgrounded
+            if (document.visibilityState !== 'visible') {
+                // Only update time-based state, skip rendering
+                const now = Date.now();
+                const delta = now - lastTickTime;
+                lastTickTime = now;
+                return;
+            }
+            
+            lastTickTime = Date.now();
+            
+            // Core game logic
+            decay(); 
+            checkDeath(); 
+            grow(); 
+            applyGuardianBuffs();
+            attemptSpawnFirefly();
+            
+            // Debounced save (every 5 seconds max)
+            if (!saveDebounceTimer) {
+                saveDebounceTimer = setTimeout(() => {
+                    saveState();
+                    saveDebounceTimer = null;
+                }, 5000);
+            }
+            
+            // Render only if visible
+            render();
         }
 
         function decay() {
@@ -1388,17 +1635,83 @@
         }
 
         function checkDeath() {
-            if (state.water <= 0 && state.sun <= 0 && state.love <= 0) {
+            // Check for crisis state (all stats very low)
+            const inCrisis = state.water <= 10 && state.sun <= 10 && state.love <= 10;
+            
+            if (inCrisis) {
                 state.timeAtZero += CONFIG.tickRate;
+                
+                // Crisis thresholds - accumulate scars instead of dying
+                const crisisHours = state.timeAtZero / (1000 * 60 * 60);
+                
+                if (crisisHours >= 1 && !state.scars.includes('wilt')) {
+                    // First crisis: Wilted leaves
+                    state.scars.push('wilt');
+                    state.crisisCount++;
+                    spawnFloatingText("Leaves wilting...", "#f87171");
+                    renderPlant('plantGroup', state.dna, state.stage);
+                }
+                if (crisisHours >= 3 && !state.scars.includes('bend')) {
+                    // Second crisis: Bent stem
+                    state.scars.push('bend');
+                    state.crisisCount++;
+                    spawnFloatingText("Stem weakening...", "#f87171");
+                    renderPlant('plantGroup', state.dna, state.stage);
+                }
+                if (crisisHours >= 6 && !state.scars.includes('pale')) {
+                    // Third crisis: Pale coloring
+                    state.scars.push('pale');
+                    state.crisisCount++;
+                    spawnFloatingText("Colors fading...", "#f87171");
+                    renderPlant('plantGroup', state.dna, state.stage);
+                }
+                if (crisisHours >= 9 && !state.scars.includes('dormant')) {
+                    // Final crisis: Dormant state (not dead, but needs revival)
+                    state.scars.push('dormant');
+                    state.crisisCount++;
+                    els.plantHero.classList.add('dormant-plant');
+                    spawnFloatingText("Entering dormancy...", "#f87171");
+                    showDormantOverlay();
+                }
             } else {
-                state.timeAtZero = 0;
+                // Recovering - slowly reduce crisis timer
+                state.timeAtZero = Math.max(0, state.timeAtZero - CONFIG.tickRate * 2);
+                
+                // Remove dormant state if recovering
+                if (els.plantHero.classList.contains('dormant-plant')) {
+                    const avgVitals = (state.water + state.sun + state.love) / 3;
+                    if (avgVitals > 30) {
+                        els.plantHero.classList.remove('dormant-plant');
+                        spawnFloatingText("Awakening!", "#4ade80");
+                    }
+                }
             }
-            if (state.timeAtZero > CONFIG.deathTimeLimit) {
-                state.isDead = true;
-                els.deathOverlay.classList.add('open');
-                els.plantHero.classList.add('dead-plant');
-                saveState();
-            }
+        }
+        
+        function showDormantOverlay() {
+            // Show a gentler overlay than death - plant can still be saved
+            const overlay = document.createElement('div');
+            overlay.id = 'dormantOverlay';
+            overlay.className = 'overlay dormant-overlay open';
+            overlay.innerHTML = `
+                <div class="overlay-box" style="text-align: center;">
+                    <div style="font-size: 3rem; margin-bottom: 15px;">🌙</div>
+                    <h2 style="color: #a78bfa;">Deep Dormancy</h2>
+                    <p style="opacity: 0.8; margin: 15px 0;">Your plant has entered a protective sleep.<br>It can still be revived with care.</p>
+                    <p style="font-size: 0.85rem; opacity: 0.6;">Restore water, sun, and love to awaken it.<br>Scars will remain as marks of resilience.</p>
+                    <button class="btn-base" onclick="this.parentElement.parentElement.remove()" style="margin-top: 20px;">I understand</button>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        }
+
+        function getPlantState() {
+            const avg = (state.water + state.sun + state.love) / 3;
+            if (avg >= PLANT_STATES.thriving.min) return PLANT_STATES.thriving;
+            if (avg >= PLANT_STATES.content.min) return PLANT_STATES.content;
+            if (avg >= PLANT_STATES.restless.min) return PLANT_STATES.restless;
+            if (avg >= PLANT_STATES.strained.min) return PLANT_STATES.strained;
+            return PLANT_STATES.dormant;
         }
 
         function grow() {
@@ -1414,15 +1727,22 @@
                 state.stage = nextStage;
                 els.plantHero.classList.add('evolving');
                 setTimeout(() => els.plantHero.classList.remove('evolving'), 2000);
+                // Only re-render plant when stage actually changes
                 renderPlant('plantGroup', state.dna, state.stage);
+                lastStageRendered = state.stage;
                 spawnFloatingText("✨ EVOLVED!", "white");
             }
         }
 
         function render() {
-            updateOrb(els.water, state.water, 'orbWater'); 
-            updateOrb(els.sun, state.sun, 'orbSun'); 
-            updateOrb(els.love, state.love, 'orbLove');
+            // Batch DOM reads/writes
+            const water = state.water;
+            const sun = state.sun;
+            const love = state.love;
+            
+            updateOrb(els.water, water, 'orbWater'); 
+            updateOrb(els.sun, sun, 'orbSun'); 
+            updateOrb(els.love, love, 'orbLove');
             
             els.day.innerText = `Sun ${state.day}`;
             els.genBadge.innerText = `CYCLE ${state.generation}`;
@@ -1431,7 +1751,8 @@
             els.btnSun.classList.toggle('sun-active', state.isSunLampOn);
             els.btnRain.classList.toggle('rain-active', state.isRainOn);
 
-            let scale = Math.min(1.4, 1 + (state.growth / 6000));
+            // Use CSS transform for smooth scaling
+            const scale = Math.min(1.4, 1 + (state.growth / 6000));
             els.plantGraphics.style.transform = `scale(${scale})`;
             
             if (els.menu.classList.contains('open')) updateMenuStats();
@@ -1508,11 +1829,26 @@
             checkSingCooldown(); toggleMenu();
             spawnFloatingText("🎵 Singing...", "#748ffc");
             
-            // New logic: 10% of growth time (Assuming Growth Time = Time to next stage)
-            // Simplified: 10% of CURRENT stage requirement added instantly
+            // Calculate 10% of current stage requirement
             let needed = CONFIG.stages[state.stage];
             if(state.stage < 4) needed = CONFIG.stages[state.stage+1] - CONFIG.stages[state.stage];
-            state.growth += (needed * 0.1);
+            const growthBoost = needed * 0.1;
+            state.growth += growthBoost;
+            
+            // Show growth boost indication
+            setTimeout(() => {
+                spawnFloatingText(`+${Math.floor(growthBoost)} Growth!`, "#4ade80");
+            }, 500);
+            
+            // Add glow effect to plant
+            els.plantHero.classList.add('sing-glow');
+            setTimeout(() => { els.plantHero.classList.remove('sing-glow'); }, 3000);
+            
+            // Flash progress bar
+            if(els.progressBar) {
+                els.progressBar.classList.add('progress-boost');
+                setTimeout(() => { els.progressBar.classList.remove('progress-boost'); }, 1500);
+            }
 
             let i = 0; const notes = [261, 329, 392, 523];
             const iv = setInterval(() => {
@@ -1765,7 +2101,9 @@
             state.history.push({ 
                 name: state.name, dna: state.dna, days: state.day, gen: state.generation, 
                 potColor: state.potColor, potPattern: state.potPattern, potPatternColor: state.potPatternColor,
-                harvestDate: now, lastRemembered: now
+                harvestDate: now, lastRemembered: now,
+                scars: state.scars || [], // Preserve scars in history
+                crisisCount: state.crisisCount || 0
             });
             resetGame(false);
             els.harvestOverlay.classList.remove('open');
@@ -1775,6 +2113,7 @@
         function resetGame(isFullWipe) {
              const oldHistory = isFullWipe ? [] : state.history;
              const oldFF = isFullWipe ? {} : state.fireflies;
+             const oldScars = state.scars || [];
              
              if(isFullWipe) localStorage.clear();
              
@@ -1786,11 +2125,18 @@
                 potColor: POT_COLORS[0], potPattern: 'none', potPatternColor: 'rgba(255,255,255,0.5)',
                 timeAtZero: 0, isDead: false, history: oldHistory, lastSave: Date.now(),
                 growthMultiplier: 1, singCooldownUntil: 0, fertilizeCooldownUntil: 0,
-                fireflies: oldFF, showcase: { bg: '#141517' }
+                fireflies: oldFF, showcase: { bg: '#141517' },
+                scars: [], // Fresh start for new plant
+                crisisCount: 0,
+                nestedFireflies: [],
+                lastDream: null,
+                // Inherit subtle traits from scarred parent (visual only, no mechanical effect)
+                inheritedScars: isFullWipe ? [] : oldScars.filter(s => s !== 'dormant')
             };
             
             els.deathOverlay.classList.remove('open');
-            els.plantHero.classList.remove('dead-plant'); els.plantHero.classList.add('breathing');
+            els.plantHero.classList.remove('dead-plant', 'dormant-plant'); 
+            els.plantHero.classList.add('breathing');
             updateName(state.name); els.nameInput.value = state.name;
             updatePotVisuals(); renderPlant('plantGroup', state.dna, state.stage);
             if(isFullWipe) els.showcaseLink.classList.remove('visible');
@@ -1919,6 +2265,16 @@
                 // Patch missing properties
                 if(!state.fireflies || Array.isArray(state.fireflies)) state.fireflies = {}; // Reset FF if old format
                 if(!state.showcase) state.showcase = { bg: '#141517' };
+                // New properties for scar system
+                if(!state.scars) state.scars = [];
+                if(state.crisisCount === undefined) state.crisisCount = 0;
+                if(!state.nestedFireflies) state.nestedFireflies = [];
+                if(state.lastDream === undefined) state.lastDream = null;
+                // Convert old isDead to dormant scar
+                if(state.isDead && !state.scars.includes('dormant')) {
+                    state.scars.push('dormant');
+                    state.isDead = false; // No longer binary death
+                }
             } else {
                 // Check for v1
                 const v1 = localStorage.getItem('pocketSproutSave');
@@ -1937,6 +2293,7 @@
 
             // Apply offline calculation based on lamp/rain states
             const ticks = diff;
+            const hours = diff / 3600;
             let waterChange = 0;
             let sunChange = 0;
             
@@ -1958,8 +2315,8 @@
                 state.sun = Math.max(0, state.sun - sunChange);
             }
             
-            // Love always decays
-            const loveDecay = ticks * CONFIG.decayRate.love * CONFIG.offlineDecayFactor;
+            // Love decays slower offline
+            const loveDecay = ticks * CONFIG.decayRate.love * CONFIG.offlineDecayFactor * 0.5;
             state.love = Math.max(0, state.love - loveDecay);
             
             // Calculate offline growth if plant was happy before leaving
@@ -1984,18 +2341,78 @@
                 state.day += Math.floor(diff / 3600);
             }
             
-            // Toast for 10+ minute absences
-            if(diff > 600) {
+            // Firefly nesting - chance increases with time away
+            let nestedFirefly = null;
+            if (hours >= 2 && Math.random() < Math.min(0.5, hours * 0.05)) {
+                // A firefly nested while you were away!
+                const nestedId = Math.floor(Math.random() * 256);
+                if (!state.fireflies[nestedId]) state.fireflies[nestedId] = 0;
+                state.fireflies[nestedId] = Math.min(CONFIG.maxFireflyStack, state.fireflies[nestedId] + 1);
+                nestedFirefly = {
+                    id: nestedId,
+                    family: FF_FAMILIES[Math.floor(nestedId / FF_BUCKET_SIZE)],
+                    color: getFireflyColor(nestedId)
+                };
+            }
+            
+            // Returning firefly - rare chance a previously caught firefly "returns"
+            let returningFirefly = null;
+            if (hours >= 4 && Math.random() < 0.15) {
+                const caughtIds = Object.keys(state.fireflies).filter(k => state.fireflies[k] >= 5);
+                if (caughtIds.length > 0) {
+                    const returnId = parseInt(caughtIds[Math.floor(Math.random() * caughtIds.length)]);
+                    returningFirefly = {
+                        id: returnId,
+                        family: FF_FAMILIES[Math.floor(returnId / FF_BUCKET_SIZE)],
+                        color: getFireflyColor(returnId)
+                    };
+                }
+            }
+            
+            // Pick a dream for longer absences
+            let dream = null;
+            if (hours >= 1) {
+                const dreamIndex = Math.floor(Math.random() * DREAMS.length);
+                // Avoid repeating the same dream
+                if (dreamIndex !== state.lastDream) {
+                    dream = DREAMS[dreamIndex];
+                    state.lastDream = dreamIndex;
+                }
+            }
+            
+            // Build welcome toast
+            if(diff > 600) { // 10+ minute absences
                 els.welcomeToast.classList.add('visible');
-                // Pick random missed firefly
-                const fam = FF_FAMILIES[Math.floor(Math.random()*FF_FAMILIES.length)];
-                const totalVitalsChange = Math.abs(waterChange) + Math.abs(sunChange) + loveDecay;
-                document.getElementById('toastBody').innerHTML = `
-                    While you were gone (${Math.floor(diff/60)}m):<br>
-                    - Plant consumed ~${totalVitalsChange.toFixed(0)} vitals.<br>
-                    ${wasHappy ? `- Growth continued! 🌱<br>` : ''}
-                    - A <span style='color:gold'>${fam} Firefly</span> flew by...
-                `;
+                
+                let toastContent = '';
+                
+                // Dream first (most prominent)
+                if (dream) {
+                    toastContent += `<div style="font-style: italic; margin-bottom: 10px; opacity: 0.9;">"${dream}"</div>`;
+                }
+                
+                // Time summary
+                const timeStr = hours >= 1 ? `${Math.floor(hours)}h ${Math.floor((diff % 3600) / 60)}m` : `${Math.floor(diff/60)}m`;
+                toastContent += `<div style="font-size: 0.8rem; opacity: 0.7;">You were away for ${timeStr}</div>`;
+                
+                // Plant status
+                const plantState = getPlantState();
+                toastContent += `<div style="margin: 8px 0;">Your plant is <span style="color: ${plantState.color}; font-weight: bold;">${plantState.label}</span></div>`;
+                
+                // Firefly events
+                if (nestedFirefly) {
+                    toastContent += `<div style="color: ${nestedFirefly.color};">🦋 A ${nestedFirefly.family} firefly nested nearby!</div>`;
+                }
+                if (returningFirefly) {
+                    toastContent += `<div style="color: ${returningFirefly.color};">✨ An old friend returned to visit...</div>`;
+                }
+                
+                // Growth note
+                if (wasHappy) {
+                    toastContent += `<div style="opacity: 0.7; font-size: 0.85rem; margin-top: 5px;">Growth continued while you were away 🌱</div>`;
+                }
+                
+                document.getElementById('toastBody').innerHTML = toastContent;
             }
             
             state.lastSave = now;
@@ -2003,8 +2420,16 @@
         }
         function closeToast() { els.welcomeToast.classList.remove('visible'); }
         function handleVisibility() {
-            if(document.visibilityState === 'visible') { processOfflineProgress(); audio.ctx.resume(); }
-            else { saveState(); }
+            if(document.visibilityState === 'visible') { 
+                processOfflineProgress(); 
+                if(audio.ctx) audio.ctx.resume();
+                // Resume CSS animations
+                document.body.classList.remove('paused');
+            } else { 
+                saveState();
+                // Pause CSS animations when backgrounded
+                document.body.classList.add('paused');
+            }
         }
 
         /* --- DEBUG --- */
@@ -2028,7 +2453,28 @@
             document.getElementById('menuStage').innerText = getStageName(state.stage);
             document.getElementById('menuGen').innerText = state.generation;
             document.getElementById('menuAge').innerText = state.day + " Suns";
-            document.getElementById('menuHealth').innerText = Math.floor((state.water+state.sun+state.love)/3) + "%";
+            
+            // Show qualitative state instead of percentage
+            const plantState = getPlantState();
+            const healthEl = document.getElementById('menuHealth');
+            healthEl.innerText = plantState.label;
+            healthEl.style.color = plantState.color;
+            
+            // Show scars if any
+            const scarsContainer = document.getElementById('menuScars');
+            const scarsList = document.getElementById('menuScarList');
+            if (state.scars && state.scars.length > 0) {
+                scarsContainer.style.display = 'flex';
+                const scarLabels = {
+                    'wilt': 'Wilted',
+                    'bend': 'Bent',
+                    'pale': 'Faded',
+                    'dormant': 'Dormant'
+                };
+                scarsList.innerText = state.scars.map(s => scarLabels[s] || s).join(', ');
+            } else {
+                scarsContainer.style.display = 'none';
+            }
             
             if (state.stage < 5) {
                 const totalNeeded = CONFIG.stages[state.stage];
