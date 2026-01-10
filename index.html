@@ -882,8 +882,15 @@
                 else if(containerId === 'scPlant') defsId = 'scDefs';
 
                 const defs = document.getElementById(defsId);
-                 if(defs && !document.getElementById(containerId+'_stemGrad')) {
-                     defs.innerHTML += `
+                if(defs) {
+                    // Remove old gradients if they exist (so we use current DNA colors)
+                    const oldStem = document.getElementById(containerId+'_stemGrad');
+                    const oldLeaf = document.getElementById(containerId+'_leafGrad');
+                    if(oldStem) oldStem.remove();
+                    if(oldLeaf) oldLeaf.remove();
+                    
+                    // Create new gradients with current DNA
+                    defs.innerHTML += `
                         <linearGradient id="${containerId}_stemGrad" x1="0%" y1="100%" x2="0%" y2="0%">
                             <stop offset="0%" style="stop-color:hsl(${dna.colorH}, ${dna.colorS}%, ${dna.colorL}%);stop-opacity:1" />
                             <stop offset="100%" style="stop-color:hsl(${dna.colorH}, ${dna.colorS}%, ${dna.colorL + 20}%);stop-opacity:1" />
@@ -893,7 +900,7 @@
                             <stop offset="100%" style="stop-color:hsl(${dna.colorH}, ${dna.colorS}%, ${dna.colorL + 25}%);stop-opacity:1" />
                         </linearGradient>
                     `;
-                 }
+                }
             }
 
             // Use gradients if available, otherwise fall back to solid colors
