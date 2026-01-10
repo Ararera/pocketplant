@@ -78,6 +78,18 @@
         }
         .plant-name { font-size: 1.4rem; font-weight: 200; letter-spacing: 1px; }
         .day-counter { font-size: 0.8rem; opacity: 0.4; margin-top: 5px; font-weight: 300; }
+        
+        .evolution-bar-container {
+            width: 80px; height: 3px; margin: 8px auto 0; 
+            background: rgba(255,255,255,0.1); border-radius: 2px;
+            overflow: hidden;
+        }
+        .evolution-bar {
+            height: 100%; width: 0%; 
+            background: rgba(255,255,255,0.25);
+            border-radius: 2px;
+            transition: width 1s ease;
+        }
 
         .showcase-link {
             position: absolute; top: 20px; right: 20px;
@@ -312,22 +324,18 @@
         .firefly.big-firefly {
             width: 14px; height: 14px; 
             box-shadow: 0 0 25px 8px currentColor, 0 0 50px 15px currentColor;
-            animation: fireflyFloat 20s linear infinite, guardianLifecycle 30s ease-in-out forwards, guardianPulse 2s infinite ease-in-out;
+            animation: fireflyFloat 20s linear infinite, guardianLifecycle 2s ease-out forwards, guardianPulse 2s infinite ease-in-out;
             z-index: 125;
         }
         .firefly.big-firefly.guardian-active {
             animation: fireflyFloat 20s linear infinite, guardianPulseActive 3s infinite ease-in-out;
-            opacity: 0.7;
         }
         .firefly.big-firefly.guardian-fading {
             animation: fireflyFloat 20s linear infinite, guardianFadeOut 2s ease-out forwards;
         }
         @keyframes guardianLifecycle {
-            0% { opacity: 0; transform: scale(0.5); } 
-            5% { opacity: 1; transform: scale(1.2); }
-            10% { transform: scale(1); }
-            90% { opacity: 1; } 
-            100% { opacity: 0; }
+            0% { opacity: 0; } 
+            100% { opacity: 1; }
         }
         @keyframes guardianPulse { 
             0%, 100% { box-shadow: 0 0 25px 8px currentColor, 0 0 50px 15px currentColor; } 
@@ -338,8 +346,8 @@
             50% { box-shadow: 0 0 30px 10px currentColor, 0 0 60px 20px currentColor; opacity: 0.8; } 
         }
         @keyframes guardianFadeOut {
-            0% { opacity: 0.7; transform: scale(1); }
-            100% { opacity: 0; transform: scale(0.5); }
+            0% { opacity: 0.7; }
+            100% { opacity: 0; }
         }
         
         @keyframes fireflyFloat {
@@ -598,6 +606,9 @@
         <div class="gen-badge" id="genBadge" onclick="handleDebugTap()"></div>
         <div class="plant-name" id="plantNameDisplay"></div>
         <div class="day-counter" id="dayDisplay"></div>
+        <div class="evolution-bar-container">
+            <div class="evolution-bar" id="evolutionBar"></div>
+        </div>
     </div>
     
     <!-- Main Menu Overlay -->
@@ -967,52 +978,68 @@
             err: function() { this.play(100, 'sawtooth', 0.2); },
             chime: function() { this.play(600, 'sine', 0.1); this.play(800, 'sine', 0.2); },
             
-            // Background Ambience with multiple songs
-            songs: [
-                // Song 1: Original gentle melody
-                [
-                    {f:440,d:2}, {f:554,d:1}, {f:587,d:1}, {f:554,d:2}, {f:440,d:2},
-                    {f:370,d:2}, {f:440,d:1}, {f:554,d:1}, {f:440,d:2}, {f:370,d:2},
-                    {f:392,d:2}, {f:494,d:1}, {f:587,d:1}, {f:494,d:2}, {f:392,d:2},
-                    {f:330,d:2}, {f:392,d:1}, {f:494,d:1}, {f:392,d:2}, {f:330,d:2},
-                    {f:370,d:2}, {f:440,d:1}, {f:554,d:1}, {f:440,d:2}, {f:370,d:2},
-                    {f:294,d:2}, {f:370,d:1}, {f:440,d:1}, {f:370,d:2}, {f:294,d:2},
-                    {f:330,d:1}, {f:370,d:1}, {f:440,d:4}
-                ],
-                // Song 2: G# A pattern
-                [
-                    {f:415,d:1}, {f:440,d:1}, {f:415,d:1}, {f:440,d:1}, {f:415,d:1}, {f:440,d:1}, {f:415,d:1}, {f:440,d:1},
-                    {f:494,d:1}, {f:554,d:1}, {f:494,d:1}, {f:554,d:1}, {f:494,d:1}, {f:554,d:1}, {f:494,d:1}, {f:554,d:1},
-                    {f:415,d:1}, {f:440,d:1}, {f:415,d:1}, {f:440,d:1}, {f:415,d:1}, {f:440,d:1}, {f:415,d:1}, {f:440,d:1}
-                ],
-                // Song 3: F# G A B descending
-                [
-                    {f:370,d:1}, {f:392,d:1}, {f:440,d:1}, {f:494,d:1}, {f:440,d:1}, {f:392,d:1}, {f:370,d:1}, {f:330,d:1},
-                    {f:294,d:1}, {f:330,d:1}, {f:370,d:1}, {f:392,d:1}, {f:370,d:1}, {f:330,d:1}, {f:294,d:1}, {f:277,d:1},
-                    {f:494,d:1}, {f:440,d:1}, {f:392,d:1}, {f:370,d:1}, {f:392,d:1}, {f:440,d:1}, {f:494,d:1}, {f:440,d:1}
-                ],
-                // Song 4: D F# G A pattern
-                [
-                    {f:294,d:1}, {f:370,d:1}, {f:392,d:1}, {f:440,d:1}, {f:494,d:1}, {f:440,d:1}, {f:392,d:1}, {f:370,d:1},
-                    {f:330,d:1}, {f:294,d:1}, {f:330,d:1}, {f:370,d:1}, {f:392,d:1}, {f:440,d:1}, {f:494,d:1}, {f:440,d:1},
-                    {f:392,d:1}, {f:370,d:1}, {f:330,d:1}, {f:294,d:1}, {f:330,d:1}, {f:370,d:1}, {f:392,d:1}, {f:370,d:1}
-                ]
+            // Background Ambience - Single looping melody in C minor
+            // Note frequencies: C=262, D=294, Eb=311, F=349, G=392, Ab=415, Bb=466, B=494, C5=523
+            song: [
+                // C, Eb, G, Rest, C, D, Eb, Rest, F, Ab, C, Rest, G, Bb, D, Rest
+                {f:262,d:1}, {f:311,d:1}, {f:392,d:1}, {f:0,d:1}, {f:262,d:1}, {f:294,d:1}, {f:311,d:1}, {f:0,d:1},
+                {f:349,d:1}, {f:415,d:1}, {f:523,d:1}, {f:0,d:1}, {f:392,d:1}, {f:466,d:1}, {f:294,d:1}, {f:0,d:1},
+                // C, Eb, G, C, Bb, Ab, G, F, Eb, D, C, Rest, G, Rest
+                {f:262,d:1}, {f:311,d:1}, {f:392,d:1}, {f:523,d:1}, {f:466,d:1}, {f:415,d:1}, {f:392,d:1}, {f:349,d:1},
+                {f:311,d:1}, {f:294,d:1}, {f:262,d:1}, {f:0,d:1}, {f:392,d:1}, {f:0,d:1},
+                // C, D, Eb, F, G, Ab, Bb, C, Rest, Bb, Ab, G, F, Eb, D, C, Rest
+                {f:262,d:1}, {f:294,d:1}, {f:311,d:1}, {f:349,d:1}, {f:392,d:1}, {f:415,d:1}, {f:466,d:1}, {f:523,d:1},
+                {f:0,d:1}, {f:466,d:1}, {f:415,d:1}, {f:392,d:1}, {f:349,d:1}, {f:311,d:1}, {f:294,d:1}, {f:262,d:1}, {f:0,d:1},
+                // C, Eb, G, Rest, F, Ab, C, Rest, G, B, D, Rest, C, Eb, G, C, Rest
+                {f:262,d:1}, {f:311,d:1}, {f:392,d:1}, {f:0,d:1}, {f:349,d:1}, {f:415,d:1}, {f:523,d:1}, {f:0,d:1},
+                {f:392,d:1}, {f:494,d:1}, {f:294,d:1}, {f:0,d:1}, {f:262,d:1}, {f:311,d:1}, {f:392,d:1}, {f:523,d:1}, {f:0,d:1},
+                // C, D, Eb, F, G, Rest, Ab, Bb, C, D, Eb, Rest
+                {f:262,d:1}, {f:294,d:1}, {f:311,d:1}, {f:349,d:1}, {f:392,d:1}, {f:0,d:1},
+                {f:415,d:1}, {f:466,d:1}, {f:523,d:1}, {f:587,d:1}, {f:622,d:1}, {f:0,d:1},
+                // D, C, Bb, Ab, G, F, Eb, D, C, Rest, G, F, Eb, D, C, Rest
+                {f:294,d:1}, {f:262,d:1}, {f:466,d:1}, {f:415,d:1}, {f:392,d:1}, {f:349,d:1}, {f:311,d:1}, {f:294,d:1},
+                {f:262,d:1}, {f:0,d:1}, {f:392,d:1}, {f:349,d:1}, {f:311,d:1}, {f:294,d:1}, {f:262,d:1}, {f:0,d:1},
+                // C, C, G, G, Ab, Ab, G, Rest, F, F, Eb, Eb, D, D, C, Rest
+                {f:262,d:1}, {f:262,d:1}, {f:392,d:1}, {f:392,d:1}, {f:415,d:1}, {f:415,d:1}, {f:392,d:1}, {f:0,d:1},
+                {f:349,d:1}, {f:349,d:1}, {f:311,d:1}, {f:311,d:1}, {f:294,d:1}, {f:294,d:1}, {f:262,d:1}, {f:0,d:1},
+                // G, G, F, F, Eb, Eb, D, Rest (x2)
+                {f:392,d:1}, {f:392,d:1}, {f:349,d:1}, {f:349,d:1}, {f:311,d:1}, {f:311,d:1}, {f:294,d:1}, {f:0,d:1},
+                {f:392,d:1}, {f:392,d:1}, {f:349,d:1}, {f:349,d:1}, {f:311,d:1}, {f:311,d:1}, {f:294,d:1}, {f:0,d:1},
+                // C, C, G, G, Ab, Ab, G, Rest, F, F, Eb, Eb, D, D, C, Rest
+                {f:262,d:1}, {f:262,d:1}, {f:392,d:1}, {f:392,d:1}, {f:415,d:1}, {f:415,d:1}, {f:392,d:1}, {f:0,d:1},
+                {f:349,d:1}, {f:349,d:1}, {f:311,d:1}, {f:311,d:1}, {f:294,d:1}, {f:294,d:1}, {f:262,d:1}, {f:0,d:1},
+                // Eb, F, G, Ab, Bb, C, Rest, Bb, Ab, G, F, Eb, D, Rest
+                {f:311,d:1}, {f:349,d:1}, {f:392,d:1}, {f:415,d:1}, {f:466,d:1}, {f:523,d:1}, {f:0,d:1},
+                {f:466,d:1}, {f:415,d:1}, {f:392,d:1}, {f:349,d:1}, {f:311,d:1}, {f:294,d:1}, {f:0,d:1},
+                // C, Eb, G, C, Rest, Ab, C, Eb, Ab, Rest, G, B, D, G, Rest
+                {f:262,d:1}, {f:311,d:1}, {f:392,d:1}, {f:523,d:1}, {f:0,d:1},
+                {f:415,d:1}, {f:523,d:1}, {f:622,d:1}, {f:830,d:1}, {f:0,d:1},
+                {f:392,d:1}, {f:494,d:1}, {f:587,d:1}, {f:784,d:1}, {f:0,d:1},
+                // C, Eb, G, C, Rest
+                {f:262,d:1}, {f:311,d:1}, {f:392,d:1}, {f:523,d:1}, {f:0,d:1},
+                // C, D, Eb, F, G, Ab, Bb, Rest, C, D, Eb, F, G, Rest
+                {f:262,d:1}, {f:294,d:1}, {f:311,d:1}, {f:349,d:1}, {f:392,d:1}, {f:415,d:1}, {f:466,d:1}, {f:0,d:1},
+                {f:523,d:1}, {f:587,d:1}, {f:622,d:1}, {f:698,d:1}, {f:784,d:1}, {f:0,d:1},
+                // G, F, Eb, D, C, Bb, Ab, Rest, G, F, Eb, D, C, Rest
+                {f:392,d:1}, {f:349,d:1}, {f:311,d:1}, {f:294,d:1}, {f:262,d:1}, {f:233,d:1}, {f:208,d:1}, {f:0,d:1},
+                {f:392,d:1}, {f:349,d:1}, {f:311,d:1}, {f:294,d:1}, {f:262,d:1}, {f:0,d:1},
+                // C, Eb, G, Rest, C, Eb, F, Rest, G, Bb, D, Rest
+                {f:262,d:1}, {f:311,d:1}, {f:392,d:1}, {f:0,d:1}, {f:262,d:1}, {f:311,d:1}, {f:349,d:1}, {f:0,d:1},
+                {f:392,d:1}, {f:466,d:1}, {f:294,d:1}, {f:0,d:1},
+                // C, G, Eb, C, Rest, Rest, C (ending with longer notes for smooth loop)
+                {f:523,d:1}, {f:392,d:1}, {f:311,d:1}, {f:262,d:2}, {f:0,d:3}, {f:262,d:2}, {f:0,d:2}
             ],
-            currentSongIdx: 0,
             
             startAmbience: function() {
                 if(this.isMusicPlaying) return;
                 this.isMusicPlaying = true;
-                
-                // Start from a random song
-                this.currentSongIdx = Math.floor(Math.random() * this.songs.length);
                 this.playSong();
             },
             
             playSong: function() {
                 if(!this.isMusicPlaying) return;
                 
-                const tune = this.songs[this.currentSongIdx];
+                const tune = this.song;
                 let noteIdx = 0;
                 
                 const playNext = () => {
@@ -1023,18 +1050,16 @@
                     }
                     
                     if(noteIdx >= tune.length) {
-                        // Song finished - pause then play next song
-                        this.currentSongIdx = (this.currentSongIdx + 1) % this.songs.length;
-                        // 3-5 seconds of silence between songs
-                        const silenceDuration = 3000 + Math.random() * 2000;
-                        this.bgTimer = setTimeout(() => this.playSong(), silenceDuration);
-                        return;
+                        // Song finished - loop seamlessly
+                        noteIdx = 0;
                     }
                     
                     const n = tune[noteIdx];
-                    this.play(n.f, 'triangle', n.d * 0.8, 0.02);
+                    if(n.f > 0) { // Skip rests (f=0)
+                        this.play(n.f, 'triangle', n.d * 0.7, 0.02);
+                    }
                     noteIdx++;
-                    this.bgTimer = setTimeout(playNext, n.d * 600);
+                    this.bgTimer = setTimeout(playNext, n.d * 380);
                 };
                 playNext();
             },
@@ -1450,7 +1475,8 @@
                 fireflyGrid: document.getElementById('fireflyGrid'),
                 showcaseLink: document.getElementById('showcaseLink'),
                 showcaseOverlay: document.getElementById('showcaseOverlay'),
-                welcomeToast: document.getElementById('welcomeToast')
+                welcomeToast: document.getElementById('welcomeToast'),
+                evolutionBar: document.getElementById('evolutionBar')
             };
             
             const container = document.getElementById('rainContainer');
@@ -1917,6 +1943,18 @@
             const scale = Math.min(1.4, 1 + (state.growth / 6000));
             els.plantGraphics.style.transform = `scale(${scale})`;
             
+            // Update evolution progress bar
+            if (els.evolutionBar) {
+                if (state.stage < 5) {
+                    const prevStage = CONFIG.stages[state.stage - 1] || 0;
+                    const nextStage = CONFIG.stages[state.stage];
+                    const progress = Math.min(100, ((state.growth - prevStage) / (nextStage - prevStage)) * 100);
+                    els.evolutionBar.style.width = progress + '%';
+                } else {
+                    els.evolutionBar.style.width = '100%';
+                }
+            }
+            
             if (els.menu.classList.contains('open')) updateMenuStats();
         }
 
@@ -2347,7 +2385,7 @@
                 const d = document.createElement('div');
                 d.className = 'sc-plant-thumb';
                 
-                // Create mini SVG preview of the plant
+                // Create mini SVG preview using the same approach as harvest preview
                 const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
                 svg.setAttribute("viewBox", "0 0 200 250");
                 svg.innerHTML = `<defs id="thumbDefs${i}"></defs><g id="thumbPlant${i}"></g><g id="thumbPot${i}"></g>`;
@@ -2362,47 +2400,33 @@
                 d.onclick = () => loadShowcasePlant(i);
                 list.appendChild(d);
                 
-                // Render mini plant after DOM insertion
+                // Render using proper functions after DOM insertion
                 setTimeout(() => {
                     const defs = svg.querySelector(`#thumbDefs${i}`);
                     const plantG = svg.querySelector(`#thumbPlant${i}`);
                     const potG = svg.querySelector(`#thumbPot${i}`);
                     
-                    // Add gradients
+                    // Copy patterns to thumb defs
+                    const patterns = document.getElementById('plantDefs').innerHTML.match(/<pattern[\s\S]*?<\/pattern>/g);
+                    if(patterns && defs) defs.innerHTML = patterns.join('');
+                    
+                    // Add gradients for this plant
                     if(defs) {
-                        defs.innerHTML = `
-                            <linearGradient id="thumb${i}_stemGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                        defs.innerHTML += `
+                            <linearGradient id="thumbPlant${i}_stemGrad" x1="0%" y1="100%" x2="0%" y2="0%">
                                 <stop offset="0%" style="stop-color:hsl(${h.dna.colorH}, ${h.dna.colorS}%, ${h.dna.colorL}%)" />
                                 <stop offset="100%" style="stop-color:hsl(${h.dna.colorH}, ${h.dna.colorS}%, ${h.dna.colorL + 20}%)" />
                             </linearGradient>
-                            <linearGradient id="thumb${i}_leafGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                            <linearGradient id="thumbPlant${i}_leafGrad" x1="0%" y1="100%" x2="0%" y2="0%">
                                 <stop offset="0%" style="stop-color:hsl(${h.dna.colorH}, ${h.dna.colorS}%, ${h.dna.colorL + 5}%)" />
                                 <stop offset="100%" style="stop-color:hsl(${h.dna.colorH}, ${h.dna.colorS}%, ${h.dna.colorL + 25}%)" />
                             </linearGradient>
                         `;
                     }
                     
-                    // Simple mini pot
-                    if(potG) {
-                        potG.innerHTML = `
-                            <ellipse cx="100" cy="190" rx="25" ry="5" fill="#5d4037"/>
-                            <path d="M75 190 L125 190 L118 220 L82 220 Z" fill="${h.potColor || '#c9784a'}"/>
-                            <path d="M72 185 L128 185 L126 192 L74 192 Z" fill="${h.potColor || '#c9784a'}" style="filter: brightness(1.1);"/>
-                        `;
-                    }
-                    
-                    // Simple mini plant representation
-                    if(plantG) {
-                        const stemColor = `hsl(${h.dna.colorH}, ${h.dna.colorS}%, ${h.dna.colorL}%)`;
-                        const leafColor = `hsl(${h.dna.colorH}, ${h.dna.colorS}%, ${h.dna.colorL + 15}%)`;
-                        plantG.innerHTML = `
-                            <path d="M100 190 Q${100 + (h.dna.stemCurveX || 0) * 0.3} 150 ${100 + (h.dna.stemCurveX || 0) * 0.5} 110" 
-                                  stroke="${stemColor}" stroke-width="4" fill="none" stroke-linecap="round"/>
-                            <ellipse cx="${95 + (h.dna.stemCurveX || 0) * 0.3}" cy="145" rx="12" ry="8" fill="${leafColor}" transform="rotate(-30, ${95 + (h.dna.stemCurveX || 0) * 0.3}, 145)"/>
-                            <ellipse cx="${105 + (h.dna.stemCurveX || 0) * 0.3}" cy="145" rx="12" ry="8" fill="${leafColor}" transform="rotate(30, ${105 + (h.dna.stemCurveX || 0) * 0.3}, 145)"/>
-                            <circle cx="${100 + (h.dna.stemCurveX || 0) * 0.5}" cy="105" r="12" fill="${h.dna.flowerColor}"/>
-                        `;
-                    }
+                    // Use proper render functions
+                    if(potG) renderPot(potG, { potColor: h.potColor, potPattern: h.potPattern, potPatternColor: h.potPatternColor });
+                    if(plantG) renderPlant(`thumbPlant${i}`, h.dna, 5, false);
                 }, 0);
             });
             // Load first by default if none selected
@@ -2677,7 +2701,8 @@
             
             // Water: if rain was on, it was gaining; otherwise decaying
             if (state.isRainOn) {
-                waterChange = ticks * 0.2 * CONFIG.offlineDecayFactor;
+                // Rain fills water over time - faster gain
+                waterChange = ticks * 0.3 * CONFIG.offlineDecayFactor;
                 state.water = Math.min(100, state.water + waterChange);
             } else {
                 waterChange = ticks * CONFIG.decayRate.water * CONFIG.offlineDecayFactor;
@@ -2686,7 +2711,8 @@
             
             // Sun: if sun lamp was on, it was gaining; otherwise decaying
             if (state.isSunLampOn) {
-                sunChange = ticks * 0.5 * CONFIG.offlineDecayFactor;
+                // Sun lamp fills sun over time - faster gain
+                sunChange = ticks * 0.4 * CONFIG.offlineDecayFactor;
                 state.sun = Math.min(100, state.sun + sunChange);
             } else {
                 sunChange = ticks * CONFIG.decayRate.sun * CONFIG.offlineDecayFactor;
@@ -2697,10 +2723,10 @@
             const loveDecay = ticks * CONFIG.decayRate.love * CONFIG.offlineDecayFactor * 0.5;
             state.love = Math.max(0, state.love - loveDecay);
             
-            // Calculate offline growth if plant was happy before leaving
+            // Calculate offline growth - 2x faster than before
             const wasHappy = state.water > CONFIG.threshold && state.sun > CONFIG.threshold && state.love > CONFIG.threshold;
             if (wasHappy && !state.isDead) {
-                const offlineGrowth = ticks * CONFIG.growthRate * state.growthMultiplier * CONFIG.offlineDecayFactor;
+                const offlineGrowth = ticks * CONFIG.growthRate * state.growthMultiplier * CONFIG.offlineDecayFactor * 2;
                 state.growth += offlineGrowth;
                 
                 // Check for stage evolution
@@ -2801,10 +2827,18 @@
             if(document.visibilityState === 'visible') { 
                 processOfflineProgress(); 
                 if(audio.ctx) audio.ctx.resume();
+                // Resume rain sound if it was playing
+                if(state.isRainOn && audio.rainGain) {
+                    audio.rainGain.gain.linearRampToValueAtTime(0.05, audio.ctx.currentTime + 0.5);
+                }
                 // Resume CSS animations
                 document.body.classList.remove('paused');
             } else { 
                 saveState();
+                // Pause rain sound
+                if(audio.rainGain && audio.ctx) {
+                    audio.rainGain.gain.linearRampToValueAtTime(0, audio.ctx.currentTime + 0.3);
+                }
                 // Pause CSS animations when backgrounded
                 document.body.classList.add('paused');
             }
