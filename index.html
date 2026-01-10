@@ -800,8 +800,13 @@
             const leafHue = isGreenPlant ? (80 + Math.random() * 80) : baseHue; // Green range or wild
             
             return {
-                stemCurveX: (Math.random() * 40) - 20, 
-                stemCurveY: Math.random() * 30,
+                stemCurveX: (Math.random() * 50) - 25, // More curve variety
+                stemCurveY: Math.random() * 40,
+                // Growth pattern variety
+                branchStyle: Math.random() > 0.5 ? 'alternate' : (Math.random() > 0.5 ? 'opposite' : 'spiral'),
+                branchAngle: 30 + Math.random() * 40, // 30-70 degrees
+                branchSpread: 20 + Math.random() * 30, // How far branches spread
+                leanDirection: Math.random() > 0.5 ? 1 : -1, // Lean left or right
                 // Expanded Variety
                 leafType: Math.random() > 0.6 ? 'pointy' : (Math.random() > 0.3 ? 'round' : (Math.random() > 0.5 ? 'oak' : 'heart')),
                 leafPattern: Math.random() > 0.8 ? 'striped' : 'solid',
@@ -822,16 +827,16 @@
             const defs = document.getElementById('plantDefs');
             if(defs) {
                 const patterns = `
-                    <pattern id="patDots" x="0" y="0" width="18" height="18" patternUnits="userSpaceOnUse"><circle cx="9" cy="9" r="4" fill="var(--pot-pat-color)"/></pattern>
-                    <pattern id="patStripes" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="20" stroke="var(--pot-pat-color)" stroke-width="8" /></pattern>
-                    <pattern id="patHearts" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse"><path d="M10 18 L3 8 Q1 3 7 3 Q10 3 10 7 Q10 3 13 3 Q19 3 17 8 z" fill="var(--pot-pat-color)" transform="translate(1,1)"/></pattern>
-                    <pattern id="patNotes" x="0" y="0" width="28" height="28" patternUnits="userSpaceOnUse"><text x="4" y="24" font-size="24" fill="var(--pot-pat-color)">♪</text></pattern>
-                    <pattern id="patStars" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse"><polygon points="12,2 15,10 24,10 17,16 20,24 12,19 4,24 7,16 0,10 9,10" fill="var(--pot-pat-color)" transform="scale(0.8)"/></pattern>
-                    <pattern id="patWaves" x="0" y="0" width="20" height="10" patternUnits="userSpaceOnUse"><path d="M0 5 Q5 0 10 5 T20 5" fill="none" stroke="var(--pot-pat-color)" stroke-width="2"/></pattern>
-                    <pattern id="patChecks" x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse"><rect x="0" y="0" width="8" height="8" fill="var(--pot-pat-color)"/><rect x="8" y="8" width="8" height="8" fill="var(--pot-pat-color)"/></pattern>
-                    <pattern id="patDiamonds" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><polygon points="10,0 20,10 10,20 0,10" fill="var(--pot-pat-color)" transform="scale(0.8) translate(2,2)"/></pattern>
-                    <pattern id="patLeaves" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M12 4 Q16 8 12 16 Q8 8 12 4" fill="var(--pot-pat-color)"/></pattern>
-                    <pattern id="patMoons" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M14 4 A8 8 0 1 1 14 20 A6 6 0 1 0 14 4" fill="var(--pot-pat-color)"/></pattern>
+                    <pattern id="patDots" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse"><circle cx="7" cy="7" r="3" fill="var(--pot-pat-color)"/></pattern>
+                    <pattern id="patStripes" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="10" stroke="var(--pot-pat-color)" stroke-width="4" /></pattern>
+                    <pattern id="patHearts" x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse"><path d="M8 12 L4 7 Q3 4 5.5 4 Q8 4 8 6 Q8 4 10.5 4 Q13 4 12 7 Z" fill="var(--pot-pat-color)"/></pattern>
+                    <pattern id="patNotes" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><text x="2" y="16" font-size="16" fill="var(--pot-pat-color)">♪</text></pattern>
+                    <pattern id="patStars" x="0" y="0" width="18" height="18" patternUnits="userSpaceOnUse"><polygon points="9,1 11,7 17,7 12,11 14,17 9,13 4,17 6,11 1,7 7,7" fill="var(--pot-pat-color)" transform="scale(0.7) translate(4,4)"/></pattern>
+                    <pattern id="patWaves" x="0" y="0" width="16" height="8" patternUnits="userSpaceOnUse"><path d="M0 4 Q4 0 8 4 T16 4" fill="none" stroke="var(--pot-pat-color)" stroke-width="2"/></pattern>
+                    <pattern id="patChecks" x="0" y="0" width="12" height="12" patternUnits="userSpaceOnUse"><rect x="0" y="0" width="6" height="6" fill="var(--pot-pat-color)"/><rect x="6" y="6" width="6" height="6" fill="var(--pot-pat-color)"/></pattern>
+                    <pattern id="patDiamonds" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse"><polygon points="7,1 13,7 7,13 1,7" fill="var(--pot-pat-color)" transform="scale(0.7) translate(3,3)"/></pattern>
+                    <pattern id="patLeaves" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse"><path d="M7 2 Q10 5 7 11 Q4 5 7 2" fill="var(--pot-pat-color)"/></pattern>
+                    <pattern id="patMoons" x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse"><path d="M10 3 A5 5 0 1 1 10 13 A4 4 0 1 0 10 3" fill="var(--pot-pat-color)"/></pattern>
                 `;
                 defs.innerHTML += patterns;
                 const prevDefs = document.getElementById('previewDefs'); if(prevDefs) prevDefs.innerHTML += patterns;
@@ -906,45 +911,74 @@
             // Use gradients if available, otherwise fall back to solid colors
             const strokeStyle = isGhost ? "none" : (useGradients ? `url(#${containerId}_stemGrad)` : `hsl(${dna.colorH}, ${dna.colorS}%, ${dna.colorL}%)`);
             const fillStyle = isGhost ? "" : (useGradients ? `url(#${containerId}_leafGrad)` : `hsl(${dna.colorH}, ${dna.colorS}%, ${dna.colorL + 15}%)`);
-            const mainEndX = 100 + dna.stemCurveX;
+            
+            // Growth pattern variables
+            const lean = dna.leanDirection || 1;
+            const spread = dna.branchSpread || 25;
+            const angle = dna.branchAngle || 45;
+            const mainEndX = 100 + (dna.stemCurveX * lean);
             const topY = 110 - dna.stemCurveY;
 
-            // Simple L-system-like structure
+            // Stage 1: Base stem with first leaves
             if (stage >= 1) {
-                drawStem(group, 100, 190, 100+(dna.stemCurveX*0.2), 160, 4, strokeStyle);
-                renderLeaf(group, dna, 100+(dna.stemCurveX*0.2), 160, -45, 1, fillStyle);
-                renderLeaf(group, dna, 100+(dna.stemCurveX*0.2), 160, 45, 1, fillStyle);
+                const s1x = 100 + (dna.stemCurveX * 0.2 * lean);
+                drawStem(group, 100, 190, s1x, 160, 4, strokeStyle);
+                renderLeaf(group, dna, s1x, 160, -angle, 1, fillStyle);
+                renderLeaf(group, dna, s1x, 160, angle, 1, fillStyle);
             }
+            
+            // Stage 2: Middle stem section
             if (stage >= 2) {
-                drawStem(group, 100+(dna.stemCurveX*0.2), 160, 100+(dna.stemCurveX*0.5), 130, 3, strokeStyle);
-                renderLeaf(group, dna, 100+(dna.stemCurveX*0.5), 130, -60, 2, fillStyle);
-                renderLeaf(group, dna, 100+(dna.stemCurveX*0.5), 130, 60, 2, fillStyle);
-            }
-            if (stage >= 3) {
-                drawStem(group, 100+(dna.stemCurveX*0.5), 130, mainEndX, topY, 3, strokeStyle);
-                renderLeaf(group, dna, mainEndX, topY, -30, 3, fillStyle);
-                renderLeaf(group, dna, mainEndX, topY, 30, 3, fillStyle);
-                
-                // Side Branches
-                if(dna.flowerCount >= 2) {
-                    drawStem(group, 100+(dna.stemCurveX*0.5), 130, mainEndX-30, topY+10, 2, strokeStyle);
-                    renderLeaf(group, dna, mainEndX-30, topY+10, -45, 3, fillStyle);
-                }
-                if(dna.flowerCount >= 3) {
-                    drawStem(group, 100+(dna.stemCurveX*0.5), 130, mainEndX+30, topY+15, 2, strokeStyle);
-                    renderLeaf(group, dna, mainEndX+30, topY+15, 45, 3, fillStyle);
+                const s1x = 100 + (dna.stemCurveX * 0.2 * lean);
+                const s2x = 100 + (dna.stemCurveX * 0.5 * lean);
+                drawStem(group, s1x, 160, s2x, 130, 3, strokeStyle);
+                // Alternate or opposite leaf placement
+                if (dna.branchStyle === 'alternate') {
+                    renderLeaf(group, dna, s2x, 135, -angle * lean, 2, fillStyle);
+                    renderLeaf(group, dna, s2x, 125, angle * lean, 2, fillStyle);
+                } else {
+                    renderLeaf(group, dna, s2x, 130, -angle - 15, 2, fillStyle);
+                    renderLeaf(group, dna, s2x, 130, angle + 15, 2, fillStyle);
                 }
             }
             
+            // Stage 3: Top section with branches
+            if (stage >= 3) {
+                const s2x = 100 + (dna.stemCurveX * 0.5 * lean);
+                drawStem(group, s2x, 130, mainEndX, topY, 3, strokeStyle);
+                renderLeaf(group, dna, mainEndX, topY, -30, 3, fillStyle);
+                renderLeaf(group, dna, mainEndX, topY, 30, 3, fillStyle);
+                
+                // Side Branches - varied directions based on DNA
+                if(dna.flowerCount >= 2) {
+                    const branch1X = mainEndX + (spread * lean * -1); // Opposite to lean
+                    drawStem(group, s2x, 130, branch1X, topY + 10, 2, strokeStyle);
+                    renderLeaf(group, dna, branch1X, topY + 10, -angle * lean * -1, 3, fillStyle);
+                }
+                if(dna.flowerCount >= 3) {
+                    const branch2X = mainEndX + (spread * lean); // Same as lean
+                    drawStem(group, s2x, 130, branch2X, topY + 15, 2, strokeStyle);
+                    renderLeaf(group, dna, branch2X, topY + 15, angle * lean, 3, fillStyle);
+                }
+            }
+            
+            // Stage 4-5: Flowers/Buds
             const renderFlowerOrBud = (x, y) => {
                 if (stage === 4) renderBud(group, dna, x, y, isGhost);
                 else if (stage >= 5) renderFlower(group, dna, x, y, isGhost);
             };
 
             if (stage >= 4) {
+                const s2x = 100 + (dna.stemCurveX * 0.5 * lean);
                 renderFlowerOrBud(mainEndX, topY);
-                if(dna.flowerCount >= 2) renderFlowerOrBud(mainEndX-30, topY+10);
-                if(dna.flowerCount >= 3) renderFlowerOrBud(mainEndX+30, topY+15);
+                if(dna.flowerCount >= 2) {
+                    const branch1X = mainEndX + (spread * lean * -1);
+                    renderFlowerOrBud(branch1X, topY + 10);
+                }
+                if(dna.flowerCount >= 3) {
+                    const branch2X = mainEndX + (spread * lean);
+                    renderFlowerOrBud(branch2X, topY + 15);
+                }
             }
         }
 
@@ -1094,7 +1128,41 @@
             checkSingCooldown();
             checkFertilizeCooldown();
             
+            // Back button handling - close popups instead of leaving game
+            history.pushState({ popup: 'none' }, '');
+            window.addEventListener('popstate', handleBackButton);
+            
             audio.init(); // Init audio context
+        }
+        
+        /* --- BACK BUTTON HANDLING --- */
+        function handleBackButton(e) {
+            // Check which overlay is open and close it
+            const overlays = [
+                { el: els.showcaseOverlay, close: closeShowcase },
+                { el: els.fireflyOverlay, close: closeFireflyLog },
+                { el: els.potOverlay, close: closePotDesigner },
+                { el: els.harvestOverlay, close: closeHarvestModal },
+                { el: els.archiveOverlay, close: closeArchive },
+                { el: els.helpOverlay, close: closeHelp },
+                { el: els.resetOverlay, close: closeResetOverlay },
+                { el: els.deathOverlay, close: () => {} }, // Can't close death
+                { el: els.menu, close: toggleMenu }
+            ];
+            
+            let closedSomething = false;
+            for (const overlay of overlays) {
+                if (overlay.el && (overlay.el.classList.contains('open') || overlay.el.classList.contains('open'))) {
+                    overlay.close();
+                    closedSomething = true;
+                    break;
+                }
+            }
+            
+            // Push state again so back button keeps working
+            if (closedSomething) {
+                history.pushState({ popup: 'none' }, '');
+            }
         }
         
         /* --- PRESS HANDLING FOR VITALS --- */
