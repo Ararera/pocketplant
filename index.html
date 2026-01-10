@@ -793,8 +793,15 @@
         }
 
         function generateDNA() {
+            // Generate a base hue for the plant (full spectrum)
+            const baseHue = Math.random() * 360;
+            // For leaves/stems, use green-ish hues (80-160) most of the time, but allow variety
+            const isGreenPlant = Math.random() > 0.3; // 70% green plants
+            const leafHue = isGreenPlant ? (80 + Math.random() * 80) : baseHue; // Green range or wild
+            
             return {
-                stemCurveX: (Math.random() * 40) - 20, stemCurveY: Math.random() * 30,
+                stemCurveX: (Math.random() * 40) - 20, 
+                stemCurveY: Math.random() * 30,
                 // Expanded Variety
                 leafType: Math.random() > 0.6 ? 'pointy' : (Math.random() > 0.3 ? 'round' : (Math.random() > 0.5 ? 'oak' : 'heart')),
                 leafPattern: Math.random() > 0.8 ? 'striped' : 'solid',
@@ -802,10 +809,12 @@
                 flowerCount: Math.floor(Math.random() * 3) + 1, 
                 petalCount: Math.floor(Math.random() * 5) + 4, 
                 petalStyle: Math.random() > 0.5 ? 'round' : (Math.random() > 0.5 ? 'pointy' : 'jagged'),
-                colorH: Math.random() * 360, 
-                colorS: 40 + Math.random() * 40, 
-                colorL: 30 + Math.random() * 30,
-                flowerColor: `hsl(${Math.random() * 360}, 70%, 65%)`
+                // Leaf/stem colors - more vibrant
+                colorH: leafHue, 
+                colorS: 50 + Math.random() * 40, // 50-90% saturation (more vibrant)
+                colorL: 35 + Math.random() * 25, // 35-60% lightness
+                // Flower color - full spectrum, vibrant
+                flowerColor: `hsl(${Math.random() * 360}, ${60 + Math.random() * 30}%, ${55 + Math.random() * 20}%)`
             };
         }
 
@@ -862,7 +871,7 @@
             group.innerHTML = ''; 
 
             // Containers that support gradient defs
-            const supportedContainers = ['plantGroup', 'previewPlantGroup', 'harvestPlantGroup', 'archivePlantGroup'];
+            const supportedContainers = ['plantGroup', 'previewPlantGroup', 'harvestPlantGroup', 'archivePlantGroup', 'scPlant'];
             const useGradients = supportedContainers.includes(containerId);
 
             if (!isGhost && useGradients) {
@@ -870,6 +879,7 @@
                 if(containerId.includes('preview')) defsId = 'previewDefs';
                 else if(containerId.includes('harvest')) defsId = 'harvestDefs';
                 else if(containerId.includes('archive')) defsId = 'archiveDefs';
+                else if(containerId === 'scPlant') defsId = 'scDefs';
 
                 const defs = document.getElementById(defsId);
                  if(defs && !document.getElementById(containerId+'_stemGrad')) {
@@ -1585,16 +1595,36 @@
             stage.innerHTML = ''; // Clear
             const h = state.history[index];
             
-            // Create SVG container
+            // Create SVG container with defs for gradients
             const box = document.createElement('div');
             box.style.cssText = "width:200px; height:250px; position:relative;";
-            box.innerHTML = `<svg width="100%" height="100%" viewBox="0 0 200 250"><g id="scPot"></g><g id="scPlant"></g></svg>`;
+            box.innerHTML = `<svg width="100%" height="100%" viewBox="0 0 200 250">
+                <defs id="scDefs"></defs>
+                <g id="scPlant"></g>
+                <g id="scPot"></g>
+            </svg>`;
             stage.appendChild(box);
             
-            // Setup defs if needed (using main plant defs as reference for patterns)
-            // Render
+            // Copy patterns to showcase defs
+            const scDefs = box.querySelector('#scDefs');
+            const patterns = document.getElementById('plantDefs').innerHTML.match(/<pattern[\s\S]*?<\/pattern>/g);
+            if(patterns && scDefs) scDefs.innerHTML = patterns.join('');
+            
+            // Add gradients for this specific plant
+            scDefs.innerHTML += `
+                <linearGradient id="scPlant_stemGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                    <stop offset="0%" style="stop-color:hsl(${h.dna.colorH}, ${h.dna.colorS}%, ${h.dna.colorL}%);stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:hsl(${h.dna.colorH}, ${h.dna.colorS}%, ${h.dna.colorL + 20}%);stop-opacity:1" />
+                </linearGradient>
+                <linearGradient id="scPlant_leafGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                    <stop offset="0%" style="stop-color:hsl(${h.dna.colorH}, ${h.dna.colorS}%, ${h.dna.colorL + 5}%);stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:hsl(${h.dna.colorH}, ${h.dna.colorS}%, ${h.dna.colorL + 25}%);stop-opacity:1" />
+                </linearGradient>
+            `;
+            
+            // Render plant first, then pot on top
+            renderPlant('scPlant', h.dna, 5, false);
             renderPot(box.querySelector('#scPot'), { potColor: h.potColor, potPattern: h.potPattern, potPatternColor: h.potPatternColor });
-            renderPlant('scPlant', h.dna, 5, false); // Render fully grown
             
             // Highlight thumb
             const thumbs = document.querySelectorAll('.sc-plant-thumb');
