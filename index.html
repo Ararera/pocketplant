@@ -12,625 +12,105 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="icon" type="image/png" href="icon-192.png">
-
-    <style>
-        :root {
-            --bg-dark: #141517; 
-            --bg-light: #232529; 
-            --spotlight: #1f2125;
-            --text-color: #e0e0e0;
-            --glass-bg: rgba(255, 255, 255, 0.03);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            
-            --accent-blue: #4dabf7;
-            --accent-pink: #faa2c1;
-            --accent-sun: #ffd43b;
-            --accent-rain: #748ffc;
-            --pot-color: #e07a5f;
-            --pot-pat-color: rgba(255,255,255,0.5);
-        }
-
-        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
-        
-        /* Custom Scrollbars */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 3px; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
-        
-        body {
-            margin: 0; padding: 0; width: 100vw; height: 100vh;
-            background-color: var(--bg-dark);
-            background-image: radial-gradient(circle at center, var(--spotlight) 0%, #0d0e10 85%);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            color: var(--text-color);
-            overflow: hidden;
-            display: flex; flex-direction: column; align-items: center; justify-content: space-between;
-            transition: background 2s ease; 
-        }
-
-        body.sun-mode {
-            background-color: var(--bg-light);
-            background-image: radial-gradient(circle at center, #3a3d42 0%, #1a1b1e 85%);
-        }
-
-        /* --- Texture --- */
-        .grain-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: 5; opacity: 0.04;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E");
-        }
-
-        /* --- UI Elements --- */
-        .status-area {
-            position: relative; /* Ensure z-index works */
-            padding-top: 60px; opacity: 0;
-            text-align: center; z-index: 100; /* Increased Z-Index */
-            transition: opacity 0.5s ease;
-            pointer-events: none; /* Let clicks pass through to debug buttons if needed, but text selectable? No, user-select none. */
-        }
-        .status-area.loaded { opacity: 0.7; }
-        .status-area * { pointer-events: auto; }
-        
-        .gen-badge {
-            display: inline-block; font-size: 0.7rem; letter-spacing: 2px;
-            text-transform: uppercase; opacity: 0.6; margin-bottom: 8px; font-weight: 300;
-            padding: 8px 16px; cursor: pointer;
-        }
-        .plant-name { font-size: 1.4rem; font-weight: 200; letter-spacing: 1px; }
-        .day-counter { font-size: 0.8rem; opacity: 0.4; margin-top: 5px; font-weight: 300; }
-        
-        .evolution-bar-container {
-            width: 80px; height: 3px; margin: 8px auto 0; 
-            background: rgba(255,255,255,0.1); border-radius: 2px;
-            overflow: hidden;
-        }
-        .evolution-bar {
-            height: 100%; width: 0%; 
-            background: rgba(255,255,255,0.25);
-            border-radius: 2px;
-            transition: width 1s ease;
-        }
-
-        .showcase-link {
-            position: absolute; top: 20px; right: 20px;
-            font-size: 1.5rem; opacity: 0.5; cursor: pointer;
-            z-index: 110; transition: transform 0.2s, opacity 0.2s;
-            display: none;
-        }
-        .showcase-link.visible { display: block; }
-        .showcase-link:hover { transform: scale(1.1); opacity: 1; }
-
-        .rain-container, .rainbow {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: 15; opacity: 0; transition: opacity 1s;
-        }
-        .rain-container { overflow: hidden; }
-        .rain-container.active { opacity: 0.6; }
-        .raindrop {
-            position: absolute; width: 1px; height: 20px;
-            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.4));
-            animation: fall 0.7s linear infinite;
-        }
-        .rainbow {
-            z-index: 12; transition: opacity 2s ease;
-            background: radial-gradient(circle at 50% 120%, rgba(0,0,0,0) 40%, rgba(148,0,211,0.05) 45%, rgba(75,0,130,0.05) 50%, rgba(0,0,255,0.05) 55%, rgba(0,255,0,0.05) 60%, rgba(255,255,0,0.05) 65%, rgba(255,127,0,0.05) 70%, rgba(255,0,0,0.05) 75%, rgba(0,0,0,0) 80%);
-        }
-        .rainbow.visible { opacity: 0.6; }
-        @keyframes fall { to { transform: translateY(100vh); } }
-
-        /* --- Stage & Plant --- */
-        .stage-container { position: relative; flex-grow: 1; display: flex; align-items: center; justify-content: center; width: 100%; z-index: 20; }
-        
-        .plant-wrapper { 
-            position: relative; 
-            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); 
-            z-index: 20; 
-            pointer-events: none;
-            will-change: transform;
-        }
-        
-        .breathing { animation: breathe var(--breathe-speed, 6s) ease-in-out infinite; }
-        @keyframes breathe { 0% { transform: scale(1) translateY(0); } 50% { transform: scale(1.02) translateY(-2px); } 100% { transform: scale(1) translateY(0); } }
-        
-        /* New FX */
-        .plant-jiggle { animation: jiggle 0.4s ease-in-out; }
-        @keyframes jiggle { 0% { transform: rotate(0deg); } 25% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } 75% { transform: rotate(-1deg); } 100% { transform: rotate(0deg); } }
-        
-        .plant-bloop { animation: bloop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        @keyframes bloop { 0% { transform: scale(1); } 40% { transform: scale(1.15, 0.85); } 100% { transform: scale(1); } }
-
-        .evolving { animation: evolveFlash 2s ease-in-out; }
-        @keyframes evolveFlash { 
-            0% { filter: brightness(1) blur(0px); transform: scale(1); } 
-            50% { filter: brightness(2) blur(2px) drop-shadow(0 0 20px white); transform: scale(1.05); } 
-            100% { filter: brightness(1) blur(0px); transform: scale(1); } 
-        }
-        
-        .sing-glow { animation: singGlow 3s ease-in-out; }
-        @keyframes singGlow {
-            0% { filter: drop-shadow(0 0 5px #748ffc); }
-            50% { filter: drop-shadow(0 0 20px #748ffc) drop-shadow(0 0 40px #4ade80); }
-            100% { filter: drop-shadow(0 0 0px transparent); }
-        }
-        
-        .progress-boost { animation: progressBoost 1.5s ease-out; }
-        @keyframes progressBoost {
-            0% { box-shadow: 0 0 10px #4ade80, inset 0 0 10px rgba(74, 222, 128, 0.5); }
-            100% { box-shadow: none; }
-        }
-        
-        .dead-plant { filter: grayscale(90%) contrast(1.2) brightness(0.7) sepia(0.2); animation: none !important; transform: rotate(3deg) translateY(15px); transition: all 2s ease; }
-        
-        .dormant-plant { 
-            filter: grayscale(50%) brightness(0.8) sepia(0.1); 
-            animation: dormantBreath 4s ease-in-out infinite;
-            transition: all 2s ease; 
-        }
-        @keyframes dormantBreath {
-            0%, 100% { opacity: 0.7; }
-            50% { opacity: 0.85; }
-        }
-        
-        .dormant-overlay .overlay-box {
-            background: linear-gradient(135deg, #1a1625 0%, #2d1f3d 100%);
-            border: 1px solid rgba(167, 139, 250, 0.3);
-        }
-
-        #plantGroup { 
-            transition: filter 1s ease, transform 1s ease; 
-            transform-origin: 100px 190px;
-            will-change: filter, transform;
-            pointer-events: none; /* Hitbox Fix: Leaves don't trigger love */
-        }
-
-        .plant-graphics {
-            width: 160px; height: 380px; 
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: flex-end;
-            filter: drop-shadow(0 25px 25px rgba(0,0,0,0.4));
-            transform-origin: bottom center; transition: transform 1s ease;
-            pointer-events: none;
-        }
-        .svg-plant { width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-        
-        /* Pause all animations when app is backgrounded */
-        body.paused *, body.paused *::before, body.paused *::after {
-            animation-play-state: paused !important;
-        }
-        
-        /* Hitbox Fix: Pot Interactable */
-        #potGroup { cursor: pointer; pointer-events: auto; }
-        #plantClickArea { cursor: pointer; pointer-events: auto; fill: transparent; }
-
-        .leaf { transition: fill 1s ease; stroke-width: 0; }
-        .stem { fill: none; stroke-linecap: round; transition: stroke 1s ease; }
-        .flower { stroke-width: 1; transition: stroke 1s ease, fill 1s ease; }
-        .petal { stroke: none; transition: fill 1s ease; opacity: 0.9; }
-        .bud { stroke: white; stroke-width: 1; transition: fill 1s ease; }
-        .pot-body { fill: var(--pot-color); transition: fill 0.5s ease; stroke: none; }
-        .dirt { fill: #5d4037; stroke: none; } 
-        .shadow { fill: rgba(0,0,0,0.4); filter: blur(8px); }
-
-        .vitals-ring {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.8);
-            width: 320px; height: 320px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.03);
-            pointer-events: none; opacity: 0; transition: opacity 0.5s ease, transform 0.5s ease;
-            display: flex; align-items: center; justify-content: center; z-index: 5;
-        }
-        .vitals-ring.active { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-        .stat-orb {
-            position: absolute; width: 24px; height: 24px; border-radius: 50%; background: transparent;
-            border: 2px solid rgba(255,255,255,0.4); transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.5s, border-color 0.5s;
-            will-change: transform, box-shadow;
-        }
-        .stat-water { top: 0; left: 50%; transform: translateX(-50%); }
-        .stat-sun { bottom: 25%; right: 7%; }
-        .stat-love { bottom: 25%; left: 7%; }
-        .ring-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-        .ring-circle { fill: none; stroke: rgba(255,255,255,0.03); stroke-width: 1; }
-
-        /* --- Menus --- */
-        .menu-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(15, 15, 15, 0.85); backdrop-filter: blur(20px);
-            z-index: 150; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
-            will-change: opacity;
-        }
-        .menu-overlay.open { opacity: 1; pointer-events: auto; }
-        
-        .menu-card {
-            background: rgba(30, 32, 35, 0.95); border: 1px solid rgba(255,255,255,0.08);
-            padding: 35px; border-radius: 24px; width: 85%; max-width: 320px;
-            text-align: center; box-shadow: 0 30px 60px rgba(0,0,0,0.6);
-            max-height: 80vh; overflow-y: auto; position: relative;
-        }
-        
-        .menu-card.firefly-card { max-width: 360px; width: 90%; max-height: 85vh; padding: 25px; }
-        
-        .menu-title { font-size: 1.1rem; margin-bottom: 25px; font-weight: 300; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.8); }
-        .name-input {
-            background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); color: #fff;
-            font-size: 1.3rem; font-weight: 300; text-align: center; padding: 12px;
-            border-radius: 12px; width: 100%; margin-bottom: 25px; font-family: inherit;
-        }
-        .name-input:focus { outline: none; border-color: rgba(255,255,255,0.3); background: rgba(0,0,0,0.3); }
-        .menu-stat { display: flex; justify-content: space-between; margin: 12px 0; font-size: 0.9rem; opacity: 0.7; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px; font-weight: 300; }
-        
-        .progress-container { width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 8px; overflow: hidden; }
-        .progress-bar { height: 100%; background: var(--accent-sun); width: 0%; transition: width 0.3s; }
-
-        .greenhouse-list {
-            margin-top: 25px; text-align: left; max-height: 140px; overflow-y: auto;
-            background: rgba(0,0,0,0.15); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,0.03);
-        }
-        .greenhouse-item {
-            display: flex; align-items: center; justify-content: space-between; font-size: 0.8rem; padding: 10px;
-            margin-bottom: 6px; border-radius: 8px; background: rgba(255,255,255,0.03); cursor: pointer; transition: background 0.2s;
-        }
-        .greenhouse-item:active { background: rgba(255,255,255,0.08); }
-        .gh-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 10px; opacity: 0.8; }
-        .gh-preview-box { width: 150px; height: 180px; margin: 0 auto 20px auto; border-radius: 100px 100px 20px 20px; background: rgba(255,255,255,0.02); position: relative; overflow: visible; }
-        .gh-preview-box svg { width: 100%; height: 100%; overflow: visible; }
-
-        .btn-base {
-            margin-top: 15px; padding: 14px 30px; border: none; border-radius: 16px;
-            font-weight: 500; cursor: pointer; width: 100%; font-size: 0.9rem;
-            transition: transform 0.1s, opacity 0.2s; letter-spacing: 0.5px;
-        }
-        .btn-base:active { transform: scale(0.98); }
-        .close-btn { background: transparent; border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); }
-        .harvest-btn { background: linear-gradient(135deg, #f06595, #cc5de8); color: white; box-shadow: 0 10px 20px rgba(240, 101, 149, 0.2); display: none; }
-        .harvest-btn.visible { display: block; animation: pulseBtn 3s infinite; }
-        @keyframes pulseBtn { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(240, 101, 149, 0.4); } 70% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(240, 101, 149, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(240, 101, 149, 0); } }
-        .remember-btn { background: #f06595; color: white; }
-        .piano-btn { background: linear-gradient(135deg, #5c7cfa, #7950f2); color: white; border: none; margin-top: 20px; box-shadow: 0 10px 20px rgba(92, 124, 250, 0.2); transition: filter 0.3s, opacity 0.3s; }
-        .piano-btn:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(1); box-shadow: none; }
-        .fertilize-btn { background: linear-gradient(135deg, #795548, #8d6e63); color: white; border: none; margin-top: 10px; box-shadow: 0 10px 20px rgba(121, 85, 72, 0.2); transition: filter 0.3s, opacity 0.3s; }
-        .fertilize-btn:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(1); box-shadow: none; }
-        .style-btn { background: transparent; border: 1px solid var(--pot-color); color: var(--pot-color); margin-top: 10px; }
-        .help-btn { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.8); margin-top: 10px; }
-        .firefly-btn { background: linear-gradient(135deg, #ffd43b, #fcc419); color: #1a1b1e; border: none; margin-top: 20px; box-shadow: 0 5px 15px rgba(255, 212, 59, 0.2); }
-
-        .section-label { font-size: 0.8rem; opacity: 0.6; text-align: left; margin: 15px 0 5px 5px; text-transform: uppercase; letter-spacing: 1px; }
-        .color-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 10px; }
-        .color-swatch { width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        .color-swatch.active { border-color: white; transform: scale(1.2); box-shadow: 0 0 10px white; }
-        
-        .pattern-grid { display: flex; justify-content: space-between; margin-bottom: 15px; flex-wrap: wrap; gap: 5px; }
-        .pattern-btn { width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s; position: relative;}
-        .pattern-btn.active { background: rgba(255,255,255,0.2); border-color: white; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
-        .pattern-btn.locked { opacity: 0.4; cursor: not-allowed; }
-        .pattern-btn.locked::after { content: '🔒'; font-size: 0.8rem; position: absolute; }
-
-        /* Updated Firefly Styles (Larger Hitbox) */
-        .firefly {
-            position: absolute; width: 6px; height: 6px; border-radius: 50%;
-            pointer-events: auto; cursor: pointer; z-index: 120;
-            box-shadow: 0 0 10px 2px currentColor;
-            opacity: 0;
-            transition: transform 0.2s;
-            animation: fireflyFloat 10s linear forwards, fireflyLifecycle 10s ease-in-out forwards;
-            will-change: transform, opacity;
-        }
-        /* Hitbox Increase */
-        .firefly::after {
-            content: ''; position: absolute;
-            top: -20px; left: -20px; right: -20px; bottom: -20px;
-            border-radius: 50%; 
-        }
-        .firefly:active { transform: scale(2); }
-        
-        .firefly.big-firefly {
-            width: 14px; height: 14px; 
-            box-shadow: 0 0 25px 8px currentColor, 0 0 50px 15px currentColor;
-            animation: fireflyFloat 20s linear infinite, guardianLifecycle 2s ease-out forwards, guardianPulse 2s infinite ease-in-out;
-            z-index: 125;
-        }
-        .firefly.big-firefly.guardian-active {
-            animation: fireflyFloat 20s linear infinite, guardianPulseActive 3s infinite ease-in-out;
-        }
-        .firefly.big-firefly.guardian-fading {
-            animation: fireflyFloat 20s linear infinite, guardianFadeOut 2s ease-out forwards;
-        }
-        @keyframes guardianLifecycle {
-            0% { opacity: 0; } 
-            100% { opacity: 1; }
-        }
-        @keyframes guardianPulse { 
-            0%, 100% { box-shadow: 0 0 25px 8px currentColor, 0 0 50px 15px currentColor; } 
-            50% { box-shadow: 0 0 35px 12px currentColor, 0 0 70px 25px currentColor; } 
-        }
-        @keyframes guardianPulseActive { 
-            0%, 100% { box-shadow: 0 0 20px 6px currentColor, 0 0 40px 12px currentColor; opacity: 0.6; } 
-            50% { box-shadow: 0 0 30px 10px currentColor, 0 0 60px 20px currentColor; opacity: 0.8; } 
-        }
-        @keyframes guardianFadeOut {
-            0% { opacity: 0.7; }
-            100% { opacity: 0; }
-        }
-        
-        @keyframes fireflyFloat {
-            0% { transform: translate(0, 0); } 25% { transform: translate(30px, -25px); }
-            50% { transform: translate(0, 30px); } 75% { transform: translate(-30px, -15px); } 100% { transform: translate(0, 0); }
-        }
-        @keyframes fireflyLifecycle {
-            0% { opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { opacity: 0; }
-        }
-        @keyframes fireflyNameFade {
-            0% { opacity: 0; transform: translateX(-50%) scale(0.8); }
-            15% { opacity: 1; transform: translateX(-50%) scale(1); }
-            70% { opacity: 1; transform: translateX(-50%) scale(1); }
-            100% { opacity: 0; transform: translateX(-50%) scale(0.9); }
-        }
-
-        /* Firefly Log Grid (Collections) */
-        .firefly-grid {
-            display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px;
-            margin-top: 15px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 12px;
-            max-height: 50vh; overflow-y: auto;
-        }
-        .firefly-bucket-label { grid-column: span 8; font-size: 0.7rem; text-align: left; opacity: 0.5; margin-top: 10px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 2px;}
-        .firefly-dot {
-            width: 100%; padding-bottom: 100%; border-radius: 50%;
-            background: rgba(255,255,255,0.05); position: relative;
-            min-width: 24px; min-height: 24px;
-            cursor: pointer;
-        }
-        .firefly-dot.collected::after {
-            content: ''; position: absolute; top: 3px; left: 3px; right: 3px; bottom: 3px;
-            border-radius: 50%; background: var(--ff-color);
-            box-shadow: 0 0 6px var(--ff-color);
-        }
-        .firefly-dot.locked::after { content: '?'; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 10px; opacity: 0.3; }
-        .firefly-count { position: absolute; bottom: -5px; right: -5px; font-size: 0.6rem; background: #333; border-radius: 4px; padding: 0 2px; opacity: 0.8; }
-
-        /* --- Action Dock --- */
-        .dock-container {
-            margin-bottom: 50px; width: 85%; max-width: 320px; height: 70px;
-            background: var(--glass-bg); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
-            border: 1px solid var(--glass-border); border-radius: 35px;
-            display: flex; align-items: center; justify-content: space-evenly;
-            box-shadow: 0 15px 40px rgba(0,0,0,0.3); z-index: 100;
-        }
-        .action-btn { background: none; border: none; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.4); cursor: pointer; transition: all 0.2s ease; }
-        .action-btn:active { transform: scale(0.9); }
-        .action-btn.active { color: white; background: rgba(255,255,255,0.08); }
-        .action-btn.sun-active { color: var(--accent-sun); text-shadow: 0 0 15px rgba(255, 212, 59, 0.5); }
-        .action-btn.rain-active { color: var(--accent-rain); text-shadow: 0 0 15px rgba(116, 143, 252, 0.5); }
-        .action-btn svg { width: 22px; height: 22px; }
-
-        .particle, .musical-note, .floating-text { position: absolute; pointer-events: none; z-index: 50; }
-        .particle { animation: particleFade 2s ease-out forwards; opacity: 0.8; font-size: 1rem; }
-        .musical-note { color: var(--accent-pink); font-size: 1.5rem; animation: orbit 2.5s linear forwards; }
-        .floating-text { animation: floatUp 2s cubic-bezier(0.23, 1, 0.32, 1) forwards; font-size: 1rem; font-weight: 500; text-shadow: 0 2px 10px rgba(0,0,0,0.3); z-index: 200; opacity: 0; }
-        
-        @keyframes particleFade { 0% { transform: translate(0, 0) scale(0.5); opacity: 0; } 30% { opacity: 0.8; } 100% { transform: translate(var(--mx), var(--my)) scale(1.5); opacity: 0; } }
-        @keyframes spiral { 
-            0% { transform: rotate(var(--rot)) translateX(30px) scale(0.5); opacity: 0; } 
-            20% { opacity: 1; } 
-            100% { transform: rotate(calc(var(--rot) + 360deg)) translateX(120px) scale(1.5); opacity: 0; } 
-        }
-        @keyframes orbit { 0% { transform: rotate(var(--rot)) translateX(50px) scale(0.5); opacity: 0; } 20% { opacity: 1; } 100% { transform: rotate(calc(var(--rot) + 360deg)) translateX(70px) scale(1.2); opacity: 0; } }
-        @keyframes floatUp { 0% { transform: translateY(10px) scale(0.9); opacity: 0; } 20% { opacity: 1; transform: translateY(0) scale(1); } 100% { transform: translateY(-40px) scale(1); opacity: 0; } }
-
-        /* Toast Notification */
-        .toast {
-            position: absolute; top: 80px; left: 50%; transform: translateX(-50%) translateY(-20px);
-            background: rgba(30,30,35,0.95); border: 1px solid rgba(255,255,255,0.1);
-            padding: 20px; border-radius: 12px; width: 85%; max-width: 320px;
-            z-index: 200; opacity: 0; pointer-events: none; transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: left;
-        }
-        .toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
-        .toast-title { font-size: 1rem; color: var(--accent-sun); margin-bottom: 8px; font-weight: 500; }
-        .toast-body { font-size: 0.85rem; opacity: 0.8; line-height: 1.5; }
-        .toast-close { position: absolute; top: 10px; right: 10px; background: none; border: none; color: white; opacity: 0.5; font-size: 1.2rem; cursor: pointer; }
-
-        /* Showcase (Zen Mode) */
-        .showcase-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #111; z-index: 140; 
-            display: none; flex-direction: column;
-            transition: background 1s;
-        }
-        .showcase-overlay.open { display: flex; }
-        .showcase-effects {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: 141; overflow: hidden;
-        }
-        .showcase-stage { flex-grow: 1; position: relative; overflow: hidden; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 50px; z-index: 142; }
-        .showcase-controls {
-            padding: 15px 20px; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px);
-            border-top: 1px solid rgba(255,255,255,0.1);
-            max-height: 45vh; overflow-y: auto; z-index: 145;
-        }
-        .sc-slider-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 0.8rem; }
-        .sc-section { margin-bottom: 5px; }
-        .sc-label { font-size: 0.75rem; opacity: 0.7; display: block; margin-bottom: 8px; }
-        .sc-plant-selector { display: flex; overflow-x: auto; gap: 10px; padding: 10px 0; }
-        .sc-plant-thumb { 
-            min-width: 60px; width: 60px; height: 70px; 
-            background: rgba(255,255,255,0.1); border-radius: 8px; 
-            display: flex; align-items: center; justify-content: flex-end; 
-            flex-direction: column; cursor: pointer; border: 2px solid transparent;
-            padding: 4px; box-sizing: border-box; overflow: hidden;
-            flex-shrink: 0;
-        }
-        .sc-plant-thumb.selected { border-color: var(--accent-sun); background: rgba(255,255,255,0.2); }
-        .sc-plant-thumb svg { width: 50px; height: 50px; }
-        .sc-plant-thumb .thumb-name { 
-            font-size: 0.6rem; opacity: 0.8; margin-top: 2px; 
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            max-width: 100%; text-align: center;
-        }
-        
-        /* Firefly Inventory */
-        .sc-firefly-inventory {
-            display: flex; flex-wrap: wrap; gap: 6px; max-height: 80px; overflow-y: auto;
-            padding: 8px; background: rgba(0,0,0,0.3); border-radius: 8px;
-        }
-        .sc-ff-item {
-            width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
-            border: 2px solid rgba(255,255,255,0.2); position: relative;
-            transition: all 0.2s; opacity: 0.6;
-        }
-        .sc-ff-item.active { 
-            border-color: white; opacity: 1;
-            box-shadow: 0 0 10px currentColor;
-        }
-        .sc-ff-item:hover { transform: scale(1.1); }
-        .sc-ff-count {
-            position: absolute; bottom: -4px; right: -4px;
-            background: #333; font-size: 0.55rem; padding: 1px 3px;
-            border-radius: 4px; color: white;
-        }
-        
-        /* Mood Grid */
-        .sc-mood-grid {
-            display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px;
-        }
-        .sc-mood-dot {
-            width: 100%; aspect-ratio: 1; border-radius: 50%; cursor: pointer;
-            border: 2px solid transparent; transition: all 0.2s;
-        }
-        .sc-mood-dot:hover { transform: scale(1.15); }
-        .sc-mood-dot.active { border-color: white; }
-        
-        /* Lighting & Effects Buttons */
-        .sc-lighting-grid, .sc-effects-grid {
-            display: flex; flex-wrap: wrap; gap: 6px;
-        }
-        .sc-effect-btn {
-            padding: 6px 12px; font-size: 0.7rem; background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2); border-radius: 15px;
-            color: white; cursor: pointer; transition: all 0.2s;
-        }
-        .sc-effect-btn:hover { background: rgba(255,255,255,0.2); }
-        .sc-effect-btn.active { background: rgba(255,255,255,0.3); border-color: var(--accent-sun); }
-        
-        /* Showcase Lighting Effects */
-        .showcase-overlay.lighting-spotlight .showcase-stage {
-            background: radial-gradient(ellipse 50% 80% at 50% 70%, rgba(255,250,240,0.15) 0%, transparent 70%);
-        }
-        .showcase-overlay.lighting-moonlight .showcase-stage {
-            background: radial-gradient(ellipse 60% 60% at 30% 20%, rgba(200,220,255,0.1) 0%, transparent 60%);
-        }
-        .showcase-overlay.lighting-golden .showcase-stage {
-            background: radial-gradient(ellipse 70% 50% at 80% 30%, rgba(255,200,100,0.15) 0%, transparent 50%);
-        }
-        .showcase-overlay.lighting-dreamy {
-            filter: saturate(1.2) contrast(0.95);
-        }
-        .showcase-overlay.lighting-dreamy .showcase-stage {
-            background: radial-gradient(ellipse at 50% 50%, rgba(255,200,255,0.1) 0%, transparent 60%);
-        }
-        
-        /* Showcase Background Effects */
-        .sc-star {
-            position: absolute; width: 2px; height: 2px; background: white; border-radius: 50%;
-            animation: twinkle 3s ease-in-out infinite;
-        }
-        @keyframes twinkle { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
-        
-        .sc-particle {
-            position: absolute; width: 4px; height: 4px; background: rgba(255,255,255,0.5);
-            border-radius: 50%; animation: floatParticle 8s linear infinite;
-        }
-        @keyframes floatParticle {
-            0% { transform: translateY(100vh) scale(0); opacity: 0; }
-            10% { opacity: 0.6; }
-            90% { opacity: 0.6; }
-            100% { transform: translateY(-20px) scale(1); opacity: 0; }
-        }
-        
-        .sc-mist {
-            position: absolute; bottom: 0; left: 0; width: 200%; height: 30%;
-            background: linear-gradient(transparent, rgba(255,255,255,0.05));
-            animation: mistDrift 20s linear infinite;
-        }
-        @keyframes mistDrift { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-        
-        .sc-ray {
-            position: absolute; top: -50%; width: 2px; height: 150%;
-            background: linear-gradient(transparent, rgba(255,250,200,0.1), transparent);
-            transform-origin: top center; animation: rayShimmer 5s ease-in-out infinite;
-        }
-        @keyframes rayShimmer { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.7; } }
-        
-        .color-dot { width: 20px; height: 20px; border-radius: 50%; cursor: pointer; border: 2px solid rgba(255,255,255,0.1); }
-
-        /* Debug Styles */
-        .debug-btn {
-            position: absolute; top: 10px; left: 10px; z-index: 1000;
-            background: rgba(0,0,0,0.5); color: #0f0; border: 1px solid #0f0;
-            padding: 5px 10px; border-radius: 5px; font-family: monospace; font-size: 10px;
-            cursor: pointer; display: none;
-        }
-        .debug-panel {
-            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); z-index: 1001; color: #0f0; font-family: monospace;
-            padding: 20px; overflow-y: auto; box-sizing: border-box;
-        }
-        .debug-panel.open { display: block; }
-    </style>
+    
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
     <div class="grain-overlay"></div>
+    
+    <!-- Sky Layer -->
+    <div class="sky-layer" id="skyLayer">
+        <div class="stars-container" id="starsContainer"></div>
+        <div class="moon" id="moonElement"></div>
+        <div class="moonlight-beam" id="moonlightBeam"></div>
+    </div>
+    
     <div class="rain-container" id="rainContainer"></div>
     <div class="rainbow" id="rainbowContainer"></div>
 
-    <!-- Showcase Link (Top Right) -->
-    <div class="showcase-link" id="showcaseLink" onclick="openShowcase()">↗</div>
-
-    <!-- Debug Button -->
-    <button class="debug-btn" onclick="toggleDebug()">🐞 DEBUG</button>
+    <!-- Debug Panel (Hidden by default, 10-tap to reveal) -->
     <div class="debug-panel" id="debugPanel">
-        <button onclick="toggleDebug()" style="margin-bottom:10px;">CLOSE</button>
-        <button onclick="debugMaxStats()">❤️ Max Stats</button>
-        <button onclick="debugGrow()">🌿 +1000 Growth</button>
-        <button onclick="debugUnlockAll()">🔓 Unlock All</button>
-        <div id="debugLog" style="margin-top:20px; border:1px solid #333; height:200px; overflow:auto;"></div>
+        <div class="debug-header">
+            <span>🐞 DEBUG PANEL</span>
+            <button onclick="toggleDebug()">×</button>
+        </div>
+        <div class="debug-controls">
+            <button onclick="debugMaxStats()">❤️ Max Stats</button>
+            <button onclick="debugGrow()">🌿 +1000 Growth</button>
+            <button onclick="debugEvolve()">⬆️ Force Evolve</button>
+            <button onclick="debugKill()">💀 Kill Plant</button>
+            <button onclick="debugUnlockFireflies()">🦋 Unlock All Fireflies</button>
+            <button onclick="debugAddFirefly()">✨ +1 Random Firefly</button>
+            <button onclick="debugCycleTime()">🌅 Cycle Time of Day</button>
+            <button onclick="debugCycleSeason()">🍂 Cycle Season</button>
+            <button onclick="debugCycleMoon()">🌙 Cycle Moon Phase</button>
+            <button onclick="debugAddScar()">🩹 Add Random Scar</button>
+            <button onclick="debugResetGame()">🔄 Full Reset</button>
+        </div>
+        <div class="debug-log" id="debugLog"></div>
+        <div class="debug-state" id="debugState"></div>
     </div>
 
-    <!-- Toast -->
+    <!-- Toast Notification -->
     <div class="toast" id="welcomeToast">
         <button class="toast-close" onclick="closeToast()">×</button>
         <div class="toast-title">Welcome Back!</div>
         <div class="toast-body" id="toastBody"></div>
     </div>
 
-    <!-- Top Status -->
+    <!-- Top Status Area -->
     <div class="status-area" id="statusArea">
-        <div class="gen-badge" id="genBadge" onclick="handleDebugTap()"></div>
-        <div class="plant-name" id="plantNameDisplay"></div>
-        <div class="day-counter" id="dayDisplay"></div>
-        <div class="evolution-bar-container">
-            <div class="evolution-bar" id="evolutionBar"></div>
+        <div class="status-left">
+            <div class="gen-badge" id="genBadge" onclick="handleDebugTap()">CYCLE 1</div>
+            <div class="plant-name" id="plantNameDisplay">Sprout</div>
+            <div class="plant-mood" id="plantMoodDisplay">awakening...</div>
         </div>
+        <div class="status-right">
+            <div class="moon-cycle-container" id="moonCycleContainer">
+                <div class="moon-icon" id="moonIcon">🌕</div>
+                <div class="time-info">
+                    <div class="day-counter" id="dayDisplay">Day 1</div>
+                    <div class="season-indicator" id="seasonIndicator">🌸 Spring</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Evolution Progress Bar -->
+    <div class="evolution-bar-container" id="evolutionBarContainer">
+        <div class="evolution-bar" id="evolutionBar"></div>
     </div>
     
     <!-- Main Menu Overlay -->
     <div class="menu-overlay" id="menuOverlay">
         <div class="menu-card">
-            <div class="menu-title">Pocket Sprout <span style="font-size: 0.7rem; opacity: 0.5;">v1.0</span></div>
+            <div class="menu-title">Pocket Sprout <span class="version-tag">v2.0</span></div>
             
-            <input type="text" id="nameInput" class="name-input" placeholder="Name your plant" maxlength="12" onchange="updateName(this.value)">
+            <input type="text" id="nameInput" class="name-input" placeholder="Name your plant" maxlength="16" onchange="updateName(this.value)">
 
             <div class="menu-stat"><span>🧬 Cycle</span> <span id="menuGen">1</span></div>
             <div class="menu-stat"><span>⏳ Age</span> <span id="menuAge">1 Day</span></div>
             <div class="menu-stat"><span>🌱 Phase</span> <span id="menuStage">Sprout</span></div>
             <div class="menu-stat" style="flex-direction: column; align-items: flex-start;">
-                <div style="display:flex; justify-content:space-between; width:100%;"><span>⏱️ Evolution</span> <span id="menuNextStageTime">--:--</span></div>
+                <div style="display:flex; justify-content:space-between; width:100%;"><span>⏱️ Evolution</span> <span id="menuNextStageTime">--</span></div>
                 <div class="progress-container"><div class="progress-bar" id="menuProgressBar"></div></div>
             </div>
             <div class="menu-stat"><span>❤️ Vigor</span> <span id="menuHealth" style="font-weight: bold;">Thriving</span></div>
-            <div class="menu-stat" id="menuScars" style="display: none;"><span>🩹 Scars</span> <span id="menuScarList" style="opacity: 0.7; font-size: 0.85rem;"></span></div>
+            <div class="menu-stat" id="menuScars" style="display: none;"><span>🩹 Scars</span> <span id="menuScarList"></span></div>
+            <div class="menu-stat" id="menuInherited" style="display: none; flex-direction: column; align-items: flex-start;">
+                <span style="margin-bottom: 5px;">🧬 Inherited Traits</span>
+                <span id="menuInheritedList" style="font-size: 0.8rem; opacity: 0.7;"></span>
+            </div>
             
-            <button class="btn-base firefly-btn" onclick="openFireflyLog()">🦋 Firefly Log</button>
+            <div class="menu-section-title">Actions</div>
+            
+            <button class="btn-base firefly-btn" onclick="openFireflyLog()">🦋 Firefly Sanctuary</button>
+            <button class="btn-base piano-btn" id="btnSing" onclick="singToPlant()">🎵 Sing to Plant</button>
+            <button class="btn-base fertilize-btn" id="btnFertilize" onclick="fertilizePlant()">🌿 Fertilize</button>
+            <button class="btn-base music-btn" id="btnMusic" onclick="toggleBackgroundMusic()">🎶 Background Music</button>
 
-            <div class="menu-title" style="margin-top: 20px; font-size: 0.8rem;">📜 Lineage Log</div>
+            <div class="menu-section-title">Lineage</div>
             <div class="greenhouse-list" id="greenhouseList"></div>
             
             <button class="btn-base style-btn" onclick="openPotDesigner()">🎨 Style Pot</button>
@@ -638,204 +118,193 @@
 
             <button class="btn-base harvest-btn" id="btnHarvest" onclick="harvestPlant()">🌸 Ascend & Rebirth</button>
             <button class="btn-base close-btn" onclick="toggleMenu()">Close</button>
-            
-            <button class="btn-base piano-btn" id="btnSing" onclick="playAutoMelody()">🎵 Sing to Plant</button>
-            <button class="btn-base fertilize-btn" id="btnFertilize" onclick="fertilizePlant()">🍂 Fertilize Soil</button>
-            
-            <button class="btn-base" id="btnMusic" style="background: transparent; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.6); margin-top: 10px;" onclick="toggleMusic()">🔇 Music Off</button>
-            
-            <div style="margin-top: 15px; font-size: 0.7rem; opacity: 0.3;">
-                <span onclick="confirmReset()" style="cursor: pointer; text-decoration: underline;">Compost & Restart (Wipe)</span>
-            </div>
         </div>
     </div>
-
-    <!-- Help Overlay -->
-    <div class="menu-overlay" id="helpOverlay">
-        <div class="menu-card">
-            <div class="menu-title">How to Play</div>
-            <div style="text-align: left; font-size: 0.85rem; opacity: 0.8; line-height: 1.5; margin-bottom: 20px;">
-                <p><b>1. Care 💧☀️❤️</b><br>Keep Water, Sun, and Love balanced. Tap the <b>Pot</b> to love. Tapping the plant just says hello.</p>
-                <p><b>2. Fireflies 🦋</b><br>Catch fireflies to boost growth. Complete color families (e.g., all Reds) to summon a <b>Guardian Firefly</b> that automates care.</p>
-                <p><b>3. Showcase ↗</b><br>Harvest your plant to unlock Zen Mode (top right arrow) to display your collection.</p>
-            </div>
-            <button class="btn-base close-btn" onclick="closeHelp()">Got it</button>
-        </div>
-    </div>
-
-    <!-- Firefly Log Overlay -->
+    
+    <!-- Firefly Sanctuary Overlay -->
     <div class="menu-overlay" id="fireflyOverlay">
         <div class="menu-card firefly-card">
-            <div class="menu-title">Firefly Collection</div>
-            <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 15px;">Caught: <span id="ffCount">0</span> unique</div>
-            <div class="firefly-grid" id="fireflyGrid"></div>
-            <button class="btn-base close-btn" onclick="closeFireflyLog()">Back</button>
+            <div class="menu-title">🦋 Firefly Sanctuary</div>
+            <p class="firefly-intro">Each firefly family holds unique essence. Collect them to unlock guardians and powers.</p>
+            
+            <div class="firefly-family-grid" id="fireflyFamilyGrid"></div>
+            
+            <div class="family-detail-panel" id="familyDetailPanel" style="display: none;">
+                <div class="family-detail-header">
+                    <div class="family-orb" id="detailOrb"></div>
+                    <div class="family-info">
+                        <h3 id="detailFamilyName">Family Name</h3>
+                        <p id="detailFamilyPower">Power description</p>
+                    </div>
+                </div>
+                <p id="detailFireflyCount">You have 0 fireflies</p>
+                <button class="btn-base release-btn" id="releaseBtn" onclick="releaseFirefly()">Release One</button>
+            </div>
+            
+            <div class="guardian-progress-section">
+                <div class="section-label">GUARDIAN PROGRESS</div>
+                <p id="guardianProgressText">Collect 10 of any family to summon their Guardian.</p>
+            </div>
+            
+            <button class="btn-base close-btn" onclick="closeFireflyLog()">Close</button>
         </div>
     </div>
-
+    
     <!-- Pot Designer Overlay -->
     <div class="menu-overlay" id="potOverlay">
         <div class="menu-card">
-            <div class="menu-title">Customize Pot</div>
-            <div class="gh-preview-box" style="height: 180px; margin-bottom: 10px;">
-                <svg id="potPreviewSVG" viewBox="0 0 200 250">
+            <div class="menu-title">🎨 Pot Designer</div>
+            
+            <div class="pot-preview-container">
+                <svg id="potPreviewSVG" viewBox="0 0 200 100" class="pot-preview-svg">
                     <defs id="previewDefs"></defs>
-                    <ellipse cx="100" cy="230" rx="40" ry="6" class="shadow" />
-                    <g id="previewPlantGroup"></g>
-                    <g id="previewPotGroup">
-                        <ellipse cx="100" cy="190" rx="28" ry="6" class="dirt" />
-                        <path d="M72 190 L128 190 L118 230 L82 230 Z" class="pot-body" />
-                        <path d="M68 185 L132 185 L130 195 L70 195 Z" class="pot-body" style="filter: brightness(1.1);" />
-                        <path id="previewPotPattern" d="M72 195 L128 195 L118 230 L82 230 Z" fill="none" style="opacity: 0.9; stroke: none;" />
-                    </g>
+                    <g id="potPreviewGroup"></g>
                 </svg>
             </div>
-            <div class="section-label">Pot Color</div>
-            <div class="color-grid" id="colorGrid"></div>
-            <div class="section-label">Pattern (Unlock via Fireflies)</div>
-            <div class="pattern-grid" id="patternGrid"></div>
-            <div class="section-label">Pattern Color</div>
-            <div class="color-grid" id="patternColorGrid"></div>
-            <button class="btn-base" style="background: white; color: black; margin-top: 20px;" onclick="closePotDesigner()">Done</button>
+            
+            <div class="pot-section">
+                <span class="pot-section-label">Pot Color</span>
+                <div class="color-grid" id="potColorGrid"></div>
+            </div>
+            
+            <div class="pot-section">
+                <span class="pot-section-label">Pattern</span>
+                <div class="pattern-grid" id="potPatternGrid"></div>
+            </div>
+            
+            <div class="pot-section">
+                <span class="pot-section-label">Pattern Color</span>
+                <div class="color-grid" id="patternColorGrid"></div>
+            </div>
+            
+            <button class="btn-base close-btn" onclick="closePotDesigner()">Done</button>
         </div>
     </div>
-
-    <!-- Harvest Overlay -->
+    
+    <!-- Help Overlay -->
+    <div class="menu-overlay" id="helpOverlay">
+        <div class="menu-card help-card">
+            <div class="menu-title">📖 How to Play</div>
+            
+            <div class="help-section">
+                <h3>🌱 Basic Care</h3>
+                <p><b>Water (💧):</b> Toggle rain to keep soil moist. Too much drowns!</p>
+                <p><b>Sunlight (☀️):</b> Toggle lamp for light. Evaporates water faster.</p>
+                <p><b>Love (❤️):</b> Tap the pot to show affection.</p>
+            </div>
+            
+            <div class="help-section">
+                <h3>🌅 Time of Day</h3>
+                <p>The world syncs with your real time. During day, the sun button provides extra light. At night, it creates a soft moonbeam—unless it's a new moon!</p>
+            </div>
+            
+            <div class="help-section">
+                <h3>🦋 Fireflies</h3>
+                <p>Fireflies appear naturally. Tap to collect them. Each family has unique powers. Collect 10 of one family to summon a Guardian!</p>
+            </div>
+            
+            <div class="help-section">
+                <h3>🧬 Inheritance</h3>
+                <p>When your plant ascends, its child inherits traits. Each generation shapes the next, and the world grows richer with time.</p>
+            </div>
+            
+            <div class="help-section">
+                <h3>🩹 Scars & Resilience</h3>
+                <p>Neglecting your plant causes scars—wilting, bending, fading. These marks remain but add character. Severe neglect leads to dormancy, then death.</p>
+            </div>
+            
+            <button class="btn-base close-btn" onclick="closeHelp()">Got it!</button>
+        </div>
+    </div>
+    
+    <!-- Harvest Modal -->
     <div class="menu-overlay" id="harvestOverlay">
-        <div class="menu-card">
-            <div class="menu-title" style="color: var(--accent-pink);">Ascension</div>
-            <div style="margin-bottom: 20px;">
-                <div class="gh-preview-box" style="height: 120px; margin-bottom: 10px;">
-                    <svg id="harvestPreviewSVG" viewBox="0 0 200 250">
-                        <defs id="harvestDefs"></defs>
-                        <g id="harvestPlantGroup"></g>
-                        <g id="harvestPotGroup"></g>
-                    </svg>
-                </div>
-                <p style="font-size: 0.85rem; opacity: 0.8; margin-bottom: 20px; font-weight: 300; line-height: 1.4;">Ready to join the Garden of Memory?</p>
-            </div>
-            <input type="text" id="harvestNameInput" class="name-input" placeholder="Legacy Name" maxlength="12">
-            <button class="btn-base harvest-btn visible" onclick="finalizeHarvest()">✨ Ascend</button>
-            <button class="btn-base close-btn" onclick="closeHarvestModal()">Stay Here</button>
-        </div>
-    </div>
-
-    <!-- Archive Overlay -->
-    <div class="menu-overlay" id="archiveOverlay">
-        <div class="menu-card" style="max-width: 280px;">
-            <div class="menu-title" id="archiveName">Name</div>
-            <div class="gh-preview-box">
-                <svg id="archiveSVG" viewBox="0 0 200 250" style="transition: filter 0.5s ease;">
-                    <defs id="archiveDefs"></defs>
-                    <g id="archivePlantGroup"></g>
-                    <g id="archivePotGroup"></g>
+        <div class="menu-card harvest-card">
+            <div class="menu-title" style="color: var(--accent-growth);">✨ Ascension</div>
+            
+            <div class="harvest-preview">
+                <svg id="harvestPlantSVG" viewBox="0 0 200 250" class="harvest-preview-svg">
+                    <defs id="harvestDefs"></defs>
+                    <g id="harvestPlantGroup"></g>
                 </svg>
             </div>
-            <div class="menu-stat"><span>Cycle</span> <span id="archiveGen">1</span></div>
-            <div class="menu-stat"><span>Lived</span> <span id="archiveAge">10 Suns</span></div>
-            <button class="btn-base remember-btn" id="btnRemember" onclick="rememberPlant()" style="display: none;">💭 Remember</button>
+            
+            <p class="harvest-text" id="harvestMessage">Your plant has reached full bloom. It's time to pass on its legacy.</p>
+            
+            <div class="trait-inheritance-section">
+                <div class="section-label">INHERITED TRAIT</div>
+                <p id="inheritedTraitDisplay">A trait will be chosen...</p>
+            </div>
+            
+            <button class="btn-base harvest-confirm-btn" onclick="confirmHarvest()">🌱 Plant New Seed</button>
+            <button class="btn-base close-btn" onclick="closeHarvestModal()">Not Yet</button>
+        </div>
+    </div>
+    
+    <!-- Death Overlay -->
+    <div class="menu-overlay death-overlay" id="deathOverlay">
+        <div class="menu-card death-card">
+            <div class="menu-title" style="color: #ff6b6b; letter-spacing: 4px;">WITHERED</div>
+            <p class="death-text">Neglected in the dark, this life has returned to the soil. Its cycle is broken.</p>
+            <button class="btn-base death-btn" onclick="resetGame(false)">🍂 Plant New Seed</button>
+        </div>
+    </div>
+    
+    <!-- Archive Viewer -->
+    <div class="menu-overlay" id="archiveOverlay">
+        <div class="menu-card archive-card">
+            <div class="menu-title" id="archiveTitle">Ancestor</div>
+            
+            <div class="archive-preview">
+                <svg id="archivePlantSVG" viewBox="0 0 200 250" class="archive-preview-svg">
+                    <defs id="archiveDefs"></defs>
+                    <g id="archivePotGroup"></g>
+                    <g id="archivePlantGroup"></g>
+                </svg>
+            </div>
+            
+            <div id="archiveStats" class="archive-stats"></div>
+            
             <button class="btn-base close-btn" onclick="closeArchive()">Close</button>
         </div>
     </div>
-
-    <!-- Showcase / Zen Mode Overlay -->
-    <div class="showcase-overlay" id="showcaseOverlay">
-        <div class="showcase-effects" id="showcaseEffects"></div>
-        <div style="position:absolute; top:20px; right:20px; z-index:200;">
-            <button class="btn-base close-btn" style="width:auto; padding:10px 20px; background:rgba(0,0,0,0.5);" onclick="closeShowcase()">Exit Zen Mode</button>
-        </div>
-        <div class="showcase-stage" id="showcaseStage">
-            <!-- Content Injected Here -->
-        </div>
-        <div class="showcase-controls">
-            <div class="sc-slider-row">
-                <span>Display Plant</span>
-            </div>
-            <div class="sc-plant-selector" id="scPlantList"></div>
-            
-            <div class="sc-section" style="margin-top:15px;">
-                <span class="sc-label">🦋 Release Fireflies</span>
-                <div class="sc-firefly-inventory" id="scFireflyInventory">
-                    <!-- Populated by JS -->
-                </div>
-                <div style="font-size:0.7rem; opacity:0.5; margin-top:5px;">Tap to toggle • <span id="scActiveCount">0</span> active</div>
-            </div>
-            
-            <div class="sc-section" style="margin-top:15px;">
-                <span class="sc-label">🎨 Mood</span>
-                <div class="sc-mood-grid" id="scMoodGrid"></div>
-            </div>
-            
-            <div class="sc-section" style="margin-top:15px;">
-                <span class="sc-label">✨ Lighting</span>
-                <div class="sc-lighting-grid">
-                    <button class="sc-effect-btn" onclick="setShowcaseLighting('none')">None</button>
-                    <button class="sc-effect-btn" onclick="setShowcaseLighting('spotlight')">Spotlight</button>
-                    <button class="sc-effect-btn" onclick="setShowcaseLighting('moonlight')">Moonlight</button>
-                    <button class="sc-effect-btn" onclick="setShowcaseLighting('golden')">Golden</button>
-                    <button class="sc-effect-btn" onclick="setShowcaseLighting('dreamy')">Dreamy</button>
-                </div>
-            </div>
-            
-            <div class="sc-section" style="margin-top:15px;">
-                <span class="sc-label">🌟 Effects</span>
-                <div class="sc-effects-grid">
-                    <button class="sc-effect-btn" onclick="toggleShowcaseEffect('stars')">Stars</button>
-                    <button class="sc-effect-btn" onclick="toggleShowcaseEffect('particles')">Particles</button>
-                    <button class="sc-effect-btn" onclick="toggleShowcaseEffect('mist')">Mist</button>
-                    <button class="sc-effect-btn" onclick="toggleShowcaseEffect('rays')">Light Rays</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Reset Overlay -->
+    
+    <!-- Reset Confirmation -->
     <div class="menu-overlay" id="resetOverlay">
-        <div class="menu-card" style="border: 1px solid #4a1515; background: rgba(20, 5, 5, 0.95);">
+        <div class="menu-card reset-card">
             <div class="menu-title" style="color: #ff6b6b;">Wipe Save?</div>
-            <p style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 25px; line-height: 1.5;">
-                This will delete your current plant and <b>all history</b> from the Lineage Log.<br><br>This cannot be undone.
-            </p>
-            <button class="btn-base" style="background: #e03131; color: white; margin-bottom: 10px;" onclick="finalizeReset()">🗑️ Delete Everything</button>
+            <p class="reset-warning">This will delete your current plant and <b>all history</b> from the Lineage Log.<br><br>This cannot be undone.</p>
+            <button class="btn-base reset-confirm-btn" onclick="finalizeReset()">🗑️ Delete Everything</button>
             <button class="btn-base close-btn" onclick="closeResetOverlay()">Cancel</button>
-        </div>
-    </div>
-
-    <!-- Death Overlay -->
-    <div class="menu-overlay" id="deathOverlay" style="background: radial-gradient(circle at center, rgba(30,10,10,0.95) 0%, rgba(5,5,5,1) 100%);">
-        <div class="menu-card" style="border: 1px solid #4a1515; background: rgba(20, 5, 5, 0.9);">
-            <div class="menu-title" style="color: #ff6b6b; letter-spacing: 4px;">WITHERED</div>
-            <p style="opacity: 0.8; font-size: 0.9rem; line-height: 1.6; font-weight: 300;">Neglected in the dark, this life has returned to the soil.<br>Its cycle is broken.</p>
-            <button class="btn-base" style="background: #e03131; color: white; margin-top: 30px; box-shadow: 0 10px 20px rgba(224, 49, 49, 0.2);" onclick="resetGame(false)">🍂 Plant New Seed</button>
         </div>
     </div>
 
     <!-- Main Game Area -->
     <div class="stage-container">
         <div class="vitals-ring" id="vitals">
-            <svg class="ring-svg" viewBox="0 0 100 100"><circle class="ring-circle" cx="50" cy="50" r="48"></circle></svg>
-            <div class="stat-orb stat-water" id="orbWater"></div>
-            <div class="stat-orb stat-sun" id="orbSun"></div>
-            <div class="stat-orb stat-love" id="orbLove"></div>
+            <svg class="ring-svg" viewBox="0 0 100 100">
+                <circle class="ring-track" cx="50" cy="50" r="45"/>
+                <circle class="ring-water" cx="50" cy="50" r="45" id="ringWater"/>
+                <circle class="ring-sun" cx="50" cy="50" r="42" id="ringSun"/>
+                <circle class="ring-love" cx="50" cy="50" r="39" id="ringLove"/>
+            </svg>
         </div>
         
-        <!-- Hitbox Fix: Pot separated from visual plant wrapper for interaction -->
         <div class="plant-wrapper breathing" id="plantHero">
             <div class="plant-graphics" id="plantGraphics">
                 <svg class="svg-plant" id="mainPlantSVG" viewBox="0 0 200 250">
                     <defs id="plantDefs"></defs>
                     <ellipse cx="100" cy="230" rx="40" ry="6" class="shadow" />
-                    <g id="plantGroup"></g> <!-- Plant (Leaves/Stem) - Non Interactive -->
+                    <g id="plantGroup"></g>
                     
-                    <!-- Pot Graphics (Interactive Hitbox) -->
                     <g id="potGroup">
                         <ellipse cx="100" cy="190" rx="28" ry="6" class="dirt" />
                         <path d="M72 190 L128 190 L118 230 L82 230 Z" class="pot-body" />
-                        <path d="M68 185 L132 185 L130 195 L70 195 Z" class="pot-body" style="filter: brightness(1.1);" />
-                        <path id="potPatternPath" d="M72 195 L128 195 L118 230 L82 230 Z" fill="url(#patNone)" style="opacity: 0.9; stroke: none;" />
+                        <path d="M68 185 L132 185 L130 195 L70 195 Z" class="pot-body pot-rim" />
+                        <path id="potPatternPath" d="M72 195 L128 195 L118 230 L82 230 Z" fill="url(#patNone)" class="pot-pattern" />
                     </g>
-                    <!-- Plant Click Area (Jiggle Trigger) - Height based on stage -->
-                    <rect id="plantClickArea" x="60" y="80" width="80" height="110" onclick="animateJiggle()" style="fill:transparent; cursor:pointer;" />
+                    
+                    <rect id="plantClickArea" x="60" y="80" width="80" height="110" onclick="animateJiggle()" class="plant-hitbox" />
                 </svg>
             </div>
         </div>
@@ -844,2111 +313,27 @@
     <!-- Bottom Action Dock -->
     <div class="dock-container">
         <button class="action-btn" id="btnRain" onclick="interact('rain')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9"></path><path d="M16 14v6"></path><path d="M8 14v6"></path><path d="M12 16v6"></path></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 16.2A4.5 4.5 0 0 0 17.5 8h-1.8A7 7 0 1 0 4 14.9"></path>
+                <path d="M16 14v6"></path>
+                <path d="M8 14v6"></path>
+                <path d="M12 16v6"></path>
+            </svg>
         </button>
-        <button class="action-btn" id="btnMenu" onclick="toggleMenu()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"></path><path d="M12 2a8 8 0 1 0 0 16"></path></svg>
+        <button class="action-btn menu-btn" id="btnMenu" onclick="toggleMenu()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+            </svg>
         </button>
         <button class="action-btn" id="btnSun" onclick="interact('sun')">
-             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="5"></circle>
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+            </svg>
         </button>
     </div>
 
-    <script>
-        /* --- CONSTANTS --- */
-        const POT_COLORS = [
-            '#e07a5f', '#d4a373', '#8d99ae', '#ef476f', '#118ab2', '#06d6a0', '#ffd166', '#a8dadc', '#457b9d', '#e63946',
-            '#f1faee', '#2a9d8f', '#264653', '#f4a261', '#e76f51', '#cdb4db', '#ffc8dd', '#ffafcc', '#bde0fe', '#a2d2ff',
-            '#606c38', '#283618', '#fefae0', '#dda15e', '#bc6c25', '#333333'
-        ];
-        
-        // Hue Buckets for Firefly Families (8 Families of 32 IDs)
-        // 0-31: Red, 32-63: Orange, 64-95: Yellow, 96-127: Green
-        // 128-159: Teal, 160-191: Blue, 192-223: Purple, 224-255: Pink
-        const FF_FAMILIES = ["Red", "Orange", "Yellow", "Green", "Teal", "Blue", "Purple", "Pink"];
-        const FF_BUCKET_SIZE = 32;
-
-        const CONFIG = {
-            decayRate: { water: 0.04, sun: 0.04, love: 0.02 }, // Slower decay overall
-            growthRate: 0.4,
-            tickRate: 1000, 
-            threshold: 40,
-            stages: [0, 400, 1500, 3500, 7000], // ~12 hours total cycle
-            deathTimeLimit: 9 * 60 * 60 * 1000,
-            offlineDecayFactor: 0.08, // Gentler offline decay
-            singCooldown: 300000,      // 5 minutes
-            fertilizeCooldown: 180000,  // 3 minutes
-            maxFireflyStack: 20 // Max of same color
-        };
-
-        // Dreams - shown when returning after absence
-        const DREAMS = [
-            "While you were away, your sprout dreamed of distant mountains...",
-            "Your plant listened to the rain and remembered ancient forests.",
-            "In the quiet hours, roots grew deeper into dreams of rivers.",
-            "A soft wind carried whispers of flowers yet to bloom.",
-            "Your sprout dreamed of dancing with fireflies under moonlight.",
-            "The soil hummed with memories of seeds long past.",
-            "Stars watched over your plant while it dreamed of sunnier days.",
-            "Your plant imagined its future blooms swaying in a gentle breeze.",
-            "Deep in slumber, your sprout felt the heartbeat of the earth.",
-            "Dreams of butterfly wings and morning dew filled the quiet night."
-        ];
-
-        // Qualitative state thresholds
-        const PLANT_STATES = {
-            thriving: { min: 80, label: "Thriving", color: "#4ade80" },
-            content: { min: 60, label: "Content", color: "#a3e635" },
-            restless: { min: 40, label: "Restless", color: "#facc15" },
-            strained: { min: 20, label: "Strained", color: "#fb923c" },
-            dormant: { min: 0, label: "Dormant", color: "#f87171" }
-        };
-
-        /* --- STATE --- */
-        let currentSessionId = Date.now().toString(36) + Math.random().toString(36).substr(2);
-        let state = {
-            water: 20, sun: 50, love: 50, growth: 0, 
-            stage: 1, isSunLampOn: false, isRainOn: false,
-            day: 1, generation: 1, name: "Sprout",
-            dna: null, 
-            potColor: POT_COLORS[0], potPattern: 'none', potPatternColor: 'rgba(255,255,255,0.5)',
-            timeAtZero: 0, isDead: false, history: [], lastSave: Date.now(),
-            growthMultiplier: 1, singCooldownUntil: 0, fertilizeCooldownUntil: 0,
-            fireflies: {}, // Object: { id: count }
-            sessionId: null,
-            showcase: { bg: '#141517' }, // Showcase settings
-            unlockedPatterns: [],
-            // New: Scar and resilience system
-            scars: [], // Array of scar types: 'wilt', 'bend', 'pale', 'stunted'
-            crisisCount: 0, // How many times plant has been in crisis
-            nestedFireflies: [], // Fireflies that nested while away
-            lastDream: null // Last dream shown
-        };
-
-        let els = {};
-        let activeBigFireflies = []; // Runtime only
-
-        /* --- AUDIO ENGINE (With Ambience) --- */
-        const audio = {
-            ctx: null, rainOsc: null, rainGain: null, isRainPlaying: false,
-            bgOscs: [], bgTimer: null, isMusicPlaying: false,
-            init: function() { 
-                if(!this.ctx) {
-                    this.ctx = new (window.AudioContext || window.webkitAudioContext)(); 
-                }
-            },
-            play: function(freq, type, dur, vol=0.05) {
-                if(!this.ctx) this.init(); if(this.ctx.state === 'suspended') this.ctx.resume();
-                const o = this.ctx.createOscillator(); const g = this.ctx.createGain();
-                o.type = type; o.frequency.value = freq;
-                g.gain.setValueAtTime(0.01, this.ctx.currentTime); 
-                g.gain.linearRampToValueAtTime(vol, this.ctx.currentTime + 0.05); 
-                g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
-                o.connect(g); g.connect(this.ctx.destination);
-                o.start(); o.stop(this.ctx.currentTime + dur);
-            },
-            toggleRainSound: function(isActive) {
-                if (!this.ctx) this.init();
-                if (isActive) {
-                    if (this.isRainPlaying) return;
-                    this.isRainPlaying = true;
-                    if(this.ctx.state === 'suspended') this.ctx.resume();
-                    const bufferSize = this.ctx.sampleRate * 2;
-                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-                    const data = buffer.getChannelData(0);
-                    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.1; 
-                    this.rainOsc = this.ctx.createBufferSource();
-                    this.rainOsc.buffer = buffer; this.rainOsc.loop = true;
-                    this.rainGain = this.ctx.createGain(); this.rainGain.gain.value = 0;
-                    this.rainOsc.connect(this.rainGain); this.rainGain.connect(this.ctx.destination);
-                    this.rainOsc.start(); this.rainGain.gain.linearRampToValueAtTime(0.05, this.ctx.currentTime + 2);
-                } else {
-                    if (!this.isRainPlaying) return;
-                    this.isRainPlaying = false;
-                    if (this.rainGain) {
-                        this.rainGain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 1);
-                        setTimeout(() => { if(this.rainOsc) this.rainOsc.stop(); }, 1000);
-                    }
-                }
-            },
-            // Effects
-            water: function() { this.play(800, 'sine', 0.2); },
-            sun: function() { this.play(300, 'triangle', 0.5); },
-            love: function() { this.play(150, 'sine', 0.5); },
-            err: function() { this.play(100, 'sawtooth', 0.2); },
-            chime: function() { this.play(600, 'sine', 0.1); this.play(800, 'sine', 0.2); },
-            
-            // Background Ambience - Original ambient melody for plant care
-            // Pentatonic-ish in C with some chromatic color, ~3 minutes
-            // Frequencies: C3=131, D3=147, Eb3=156, F3=175, G3=196, Ab3=208, Bb3=233
-            // C4=262, D4=294, Eb4=311, F4=349, G4=392, Ab4=415, Bb4=466
-            // C5=523, D5=587, Eb5=622, F5=698, G5=784
-            song: [
-                // Opening - sparse, breathing (8 bars)
-                {f:262,d:3}, {f:0,d:2}, {f:392,d:2}, {f:0,d:3},
-                {f:311,d:2}, {f:262,d:2}, {f:0,d:4},
-                {f:196,d:3}, {f:0,d:1}, {f:262,d:2}, {f:311,d:3}, {f:0,d:2},
-                {f:392,d:2}, {f:349,d:2}, {f:311,d:4}, {f:0,d:3},
-                
-                // Theme A - gentle rising figure
-                {f:262,d:2}, {f:311,d:2}, {f:392,d:3}, {f:0,d:1},
-                {f:349,d:2}, {f:392,d:2}, {f:466,d:3}, {f:0,d:2},
-                {f:415,d:2}, {f:392,d:3}, {f:311,d:2}, {f:0,d:2},
-                {f:262,d:4}, {f:0,d:3},
-                
-                // Development - more movement
-                {f:196,d:2}, {f:262,d:2}, {f:349,d:2}, {f:392,d:2}, {f:0,d:2},
-                {f:466,d:3}, {f:415,d:2}, {f:349,d:2}, {f:0,d:2},
-                {f:311,d:2}, {f:349,d:2}, {f:415,d:3}, {f:392,d:2}, {f:0,d:2},
-                {f:311,d:3}, {f:262,d:3}, {f:0,d:3},
-                
-                // Bridge - higher register, hopeful
-                {f:523,d:2}, {f:0,d:1}, {f:466,d:2}, {f:392,d:3}, {f:0,d:2},
-                {f:415,d:2}, {f:466,d:2}, {f:523,d:3}, {f:0,d:2},
-                {f:622,d:2}, {f:523,d:2}, {f:466,d:3}, {f:0,d:2},
-                {f:392,d:2}, {f:415,d:2}, {f:392,d:4}, {f:0,d:3},
-                
-                // Theme A variation
-                {f:262,d:2}, {f:349,d:2}, {f:392,d:3}, {f:0,d:1},
-                {f:311,d:2}, {f:392,d:3}, {f:415,d:2}, {f:0,d:2},
-                {f:466,d:2}, {f:415,d:2}, {f:349,d:3}, {f:0,d:2},
-                {f:311,d:2}, {f:262,d:4}, {f:0,d:3},
-                
-                // Interlude - spacious
-                {f:196,d:4}, {f:0,d:3}, {f:311,d:3}, {f:0,d:2},
-                {f:262,d:2}, {f:0,d:2}, {f:392,d:3}, {f:0,d:3},
-                {f:349,d:2}, {f:311,d:2}, {f:262,d:3}, {f:0,d:3},
-                {f:196,d:3}, {f:0,d:4},
-                
-                // Theme B - new melodic idea
-                {f:349,d:2}, {f:415,d:2}, {f:392,d:3}, {f:0,d:1},
-                {f:311,d:2}, {f:349,d:3}, {f:262,d:2}, {f:0,d:2},
-                {f:392,d:2}, {f:466,d:2}, {f:415,d:2}, {f:392,d:2}, {f:0,d:2},
-                {f:349,d:4}, {f:0,d:3},
-                
-                // Theme B continued
-                {f:262,d:2}, {f:311,d:2}, {f:349,d:2}, {f:415,d:2}, {f:0,d:2},
-                {f:392,d:3}, {f:349,d:2}, {f:0,d:2},
-                {f:311,d:2}, {f:262,d:2}, {f:196,d:3}, {f:0,d:2},
-                {f:262,d:4}, {f:0,d:3},
-                
-                // Climax section - fuller
-                {f:392,d:2}, {f:415,d:2}, {f:466,d:2}, {f:523,d:3}, {f:0,d:2},
-                {f:466,d:2}, {f:392,d:2}, {f:415,d:3}, {f:0,d:2},
-                {f:523,d:2}, {f:466,d:2}, {f:392,d:2}, {f:349,d:3}, {f:0,d:2},
-                {f:311,d:2}, {f:349,d:2}, {f:392,d:4}, {f:0,d:3},
-                
-                // Climax peak
-                {f:523,d:3}, {f:622,d:2}, {f:523,d:2}, {f:0,d:2},
-                {f:466,d:2}, {f:523,d:3}, {f:466,d:2}, {f:0,d:2},
-                {f:415,d:2}, {f:392,d:2}, {f:349,d:2}, {f:311,d:2}, {f:0,d:2},
-                {f:262,d:3}, {f:311,d:2}, {f:262,d:3}, {f:0,d:3},
-                
-                // Descent - calming
-                {f:392,d:3}, {f:349,d:2}, {f:0,d:2},
-                {f:311,d:3}, {f:262,d:2}, {f:0,d:2},
-                {f:196,d:2}, {f:262,d:3}, {f:0,d:3},
-                {f:311,d:2}, {f:262,d:4}, {f:0,d:4},
-                
-                // Return to Theme A
-                {f:262,d:2}, {f:311,d:2}, {f:392,d:3}, {f:0,d:1},
-                {f:349,d:2}, {f:392,d:2}, {f:415,d:3}, {f:0,d:2},
-                {f:466,d:2}, {f:392,d:3}, {f:311,d:2}, {f:0,d:2},
-                {f:262,d:4}, {f:0,d:3},
-                
-                // Coda - winding down
-                {f:392,d:3}, {f:0,d:2}, {f:311,d:3}, {f:0,d:2},
-                {f:262,d:2}, {f:196,d:3}, {f:0,d:3},
-                {f:262,d:2}, {f:311,d:2}, {f:262,d:4}, {f:0,d:3},
-                {f:196,d:3}, {f:0,d:2}, {f:262,d:5}, {f:0,d:4}
-            ],
-            
-            startAmbience: function() {
-                if(this.isMusicPlaying) return;
-                this.isMusicPlaying = true;
-                this.playSong();
-            },
-            
-            playSong: function() {
-                if(!this.isMusicPlaying) return;
-                
-                const tune = this.song;
-                let noteIdx = 0;
-                
-                const playNext = () => {
-                    if(!this.isMusicPlaying) return;
-                    if(document.visibilityState !== 'visible') { 
-                        this.bgTimer = setTimeout(playNext, 1000); 
-                        return; 
-                    }
-                    
-                    if(noteIdx >= tune.length) {
-                        // Song finished - loop seamlessly
-                        noteIdx = 0;
-                    }
-                    
-                    const n = tune[noteIdx];
-                    if(n.f > 0) { // Skip rests (f=0)
-                        this.play(n.f, 'triangle', n.d * 0.7, 0.02);
-                    }
-                    noteIdx++;
-                    this.bgTimer = setTimeout(playNext, n.d * 380);
-                };
-                playNext();
-            },
-            
-            stopAmbience: function() {
-                this.isMusicPlaying = false;
-                if(this.bgTimer) clearTimeout(this.bgTimer);
-            }
-        };
-        
-        function toggleMusic() {
-            const btn = document.getElementById('btnMusic');
-            if(audio.isMusicPlaying) {
-                audio.stopAmbience();
-                btn.innerText = '🔇 Music Off';
-            } else {
-                audio.init();
-                audio.startAmbience();
-                btn.innerText = '🎵 Music On';
-            }
-        }
-
-        function generateDNA() {
-            // Generate a base hue for the plant (full spectrum)
-            const baseHue = Math.random() * 360;
-            // For leaves/stems, use green-ish hues (80-160) most of the time, but allow variety
-            const isGreenPlant = Math.random() > 0.3; // 70% green plants
-            const leafHue = isGreenPlant ? (80 + Math.random() * 80) : baseHue; // Green range or wild
-            
-            return {
-                stemCurveX: (Math.random() * 50) - 25, // More curve variety
-                stemCurveY: Math.random() * 40,
-                // Growth pattern variety
-                branchStyle: Math.random() > 0.5 ? 'alternate' : (Math.random() > 0.5 ? 'opposite' : 'spiral'),
-                branchAngle: 30 + Math.random() * 40, // 30-70 degrees
-                branchSpread: 20 + Math.random() * 30, // How far branches spread
-                leanDirection: Math.random() > 0.5 ? 1 : -1, // Lean left or right
-                // Leaf/branch count (up to 5 leaf pairs along stem)
-                leafNodes: Math.floor(Math.random() * 3) + 3, // 3-5 leaf nodes
-                // Expanded Variety
-                leafType: Math.random() > 0.6 ? 'pointy' : (Math.random() > 0.3 ? 'round' : (Math.random() > 0.5 ? 'oak' : 'heart')),
-                leafPattern: Math.random() > 0.8 ? 'striped' : 'solid',
-                leafScale: 0.6 + Math.random() * 0.6,
-                flowerCount: Math.floor(Math.random() * 3) + 1, 
-                petalCount: Math.floor(Math.random() * 5) + 4, 
-                petalStyle: Math.random() > 0.5 ? 'round' : (Math.random() > 0.5 ? 'pointy' : 'jagged'),
-                // Leaf/stem colors - more vibrant
-                colorH: leafHue, 
-                colorS: 50 + Math.random() * 40, // 50-90% saturation (more vibrant)
-                colorL: 35 + Math.random() * 25, // 35-60% lightness
-                // Flower color - full spectrum, vibrant
-                flowerColor: `hsl(${Math.random() * 360}, ${60 + Math.random() * 30}%, ${55 + Math.random() * 20}%)`
-            };
-        }
-
-        function injectPotPatterns() {
-            const defs = document.getElementById('plantDefs');
-            if(defs) {
-                const patterns = `
-                    <pattern id="patDots" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse"><circle cx="7" cy="7" r="3" fill="var(--pot-pat-color)"/></pattern>
-                    <pattern id="patStripes" x="0" y="0" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="10" stroke="var(--pot-pat-color)" stroke-width="4" /></pattern>
-                    <pattern id="patHearts" x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse"><path d="M8 12 L4 7 Q3 4 5.5 4 Q8 4 8 6 Q8 4 10.5 4 Q13 4 12 7 Z" fill="var(--pot-pat-color)"/></pattern>
-                    <pattern id="patNotes" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse"><text x="2" y="16" font-size="16" fill="var(--pot-pat-color)">♪</text></pattern>
-                    <pattern id="patStars" x="0" y="0" width="18" height="18" patternUnits="userSpaceOnUse"><polygon points="9,1 11,7 17,7 12,11 14,17 9,13 4,17 6,11 1,7 7,7" fill="var(--pot-pat-color)" transform="scale(0.7) translate(4,4)"/></pattern>
-                    <pattern id="patWaves" x="0" y="0" width="16" height="8" patternUnits="userSpaceOnUse"><path d="M0 4 Q4 0 8 4 T16 4" fill="none" stroke="var(--pot-pat-color)" stroke-width="2"/></pattern>
-                    <pattern id="patChecks" x="0" y="0" width="12" height="12" patternUnits="userSpaceOnUse"><rect x="0" y="0" width="6" height="6" fill="var(--pot-pat-color)"/><rect x="6" y="6" width="6" height="6" fill="var(--pot-pat-color)"/></pattern>
-                    <pattern id="patDiamonds" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse"><polygon points="7,1 13,7 7,13 1,7" fill="var(--pot-pat-color)" transform="scale(0.7) translate(3,3)"/></pattern>
-                    <pattern id="patLeaves" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse"><path d="M7 2 Q10 5 7 11 Q4 5 7 2" fill="var(--pot-pat-color)"/></pattern>
-                    <pattern id="patMoons" x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse"><path d="M10 3 A5 5 0 1 1 10 13 A4 4 0 1 0 10 3" fill="var(--pot-pat-color)"/></pattern>
-                `;
-                defs.innerHTML += patterns;
-                const prevDefs = document.getElementById('previewDefs'); if(prevDefs) prevDefs.innerHTML += patterns;
-                const hDefs = document.getElementById('harvestDefs'); if(hDefs) hDefs.innerHTML = patterns;
-                const aDefs = document.getElementById('archiveDefs'); if(aDefs) aDefs.innerHTML = patterns;
-            }
-        }
-
-        /* --- VISUALS --- */
-        function renderPot(group, config) {
-            group.innerHTML = '';
-            const dirt = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
-            dirt.setAttribute("cx", 100); dirt.setAttribute("cy", 190); dirt.setAttribute("rx", 28); dirt.setAttribute("ry", 6); dirt.setAttribute("fill", "#5d4037");
-            group.appendChild(dirt);
-
-            const body = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            body.setAttribute("d", "M72 190 L128 190 L118 230 L82 230 Z");
-            body.setAttribute("fill", config.potColor);
-            group.appendChild(body);
-
-            const rim = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            rim.setAttribute("d", "M68 185 L132 185 L130 195 L70 195 Z");
-            rim.setAttribute("fill", config.potColor); rim.setAttribute("style", "filter: brightness(1.1);");
-            group.appendChild(rim);
-            
-            if(config.potPattern && config.potPattern !== 'none') {
-                const pat = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                pat.setAttribute("d", "M72 195 L128 195 L118 230 L82 230 Z");
-                pat.setAttribute("fill", `url(#${config.potPattern})`); pat.setAttribute("style", "opacity: 0.9; stroke: none;");
-                group.appendChild(pat);
-            }
-        }
-
-        function renderPlant(containerId, dna, stage, isGhost = false) {
-            const group = document.getElementById(containerId);
-            if (!group) return; 
-            group.innerHTML = ''; 
-
-            // Containers that support gradient defs
-            const supportedContainers = ['plantGroup', 'previewPlantGroup', 'harvestPlantGroup', 'archivePlantGroup', 'scPlant'];
-            const useGradients = supportedContainers.includes(containerId);
-            
-            // Check for scars (only apply to main plant, not previews)
-            const scars = (containerId === 'plantGroup' && state.scars) ? state.scars : [];
-            const hasWilt = scars.includes('wilt');
-            const hasBend = scars.includes('bend');
-            const hasPale = scars.includes('pale');
-            
-            // Adjust colors for pale scar
-            let colorH = dna.colorH;
-            let colorS = dna.colorS;
-            let colorL = dna.colorL;
-            if (hasPale) {
-                colorS = Math.max(20, colorS - 30); // Desaturate
-                colorL = Math.min(70, colorL + 15); // Lighten
-            }
-
-            if (!isGhost && useGradients) {
-                let defsId = 'plantDefs';
-                if(containerId.includes('preview')) defsId = 'previewDefs';
-                else if(containerId.includes('harvest')) defsId = 'harvestDefs';
-                else if(containerId.includes('archive')) defsId = 'archiveDefs';
-                else if(containerId === 'scPlant') defsId = 'scDefs';
-
-                const defs = document.getElementById(defsId);
-                if(defs) {
-                    // Remove old gradients if they exist (so we use current DNA colors)
-                    const oldStem = document.getElementById(containerId+'_stemGrad');
-                    const oldLeaf = document.getElementById(containerId+'_leafGrad');
-                    if(oldStem) oldStem.remove();
-                    if(oldLeaf) oldLeaf.remove();
-                    
-                    // Create new gradients with current DNA (scar-adjusted)
-                    defs.innerHTML += `
-                        <linearGradient id="${containerId}_stemGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-                            <stop offset="0%" style="stop-color:hsl(${colorH}, ${colorS}%, ${colorL}%);stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:hsl(${colorH}, ${colorS}%, ${colorL + 20}%);stop-opacity:1" />
-                        </linearGradient>
-                        <linearGradient id="${containerId}_leafGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-                            <stop offset="0%" style="stop-color:hsl(${colorH}, ${colorS}%, ${colorL + 5}%);stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:hsl(${colorH}, ${colorS}%, ${colorL + 25}%);stop-opacity:1" />
-                        </linearGradient>
-                    `;
-                }
-            }
-
-            // Use gradients if available, otherwise fall back to solid colors
-            const strokeStyle = isGhost ? "none" : (useGradients ? `url(#${containerId}_stemGrad)` : `hsl(${colorH}, ${colorS}%, ${colorL}%)`);
-            const fillStyle = isGhost ? "" : (useGradients ? `url(#${containerId}_leafGrad)` : `hsl(${colorH}, ${colorS}%, ${colorL + 15}%)`);
-            
-            // Growth pattern variables
-            const lean = dna.leanDirection || 1;
-            const spread = dna.branchSpread || 25;
-            const angle = dna.branchAngle || 45;
-            const leafNodes = dna.leafNodes || 4;
-            
-            // Apply bend scar - affects stem curve
-            const bendOffset = hasBend ? (lean * 15) : 0;
-            
-            // Define stem path points (base to top)
-            const stemPoints = [];
-            const baseY = 190;
-            const topY = 100 - (dna.stemCurveY || 20);
-            const totalHeight = baseY - topY;
-            
-            // Generate stem path with curve (and bend scar)
-            for (let i = 0; i <= 10; i++) {
-                const t = i / 10;
-                const y = baseY - (totalHeight * t);
-                // Bezier-like curve for x position, with bend scar offset
-                let curveInfluence = Math.sin(t * Math.PI) * (dna.stemCurveX || 0) * lean * 0.6;
-                // Add bend in middle section
-                if (hasBend && t > 0.3 && t < 0.7) {
-                    curveInfluence += Math.sin((t - 0.3) * Math.PI / 0.4) * bendOffset;
-                }
-                const x = 100 + curveInfluence;
-                stemPoints.push({ x, y, t });
-            }
-            
-            // Wilt scar - affects leaf droop
-            const wiltAngle = hasWilt ? 20 : 0; // Extra droop on leaves
-            for (let i = 0; i <= 10; i++) {
-                const t = i / 10;
-                const y = baseY - (totalHeight * t);
-                // Bezier-like curve for x position
-                const curveInfluence = Math.sin(t * Math.PI) * (dna.stemCurveX || 0) * lean * 0.6;
-                const x = 100 + curveInfluence;
-                stemPoints.push({ x, y, t });
-            }
-            
-            // Helper to get point on stem at a given t (0-1)
-            const getStemPoint = (t) => {
-                const idx = Math.min(Math.floor(t * 10), 9);
-                const nextIdx = Math.min(idx + 1, 10);
-                const localT = (t * 10) - idx;
-                return {
-                    x: stemPoints[idx].x + (stemPoints[nextIdx].x - stemPoints[idx].x) * localT,
-                    y: stemPoints[idx].y + (stemPoints[nextIdx].y - stemPoints[idx].y) * localT
-                };
-            };
-            
-            // Draw main stem as connected segments
-            const drawMainStem = (fromT, toT, width) => {
-                const from = getStemPoint(fromT);
-                const to = getStemPoint(toT);
-                const midT = (fromT + toT) / 2;
-                const mid = getStemPoint(midT);
-                // Add slight random curve
-                const cx = mid.x + (Math.random() * 6 - 3);
-                const cy = mid.y;
-                const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                p.setAttribute("d", `M${from.x} ${from.y} Q${cx} ${cy} ${to.x} ${to.y}`);
-                p.setAttribute("stroke-width", width);
-                p.setAttribute("class", "stem");
-                if(strokeStyle) p.style.stroke = strokeStyle;
-                group.appendChild(p);
-            };
-            
-            // Helper to apply wilt to leaf angle (droop toward ground)
-            const wiltedAngle = (baseAngle) => {
-                if (!hasWilt) return baseAngle;
-                // Make leaves droop downward
-                if (baseAngle < 0) return baseAngle - wiltAngle;
-                return baseAngle + wiltAngle;
-            };
-            
-            // Stage 1: Base stem (0-0.3) with first leaf pair
-            if (stage >= 1) {
-                drawMainStem(0, 0.3, 4);
-                const leafPt = getStemPoint(0.25);
-                renderLeaf(group, dna, leafPt.x, leafPt.y, wiltedAngle(-angle), 1, fillStyle);
-                renderLeaf(group, dna, leafPt.x, leafPt.y, wiltedAngle(angle), 1, fillStyle);
-            }
-            
-            // Stage 2: Middle stem (0.3-0.6) with second leaf pair
-            if (stage >= 2) {
-                drawMainStem(0.3, 0.6, 3);
-                const leafPt = getStemPoint(0.5);
-                if (dna.branchStyle === 'alternate') {
-                    const leafPt1 = getStemPoint(0.45);
-                    const leafPt2 = getStemPoint(0.55);
-                    renderLeaf(group, dna, leafPt1.x, leafPt1.y, wiltedAngle(-angle * lean), 2, fillStyle);
-                    renderLeaf(group, dna, leafPt2.x, leafPt2.y, wiltedAngle(angle * lean), 2, fillStyle);
-                } else {
-                    renderLeaf(group, dna, leafPt.x, leafPt.y, wiltedAngle(-angle - 15), 2, fillStyle);
-                    renderLeaf(group, dna, leafPt.x, leafPt.y, wiltedAngle(angle + 15), 2, fillStyle);
-                }
-                
-                // Extra leaf node if plant has 4+ leaf nodes
-                if (leafNodes >= 4) {
-                    const extraPt = getStemPoint(0.38);
-                    renderLeaf(group, dna, extraPt.x, extraPt.y, wiltedAngle(-angle * lean * 0.8), 1, fillStyle);
-                }
-            }
-            
-            // Stage 3: Top stem (0.6-1.0) with branches and more leaves
-            if (stage >= 3) {
-                drawMainStem(0.6, 1.0, 3);
-                const topPt = getStemPoint(1.0);
-                renderLeaf(group, dna, topPt.x, topPt.y, wiltedAngle(-30), 3, fillStyle);
-                renderLeaf(group, dna, topPt.x, topPt.y, wiltedAngle(30), 3, fillStyle);
-                
-                // Extra leaf node if plant has 5 leaf nodes
-                if (leafNodes >= 5) {
-                    const extraPt = getStemPoint(0.7);
-                    renderLeaf(group, dna, extraPt.x, extraPt.y, wiltedAngle(angle * lean), 2, fillStyle);
-                }
-                
-                // Side branches for flowers
-                if (dna.flowerCount >= 2) {
-                    const branchStart = getStemPoint(0.65);
-                    const branchEndX = branchStart.x + (spread * lean * -1);
-                    const branchEndY = topPt.y + 15;
-                    drawStem(group, branchStart.x, branchStart.y, branchEndX, branchEndY, 2, strokeStyle);
-                    renderLeaf(group, dna, branchEndX, branchEndY, -angle * lean * -1, 2, fillStyle);
-                }
-                if (dna.flowerCount >= 3) {
-                    const branchStart = getStemPoint(0.7);
-                    const branchEndX = branchStart.x + (spread * lean);
-                    const branchEndY = topPt.y + 20;
-                    drawStem(group, branchStart.x, branchStart.y, branchEndX, branchEndY, 2, strokeStyle);
-                    renderLeaf(group, dna, branchEndX, branchEndY, angle * lean, 2, fillStyle);
-                }
-            }
-            
-            // Stage 4-5: Flowers/Buds
-            const renderFlowerOrBud = (x, y) => {
-                if (stage === 4) renderBud(group, dna, x, y, isGhost);
-                else if (stage >= 5) renderFlower(group, dna, x, y, isGhost);
-            };
-
-            if (stage >= 4) {
-                const topPt = getStemPoint(1.0);
-                renderFlowerOrBud(topPt.x, topPt.y);
-                
-                if (dna.flowerCount >= 2) {
-                    const branchStart = getStemPoint(0.65);
-                    const branchEndX = branchStart.x + (spread * lean * -1);
-                    const branchEndY = topPt.y + 15;
-                    renderFlowerOrBud(branchEndX, branchEndY);
-                }
-                if (dna.flowerCount >= 3) {
-                    const branchStart = getStemPoint(0.7);
-                    const branchEndX = branchStart.x + (spread * lean);
-                    const branchEndY = topPt.y + 20;
-                    renderFlowerOrBud(branchEndX, branchEndY);
-                }
-            }
-        }
-
-        function drawStem(group, sx, sy, ex, ey, w, stroke) {
-            const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            const cx = (sx+ex)/2 + (Math.random()*10-5);
-            const cy = (sy+ey)/2;
-            p.setAttribute("d", `M${sx} ${sy} Q${cx} ${cy} ${ex} ${ey}`);
-            p.setAttribute("stroke-width", w);
-            p.setAttribute("class", "stem");
-            if(stroke) p.style.stroke = stroke;
-            group.appendChild(p);
-        }
-
-        function renderLeaf(group, dna, x, y, angle, stage, fillStyle) {
-            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-            g.setAttribute("class", "leaf-wrapper");
-            g.setAttribute("transform", `translate(${x}, ${y}) rotate(${angle + (Math.random()*10-5)})`);
-            
-            const leaf = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            leaf.setAttribute("class", "leaf");
-            if(fillStyle) leaf.style.fill = fillStyle;
-            
-            const s = dna.leafScale * (1 - (stage * 0.1));
-            let d = "";
-            if (dna.leafType === 'round') d = `M0 0 Q${-15*s} ${-20*s} 0 ${-40*s} Q${15*s} ${-20*s} 0 0`;
-            else if (dna.leafType === 'pointy') d = `M0 0 Q${-10*s} ${-25*s} 0 ${-50*s} Q${10*s} ${-25*s} 0 0`;
-            else if (dna.leafType === 'heart') d = `M0 0 C${-15*s} ${-10*s} ${-20*s} ${-30*s} 0 ${-40*s} C${20*s} ${-30*s} ${15*s} ${-10*s} 0 0`;
-            else d = `M0 0 Q${-5*s} ${-10*s} ${-10*s} ${-20*s} Q${-5*s} ${-30*s} 0 ${-40*s} Q${5*s} ${-30*s} ${10*s} ${-20*s} Q${5*s} ${-10*s} 0 0`; // oak-ish
-            
-            leaf.setAttribute("d", d);
-            
-            // Leaf Pattern
-            if(dna.leafPattern === 'striped' && !fillStyle.includes('url')) {
-                leaf.style.fillOpacity = 0.8; 
-            }
-            
-            const anim = document.createElementNS("http://www.w3.org/2000/svg", "animateTransform");
-            anim.setAttribute("attributeName", "transform"); anim.setAttribute("type", "rotate"); anim.setAttribute("additive", "sum"); 
-            anim.setAttribute("values", `-3 0 0; 3 0 0; -3 0 0`); anim.setAttribute("dur", (3+Math.random()*3)+"s"); anim.setAttribute("repeatCount", "indefinite");
-            g.appendChild(leaf); g.appendChild(anim); group.appendChild(g);
-        }
-
-        function renderBud(group, dna, x, y, isGhost) {
-            const bud = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-            bud.setAttribute("cx", x); bud.setAttribute("cy", y); bud.setAttribute("r", 6);
-            bud.setAttribute("class", "bud");
-            if (!isGhost) bud.style.fill = `hsl(${dna.colorH}, ${dna.colorS}%, 70%)`;
-            group.appendChild(bud);
-        }
-
-        function renderFlower(group, dna, x, y, isGhost) {
-            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-            g.setAttribute("transform", `translate(${x}, ${y})`);
-            for(let i=0; i<dna.petalCount; i++) {
-                const angle = (360 / dna.petalCount) * i;
-                const petal = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                petal.setAttribute("class", "petal");
-                if (!isGhost) petal.style.fill = dna.flowerColor;
-                
-                let d = "";
-                if(dna.petalStyle === 'pointy') d = "M0 0 Q5 -15 0 -25 Q-5 -15 0 0";
-                else if(dna.petalStyle === 'jagged') d = "M0 0 L5 -15 L0 -25 L-5 -15 Z";
-                else d = "M0 0 Q8 -15 0 -20 Q-8 -15 0 0";
-                
-                petal.setAttribute("d", d); petal.setAttribute("transform", `rotate(${angle})`); g.appendChild(petal);
-            }
-            const center = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-            center.setAttribute("r", 4); center.setAttribute("fill", "#ffd43b"); g.appendChild(center);
-            group.appendChild(g);
-        }
-
-        /* --- INIT --- */
-        function init() {
-            els = {
-                statusArea: document.getElementById('statusArea'),
-                water: document.getElementById('orbWater'), sun: document.getElementById('orbSun'), love: document.getElementById('orbLove'),
-                ring: document.getElementById('vitals'), plantHero: document.getElementById('plantHero'),
-                day: document.getElementById('dayDisplay'), nameDisplay: document.getElementById('plantNameDisplay'), genBadge: document.getElementById('genBadge'),
-                nameInput: document.getElementById('nameInput'),
-                btnSun: document.getElementById('btnSun'), btnRain: document.getElementById('btnRain'), btnSing: document.getElementById('btnSing'), btnFertilize: document.getElementById('btnFertilize'),
-                menu: document.getElementById('menuOverlay'), btnHarvest: document.getElementById('btnHarvest'),
-                rainContainer: document.getElementById('rainContainer'), rainbow: document.getElementById('rainbowContainer'),
-                greenhouseList: document.getElementById('greenhouseList'),
-                plantGroup: document.getElementById('plantGroup'), potGroup: document.getElementById('potGroup'),
-                archiveOverlay: document.getElementById('archiveOverlay'), deathOverlay: document.getElementById('deathOverlay'), harvestOverlay: document.getElementById('harvestOverlay'),
-                potOverlay: document.getElementById('potOverlay'), colorGrid: document.getElementById('colorGrid'), patternGrid: document.getElementById('patternGrid'),
-                harvestNameInput: document.getElementById('harvestNameInput'),
-                plantGraphics: document.getElementById('plantGraphics'),
-                potPatternPath: document.getElementById('potPatternPath'),
-                previewPotPattern: document.getElementById('previewPotPattern'),
-                patternColorGrid: document.getElementById('patternColorGrid'),
-                resetOverlay: document.getElementById('resetOverlay'),
-                helpOverlay: document.getElementById('helpOverlay'), 
-                progressBar: document.getElementById('menuProgressBar'),
-                fireflyOverlay: document.getElementById('fireflyOverlay'),
-                fireflyGrid: document.getElementById('fireflyGrid'),
-                showcaseLink: document.getElementById('showcaseLink'),
-                showcaseOverlay: document.getElementById('showcaseOverlay'),
-                welcomeToast: document.getElementById('welcomeToast'),
-                evolutionBar: document.getElementById('evolutionBar')
-            };
-            
-            const container = document.getElementById('rainContainer');
-            for (let i=0; i<30; i++) {
-                const d = document.createElement('div'); d.classList.add('raindrop');
-                d.style.left = Math.random() * 100 + '%'; d.style.animationDuration = (0.5 + Math.random() * 0.5) + 's'; d.style.animationDelay = Math.random() + 's';
-                container.appendChild(d);
-            }
-
-            if(!state.dna) state.dna = generateDNA();
-            injectPotPatterns();
-            loadState();
-            
-            processOfflineProgress();
-
-            els.colorGrid.innerHTML = POT_COLORS.map(c => `<div class="color-swatch" style="background:${c}" onclick="setPotColor('${c}')"></div>`).join('');
-            els.patternColorGrid.innerHTML = POT_COLORS.map(c => `<div class="color-swatch" style="background:${c}" onclick="setPotPatternColor('${c}')"></div>`).join('');
-
-            updatePotMenu();
-            applyTheme();
-            updatePotVisuals();
-            renderPlant('plantGroup', state.dna, state.stage);
-            
-            els.statusArea.classList.add('loaded');
-            if(state.history.length > 0) els.showcaseLink.classList.add('visible');
-            
-            startGameLoop();
-            
-            // Event listeners
-            document.addEventListener("visibilitychange", handleVisibility);
-            window.addEventListener("pagehide", saveState); window.addEventListener("beforeunload", saveState);
-            window.addEventListener("blur", saveState);
-            
-            // Press and hold on pot to show vitals
-            els.potGroup.addEventListener('mousedown', () => handlePress(true));
-            els.potGroup.addEventListener('mouseup', () => handlePress(false));
-            els.potGroup.addEventListener('mouseleave', () => handlePress(false));
-            els.potGroup.addEventListener('touchstart', (e) => { e.preventDefault(); handlePress(true); }, {passive: false});
-            els.potGroup.addEventListener('touchend', (e) => { e.preventDefault(); handlePress(false); });
-            
-            // Update cooldowns every second
-            setInterval(() => {
-                checkSingCooldown();
-                checkFertilizeCooldown();
-            }, 1000);
-            
-            checkSingCooldown();
-            checkFertilizeCooldown();
-            
-            // Back button handling - close popups instead of leaving game
-            history.pushState({ popup: 'none' }, '');
-            window.addEventListener('popstate', handleBackButton);
-            
-            audio.init(); // Init audio context
-        }
-        
-        /* --- BACK BUTTON HANDLING --- */
-        function handleBackButton(e) {
-            // Check which overlay is open and close it
-            const overlays = [
-                { el: els.showcaseOverlay, close: closeShowcase },
-                { el: els.fireflyOverlay, close: closeFireflyLog },
-                { el: els.potOverlay, close: closePotDesigner },
-                { el: els.harvestOverlay, close: closeHarvestModal },
-                { el: els.archiveOverlay, close: closeArchive },
-                { el: els.helpOverlay, close: closeHelp },
-                { el: els.resetOverlay, close: closeResetOverlay },
-                { el: els.deathOverlay, close: () => {} }, // Can't close death
-                { el: els.menu, close: toggleMenu }
-            ];
-            
-            let closedSomething = false;
-            for (const overlay of overlays) {
-                if (overlay.el && (overlay.el.classList.contains('open') || overlay.el.classList.contains('open'))) {
-                    overlay.close();
-                    closedSomething = true;
-                    break;
-                }
-            }
-            
-            // Push state again so back button keeps working
-            if (closedSomething) {
-                history.pushState({ popup: 'none' }, '');
-            }
-        }
-        
-        /* --- PRESS HANDLING FOR VITALS --- */
-        let pressTimer = null;
-        let isPressed = false;
-        function handlePress(isDown) {
-            if (state.isDead) return;
-            if (isDown) {
-                isPressed = true;
-                pressTimer = setTimeout(() => { 
-                    els.ring.classList.add('active'); 
-                }, 300);
-            } else {
-                if (!isPressed) return; 
-                isPressed = false;
-                clearTimeout(pressTimer);
-                if (els.ring.classList.contains('active')) {
-                    els.ring.classList.remove('active');
-                } else {
-                    // Short tap = love
-                    interact('love');
-                }
-            }
-        }
-
-        /* --- FIREFLY LOGIC (New System) --- */
-        function getFireflyFamily(id) {
-            const bucketIndex = Math.floor(id / FF_BUCKET_SIZE);
-            return FF_FAMILIES[bucketIndex];
-        }
-
-        function getFireflyColor(id) {
-            const hue = (id / 255) * 360;
-            return `hsl(${hue}, 100%, 75%)`;
-        }
-        
-        function hasCompletedFamily(familyIndex) {
-            if(!state.fireflies) return false;
-            const start = familyIndex * FF_BUCKET_SIZE;
-            const end = start + FF_BUCKET_SIZE;
-            for(let i=start; i<end; i++) {
-                if(!state.fireflies[i] || state.fireflies[i] <= 0) return false;
-            }
-            return true;
-        }
-
-        function attemptSpawnFirefly() {
-            if (els.menu.classList.contains('open') || els.showcaseOverlay.classList.contains('open')) return;
-            
-            // Normal Firefly
-            if (Math.random() < 0.05) {
-                const id = Math.floor(Math.random() * 256);
-                spawnVisualFirefly(id, false);
-            }
-            
-            // Guardian Firefly (Big) logic
-            FF_FAMILIES.forEach((fam, idx) => {
-                // If family completed AND not already active
-                if(hasCompletedFamily(idx)) {
-                    // 1% chance per tick to spawn guardian if not active
-                    if(!activeBigFireflies.includes(idx) && Math.random() < 0.01) {
-                        spawnVisualFirefly(idx * 32, true); // Use base color of family
-                    }
-                }
-            });
-        }
-
-        function spawnVisualFirefly(id, isBig) {
-            const color = getFireflyColor(id);
-            const ff = document.createElement('div');
-            ff.classList.add('firefly');
-            if(isBig) ff.classList.add('big-firefly');
-            ff.style.color = color; ff.style.background = color;
-            
-            const isLeft = Math.random() > 0.5;
-            ff.style.left = isLeft ? (10 + Math.random() * 20) + '%' : (60 + Math.random() * 30) + '%';
-            ff.style.top = (20 + Math.random() * 50) + '%'; 
-            
-            ff.onclick = (e) => {
-                e.stopPropagation(); 
-                if(isBig) {
-                    // Big firefly doesn't disappear immediately, it stays and buffs
-                    spawnFloatingText("Guardian Buff Active!", color);
-                    // Add to active list
-                    const famIdx = Math.floor(id / 32);
-                    if(!activeBigFireflies.includes(famIdx)) activeBigFireflies.push(famIdx);
-                    // Switch to activated state (dimmer but still glowing)
-                    ff.classList.add('guardian-active');
-                    ff.style.pointerEvents = 'none'; // Can't click again
-                    // Fade out after 30s
-                    setTimeout(() => {
-                        ff.classList.add('guardian-fading');
-                        setTimeout(() => {
-                            ff.remove();
-                            activeBigFireflies = activeBigFireflies.filter(x => x !== famIdx);
-                        }, 2000);
-                    }, 28000);
-                } else {
-                    collectFirefly(id, ff);
-                }
-            };
-            
-            document.body.appendChild(ff);
-            if(!isBig) setTimeout(() => { if(ff.parentNode) ff.remove(); }, 10000);
-        }
-
-        function collectFirefly(id, el) {
-            el.remove(); audio.chime(); 
-            state.growth += 2.5; 
-            
-            if (!state.fireflies[id]) state.fireflies[id] = 0;
-            
-            if (state.fireflies[id] < CONFIG.maxFireflyStack) {
-                state.fireflies[id]++;
-                spawnFloatingText("+Firefly!", getFireflyColor(id));
-            } else {
-                spawnFloatingText("Max Stack!", "#fff");
-            }
-            
-            updatePotMenu(); // Check unlocks
-        }
-
-        function applyGuardianBuffs() {
-            activeBigFireflies.forEach(famIdx => {
-                const fam = FF_FAMILIES[famIdx];
-                // 5x Bonus Effect
-                if(fam === 'Blue' || fam === 'Teal') { // Water
-                    if(state.water < 100) state.water = Math.min(100, state.water + 1);
-                } else if(fam === 'Yellow' || fam === 'Orange') { // Sun
-                    if(state.sun < 100) state.sun = Math.min(100, state.sun + 1);
-                } else if(fam === 'Red' || fam === 'Pink') { // Love
-                    if(state.love < 100) state.love = Math.min(100, state.love + 1);
-                } else if(fam === 'Green') { // Growth
-                    state.growth += (CONFIG.growthRate * 5); // Extra growth
-                }
-            });
-        }
-
-        function openFireflyLog() {
-            els.menu.classList.remove('open');
-            els.fireflyOverlay.classList.add('open');
-            const grid = els.fireflyGrid; grid.innerHTML = '';
-            
-            let totalCaught = 0;
-            if(state.fireflies) Object.values(state.fireflies).forEach(v => totalCaught += v);
-            
-            // Unlock info header
-            const unlockInfo = document.createElement('div');
-            unlockInfo.style.cssText = 'grid-column: span 8; font-size: 0.7rem; opacity: 0.7; margin-bottom: 15px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; line-height: 1.4;';
-            unlockInfo.innerHTML = `
-                <b>🎨 Pot Patterns (${totalCaught} catches):</b><br>
-                ● 0 | /// 5 | ♥ 15 | 〰 30 | ♪ 50<br>
-                ▦ 75 | ★ 100 | ◆ 150 | 🌿 200 | ☽ 300<br>
-                <span style="opacity: 0.7; font-style: italic;">Catch 5 of the same firefly to reveal its color.</span>
-            `;
-            grid.appendChild(unlockInfo);
-            
-            FF_FAMILIES.forEach((fam, famIdx) => {
-                const label = document.createElement('div');
-                label.className = 'firefly-bucket-label';
-                label.innerText = `${fam} Family`;
-                if(hasCompletedFamily(famIdx)) label.innerHTML += " <span style='color:gold'>★ GUARDIAN</span>";
-                grid.appendChild(label);
-
-                for(let i=0; i<FF_BUCKET_SIZE; i++) {
-                    const id = (famIdx * FF_BUCKET_SIZE) + i;
-                    const count = state.fireflies[id] || 0;
-
-                    const dot = document.createElement('div');
-                    dot.className = 'firefly-dot';
-                    
-                    if (count >= 5) {
-                        dot.classList.add('collected');
-                        dot.style.setProperty('--ff-color', getFireflyColor(id));
-                        dot.title = `ID: ${id} (Caught: ${count}/${CONFIG.maxFireflyStack})`;
-                    } else if (count > 0) {
-                        dot.classList.add('locked'); // Mystery
-                        dot.title = `Catch ${5-count} more to reveal`;
-                    }
-
-                    if(count > 0) {
-                        const badge = document.createElement('div');
-                        badge.className = 'firefly-count';
-                        badge.innerText = count;
-                        dot.appendChild(badge);
-                    }
-                    grid.appendChild(dot);
-                }
-            });
-            
-            // Update unique count
-            let uniqueCaught = 0;
-            if(state.fireflies) Object.keys(state.fireflies).forEach(k => { if(state.fireflies[k] > 0) uniqueCaught++; });
-            document.getElementById('ffCount').innerText = uniqueCaught;
-        }
-        function closeFireflyLog() { els.fireflyOverlay.classList.remove('open'); els.menu.classList.add('open'); }
-
-        /* --- GAME LOOP (Optimized) --- */
-        let lastStageRendered = 0;
-        let saveDebounceTimer = null;
-        let lastTickTime = Date.now();
-        
-        function startGameLoop() {
-            // Single master tick at 1 second intervals
-            setInterval(gameTick, CONFIG.tickRate);
-        }
-        
-        function gameTick() {
-            if (state.isDead) return;
-            
-            // Skip heavy processing when backgrounded
-            if (document.visibilityState !== 'visible') {
-                // Only update time-based state, skip rendering
-                const now = Date.now();
-                const delta = now - lastTickTime;
-                lastTickTime = now;
-                return;
-            }
-            
-            lastTickTime = Date.now();
-            
-            // Core game logic
-            decay(); 
-            checkDeath(); 
-            grow(); 
-            applyGuardianBuffs();
-            attemptSpawnFirefly();
-            
-            // Debounced save (every 5 seconds max)
-            if (!saveDebounceTimer) {
-                saveDebounceTimer = setTimeout(() => {
-                    saveState();
-                    saveDebounceTimer = null;
-                }, 5000);
-            }
-            
-            // Render only if visible
-            render();
-        }
-
-        function decay() {
-            if (state.isRainOn) {
-                state.water = Math.min(100, state.water + 0.2); 
-                if (state.water >= 95 && Math.random() > 0.9) {
-                     spawnFloatingText("Too Wet!", "#ff6b6b"); 
-                }
-            } else {
-                state.water = Math.max(0, state.water - CONFIG.decayRate.water);
-            }
-            if (state.isSunLampOn) {
-                state.sun = Math.min(100, state.sun + 0.5);
-                if (state.sun > 90) {
-                    state.water = Math.max(0, state.water - 0.2); 
-                    if (Math.random() > 0.95) spawnFloatingText("Scorching!", "orange"); 
-                }
-            } else {
-                state.sun = Math.max(0, state.sun - CONFIG.decayRate.sun);
-            }
-            state.love = Math.max(0, state.love - CONFIG.decayRate.love);
-        }
-
-        function checkDeath() {
-            // Check for crisis state (all stats very low)
-            const inCrisis = state.water <= 10 && state.sun <= 10 && state.love <= 10;
-            
-            if (inCrisis) {
-                state.timeAtZero += CONFIG.tickRate;
-                
-                // Crisis thresholds - accumulate scars instead of dying
-                const crisisHours = state.timeAtZero / (1000 * 60 * 60);
-                
-                if (crisisHours >= 1 && !state.scars.includes('wilt')) {
-                    // First crisis: Wilted leaves
-                    state.scars.push('wilt');
-                    state.crisisCount++;
-                    spawnFloatingText("Leaves wilting...", "#f87171");
-                    renderPlant('plantGroup', state.dna, state.stage);
-                }
-                if (crisisHours >= 3 && !state.scars.includes('bend')) {
-                    // Second crisis: Bent stem
-                    state.scars.push('bend');
-                    state.crisisCount++;
-                    spawnFloatingText("Stem weakening...", "#f87171");
-                    renderPlant('plantGroup', state.dna, state.stage);
-                }
-                if (crisisHours >= 6 && !state.scars.includes('pale')) {
-                    // Third crisis: Pale coloring
-                    state.scars.push('pale');
-                    state.crisisCount++;
-                    spawnFloatingText("Colors fading...", "#f87171");
-                    renderPlant('plantGroup', state.dna, state.stage);
-                }
-                if (crisisHours >= 9 && !state.scars.includes('dormant')) {
-                    // Final crisis: Dormant state (not dead, but needs revival)
-                    state.scars.push('dormant');
-                    state.crisisCount++;
-                    els.plantHero.classList.add('dormant-plant');
-                    spawnFloatingText("Entering dormancy...", "#f87171");
-                    showDormantOverlay();
-                }
-            } else {
-                // Recovering - slowly reduce crisis timer
-                state.timeAtZero = Math.max(0, state.timeAtZero - CONFIG.tickRate * 2);
-                
-                // Remove dormant state if recovering
-                if (els.plantHero.classList.contains('dormant-plant')) {
-                    const avgVitals = (state.water + state.sun + state.love) / 3;
-                    if (avgVitals > 30) {
-                        els.plantHero.classList.remove('dormant-plant');
-                        spawnFloatingText("Awakening!", "#4ade80");
-                    }
-                }
-            }
-        }
-        
-        function showDormantOverlay() {
-            // Show a gentler overlay than death - plant can still be saved
-            const overlay = document.createElement('div');
-            overlay.id = 'dormantOverlay';
-            overlay.className = 'overlay dormant-overlay open';
-            overlay.innerHTML = `
-                <div class="overlay-box" style="text-align: center;">
-                    <div style="font-size: 3rem; margin-bottom: 15px;">🌙</div>
-                    <h2 style="color: #a78bfa;">Deep Dormancy</h2>
-                    <p style="opacity: 0.8; margin: 15px 0;">Your plant has entered a protective sleep.<br>It can still be revived with care.</p>
-                    <p style="font-size: 0.85rem; opacity: 0.6;">Restore water, sun, and love to awaken it.<br>Scars will remain as marks of resilience.</p>
-                    <button class="btn-base" onclick="this.parentElement.parentElement.remove()" style="margin-top: 20px;">I understand</button>
-                </div>
-            `;
-            document.body.appendChild(overlay);
-        }
-
-        function getPlantState() {
-            const avg = (state.water + state.sun + state.love) / 3;
-            if (avg >= PLANT_STATES.thriving.min) return PLANT_STATES.thriving;
-            if (avg >= PLANT_STATES.content.min) return PLANT_STATES.content;
-            if (avg >= PLANT_STATES.restless.min) return PLANT_STATES.restless;
-            if (avg >= PLANT_STATES.strained.min) return PLANT_STATES.strained;
-            return PLANT_STATES.dormant;
-        }
-
-        function grow() {
-            const isHappy = state.water > CONFIG.threshold && state.sun > CONFIG.threshold && state.love > CONFIG.threshold;
-            if (isHappy) state.growth += (CONFIG.growthRate * state.growthMultiplier);
-            
-            let nextStage = 1;
-            for(let i=1; i<CONFIG.stages.length; i++) {
-                if(state.growth > CONFIG.stages[i]) nextStage = i+1;
-            }
-
-            if (nextStage > state.stage) {
-                state.stage = nextStage;
-                els.plantHero.classList.add('evolving');
-                setTimeout(() => els.plantHero.classList.remove('evolving'), 2000);
-                // Only re-render plant when stage actually changes
-                renderPlant('plantGroup', state.dna, state.stage);
-                lastStageRendered = state.stage;
-                spawnFloatingText("✨ EVOLVED!", "white");
-            }
-        }
-
-        function render() {
-            // Batch DOM reads/writes
-            const water = state.water;
-            const sun = state.sun;
-            const love = state.love;
-            
-            updateOrb(els.water, water, 'orbWater'); 
-            updateOrb(els.sun, sun, 'orbSun'); 
-            updateOrb(els.love, love, 'orbLove');
-            
-            els.day.innerText = `Sun ${state.day}`;
-            els.genBadge.innerText = `CYCLE ${state.generation}`;
-            els.nameDisplay.innerText = state.name;
-            
-            els.btnSun.classList.toggle('sun-active', state.isSunLampOn);
-            els.btnRain.classList.toggle('rain-active', state.isRainOn);
-
-            // Use CSS transform for smooth scaling
-            const scale = Math.min(1.4, 1 + (state.growth / 6000));
-            els.plantGraphics.style.transform = `scale(${scale})`;
-            
-            // Update evolution progress bar
-            if (els.evolutionBar) {
-                if (state.stage < 5) {
-                    const prevStage = CONFIG.stages[state.stage - 1] || 0;
-                    const nextStage = CONFIG.stages[state.stage];
-                    const progress = Math.min(100, ((state.growth - prevStage) / (nextStage - prevStage)) * 100);
-                    els.evolutionBar.style.width = progress + '%';
-                } else {
-                    els.evolutionBar.style.width = '100%';
-                }
-            }
-            
-            if (els.menu.classList.contains('open')) updateMenuStats();
-        }
-
-        function updateOrb(el, val, id) {
-            const scale = 0.4 + (val / 100) * 0.8; 
-            let color = "white";
-            if (id === 'orbWater') color = "var(--accent-blue)";
-            if (id === 'orbSun') color = "var(--accent-sun)";
-            if (id === 'orbLove') color = "var(--accent-pink)";
-            
-            const fill = (Math.max(0, val) / 100) * 12; 
-            let shadow = `inset 0 0 0 ${fill}px ${color}`;
-            if (val > 80) shadow += `, 0 0 15px ${color}`;
-            if (val < 30) { el.style.borderColor = "#ff6b6b"; shadow += `, 0 0 10px #ff6b6b`; }
-            else { el.style.borderColor = "rgba(255,255,255,0.5)"; }
-            
-            el.style.boxShadow = shadow;
-            el.style.transform = `translateX(${id==='orbWater'?'-50%':'0'}) scale(${scale})`;
-        }
-
-        /* --- INTERACTION --- */
-        function animateJiggle() {
-            els.plantHero.classList.remove('plant-jiggle');
-            void els.plantHero.offsetWidth; // trigger reflow
-            els.plantHero.classList.add('plant-jiggle');
-        }
-
-        function interact(type, e) {
-            if (state.isDead) return;
-            if(e) e.stopPropagation();
-
-            if (type === 'water') {
-                if (state.water >= 90) { state.love -= 5; spawnFloatingText("Too Wet!", "#ff6b6b"); audio.err(); return; }
-                state.water = Math.min(100, state.water + 30); spawnFloatingText("+💧", "var(--accent-blue)"); audio.water();
-            } else if (type === 'love') {
-                if(state.love >= 100) {
-                    spawnFloatingText("Plant Fully Loved", "var(--accent-pink)");
-                    return; // No penalty, just info
-                }
-                state.love = Math.min(100, state.love + 15); 
-                spawnFloatingText("❤️", "var(--accent-pink)"); audio.love();
-                // Bloop animation on the whole plant wrapper
-                els.plantHero.classList.remove('plant-bloop'); 
-                void els.plantHero.offsetWidth; 
-                els.plantHero.classList.add('plant-bloop');
-                setTimeout(() => els.plantHero.classList.remove('plant-bloop'), 500);
-            } else if (type === 'sun') {
-                state.isSunLampOn = !state.isSunLampOn; 
-                spawnFloatingText(state.isSunLampOn?"☀️ ON":"🌑 OFF", "var(--accent-sun)"); 
-                audio.sun(); 
-                applyTheme();
-                if(state.isSunLampOn) spawnSunParticles();
-            } else if (type === 'rain') {
-                state.isRainOn = !state.isRainOn; spawnFloatingText(state.isRainOn?"☁️ Rain ON":"☁️ Rain OFF", "var(--accent-rain)"); applyTheme();
-                if(state.isRainOn) {
-                    els.plantHero.classList.add('plant-bloop');
-                    setTimeout(() => els.plantHero.classList.remove('plant-bloop'), 500);
-                }
-            }
-            render();
-        }
-
-        function applyTheme() {
-            document.body.classList.toggle('sun-mode', state.isSunLampOn);
-            els.rainContainer.classList.toggle('active', state.isRainOn);
-            els.rainbow.classList.toggle('visible', state.isSunLampOn && state.isRainOn);
-            audio.toggleRainSound(state.isRainOn);
-        }
-
-        function playAutoMelody() {
-            state.singCooldownUntil = Date.now() + CONFIG.singCooldown; 
-            checkSingCooldown(); toggleMenu();
-            spawnFloatingText("🎵 Singing...", "#748ffc");
-            
-            // Calculate 10% of current stage requirement
-            let needed = CONFIG.stages[state.stage];
-            if(state.stage < 4) needed = CONFIG.stages[state.stage+1] - CONFIG.stages[state.stage];
-            const growthBoost = needed * 0.1;
-            state.growth += growthBoost;
-            
-            // Show growth boost indication
-            setTimeout(() => {
-                spawnFloatingText(`+${Math.floor(growthBoost)} Growth!`, "#4ade80");
-            }, 500);
-            
-            // Add glow effect to plant
-            els.plantHero.classList.add('sing-glow');
-            setTimeout(() => { els.plantHero.classList.remove('sing-glow'); }, 3000);
-            
-            // Flash progress bar
-            if(els.progressBar) {
-                els.progressBar.classList.add('progress-boost');
-                setTimeout(() => { els.progressBar.classList.remove('progress-boost'); }, 1500);
-            }
-
-            let i = 0; const notes = [261, 329, 392, 523];
-            const iv = setInterval(() => {
-                if(i>=notes.length) { clearInterval(iv); return; }
-                audio.play(notes[i], 'triangle', 0.3); i++;
-            }, 300);
-        }
-
-        function fertilizePlant() {
-            state.fertilizeCooldownUntil = Date.now() + CONFIG.fertilizeCooldown; 
-            checkFertilizeCooldown(); toggleMenu(); 
-            
-            // Boost growth multiplier temporarily and add some growth
-            state.growthMultiplier = 2; // Double growth rate
-            setTimeout(() => { state.growthMultiplier = 1; }, 60000); // Lasts 1 minute
-            state.growth += 50; // Instant growth boost
-            
-            spawnFloatingText("Soil Enriched! 🌿", "#8d6e63");
-            audio.love(); 
-        }
-
-        function checkSingCooldown() {
-            const now = Date.now();
-            if (now < state.singCooldownUntil) {
-                const rem = Math.ceil((state.singCooldownUntil - now) / 1000);
-                const mins = Math.floor(rem / 60);
-                const secs = rem % 60;
-                els.btnSing.disabled = true; 
-                els.btnSing.innerText = `🎵 ${mins}:${secs.toString().padStart(2,'0')}`;
-            } else {
-                els.btnSing.disabled = false; els.btnSing.innerText = "🎵 Sing to Plant";
-            }
-        }
-        function checkFertilizeCooldown() {
-             const now = Date.now();
-             if (now < state.fertilizeCooldownUntil) {
-                 const rem = Math.ceil((state.fertilizeCooldownUntil - now) / 1000);
-                 const mins = Math.floor(rem / 60);
-                 const secs = rem % 60;
-                 els.btnFertilize.disabled = true; 
-                 els.btnFertilize.innerText = `🍂 ${mins}:${secs.toString().padStart(2,'0')}`;
-             } else {
-                 els.btnFertilize.disabled = false; els.btnFertilize.innerText = "🍂 Fertilize Soil";
-             }
-        }
-
-        /* --- POT MENU & UNLOCKS --- */
-        function openPotDesigner() {
-            updatePotMenu();
-            renderPlant('previewPlantGroup', state.dna, state.stage); 
-            updatePotVisuals(); 
-            els.potOverlay.classList.add('open'); 
-            toggleMenu();
-        }
-        function updatePotMenu() {
-            // Calculate total fireflies caught
-            let total = 0;
-            if(state.fireflies) Object.values(state.fireflies).forEach(v => total += v);
-            
-            // Patterns with firefly unlock requirements
-            const patterns = [
-                {id:'none', lbl:'🚫', req:0}, 
-                {id:'patDots', lbl:'●', req:0}, 
-                {id:'patStripes', lbl:'///', req:5},
-                {id:'patHearts', lbl:'♥', req:15},
-                {id:'patWaves', lbl:'〰', req:30},
-                {id:'patNotes', lbl:'♪', req:50},
-                {id:'patChecks', lbl:'▦', req:75},
-                {id:'patStars', lbl:'★', req:100},
-                {id:'patDiamonds', lbl:'◆', req:150},
-                {id:'patLeaves', lbl:'🌿', req:200},
-                {id:'patMoons', lbl:'☽', req:300}
-            ];
-
-            els.patternGrid.innerHTML = patterns.map(p => {
-                const locked = total < p.req;
-                const title = locked ? `Unlock at ${p.req} fireflies (${total}/${p.req})` : p.id.replace('pat','');
-                return `<div class="pattern-btn ${locked?'locked':''} ${state.potPattern===p.id?'active':''}" 
-                    onclick="${locked?'':`setPotPattern('${p.id}')`}" 
-                    title="${title}">${p.lbl}</div>`;
-            }).join('');
-        }
-        function setPotPattern(p) { state.potPattern = p; updatePotVisuals(); }
-        function setPotColor(c) { state.potColor = c; updatePotVisuals(); }
-        function setPotPatternColor(c) { state.potPatternColor = c; updatePotVisuals(); }
-        function updatePotVisuals() {
-            document.documentElement.style.setProperty('--pot-color', state.potColor);
-            document.documentElement.style.setProperty('--pot-pat-color', state.potPatternColor);
-            const pattern = state.potPattern === 'none' ? 'none' : `url(#${state.potPattern})`;
-            if (els.potPatternPath) els.potPatternPath.setAttribute('fill', pattern);
-            if (els.previewPotPattern) els.previewPotPattern.setAttribute('fill', pattern);
-        }
-        function closePotDesigner() { els.potOverlay.classList.remove('open'); saveState(); }
-
-        /* --- SHOWCASE (ZEN MODE) --- */
-        let showcaseFireflies = {}; // { id: active }
-        let showcaseEffects = { stars: false, particles: false, mist: false, rays: false };
-        let showcaseLighting = 'none';
-        let showcaseFFInterval = null;
-        
-        // Mood colors - 16 total
-        const MOOD_COLORS = [
-            '#141517', '#0b1021', '#261821', '#0f2115', // Original 4
-            '#1a1520', '#0d1a1a', '#1f1510', '#15101f', // Dark tones
-            '#2d1f3d', '#1f3d2d', '#3d2d1f', '#1f2d3d', // Rich darks
-            '#0a0a12', '#120a0a', '#0a120a', '#12120a'  // Near blacks
-        ];
-        
-        function openShowcase() {
-            if(state.history.length === 0) return;
-            
-            // Build firefly inventory from collection
-            buildFireflyInventory();
-            renderMoodGrid();
-            renderShowcaseSelector();
-            
-            els.showcaseOverlay.classList.add('open');
-            els.showcaseOverlay.style.background = state.showcase.bg || '#141517';
-            
-            // Clear effects
-            document.getElementById('showcaseEffects').innerHTML = '';
-            showcaseEffects = { stars: false, particles: false, mist: false, rays: false };
-            showcaseLighting = 'none';
-            updateLightingButtons();
-            updateEffectButtons();
-        }
-        
-        function closeShowcase() { 
-            els.showcaseOverlay.classList.remove('open'); 
-            if(showcaseFFInterval) clearInterval(showcaseFFInterval);
-            // Clear fireflies from stage
-            const stageEl = document.getElementById('showcaseStage');
-            if(stageEl) stageEl.querySelectorAll('.firefly').forEach(e => e.remove());
-        }
-        
-        function buildFireflyInventory() {
-            const inventory = document.getElementById('scFireflyInventory');
-            inventory.innerHTML = '';
-            showcaseFireflies = {};
-            
-            // Get unique fireflies with count >= 5 (revealed)
-            const revealedFireflies = [];
-            if(state.fireflies) {
-                Object.keys(state.fireflies).forEach(id => {
-                    if(state.fireflies[id] >= 5) {
-                        revealedFireflies.push({
-                            id: parseInt(id),
-                            count: state.fireflies[id],
-                            color: getFireflyColor(parseInt(id))
-                        });
-                    }
-                });
-            }
-            
-            if(revealedFireflies.length === 0) {
-                inventory.innerHTML = '<div style="opacity:0.5; font-size:0.75rem; padding:10px;">Catch 5 of any firefly to unlock it here</div>';
-                return;
-            }
-            
-            // Sort by family
-            revealedFireflies.sort((a, b) => a.id - b.id);
-            
-            revealedFireflies.forEach(ff => {
-                const item = document.createElement('div');
-                item.className = 'sc-ff-item';
-                item.style.background = ff.color;
-                item.style.color = ff.color;
-                item.innerHTML = `<span class="sc-ff-count">${ff.count}</span>`;
-                item.onclick = () => toggleShowcaseFirefly(ff.id, item);
-                inventory.appendChild(item);
-                showcaseFireflies[ff.id] = false;
-            });
-        }
-        
-        function toggleShowcaseFirefly(id, element) {
-            showcaseFireflies[id] = !showcaseFireflies[id];
-            element.classList.toggle('active', showcaseFireflies[id]);
-            updateActiveFireflyCount();
-            renderShowcaseFirefliesFromInventory();
-        }
-        
-        function updateActiveFireflyCount() {
-            const count = Object.values(showcaseFireflies).filter(v => v).length;
-            document.getElementById('scActiveCount').innerText = count;
-        }
-        
-        function renderShowcaseFirefliesFromInventory() {
-            // Clear existing fireflies from the stage
-            const stageEl = document.getElementById('showcaseStage');
-            if(stageEl) stageEl.querySelectorAll('.firefly').forEach(e => e.remove());
-            if(showcaseFFInterval) clearInterval(showcaseFFInterval);
-            
-            // Get active firefly colors
-            const activeColors = [];
-            Object.keys(showcaseFireflies).forEach(id => {
-                if(showcaseFireflies[id]) {
-                    activeColors.push(getFireflyColor(parseInt(id)));
-                }
-            });
-            
-            if(activeColors.length === 0 || !stageEl) return;
-            
-            // Spawn fireflies for each active color
-            const spawn = () => {
-                const maxPerColor = 3;
-                const existing = stageEl.querySelectorAll('.firefly').length;
-                if(existing >= activeColors.length * maxPerColor) return;
-                
-                const color = activeColors[Math.floor(Math.random() * activeColors.length)];
-                const ff = document.createElement('div');
-                ff.className = 'firefly showcase-ff';
-                ff.style.background = color;
-                ff.style.boxShadow = `0 0 12px 3px ${color}`;
-                ff.style.left = (Math.random() * 70 + 15) + '%';
-                ff.style.top = (Math.random() * 70 + 10) + '%';
-                ff.style.animationDuration = (6 + Math.random() * 8) + 's';
-                ff.style.pointerEvents = 'none';
-                stageEl.appendChild(ff);
-                
-                setTimeout(() => { if(ff.parentNode) ff.remove(); }, 12000);
-            };
-            
-            // Initial spawn
-            for(let i = 0; i < activeColors.length * 2; i++) {
-                setTimeout(spawn, i * 200);
-            }
-            showcaseFFInterval = setInterval(spawn, 800);
-        }
-        
-        function renderMoodGrid() {
-            const grid = document.getElementById('scMoodGrid');
-            grid.innerHTML = MOOD_COLORS.map(c => 
-                `<div class="sc-mood-dot ${state.showcase.bg === c ? 'active' : ''}" 
-                     style="background:${c};" 
-                     onclick="setShowcaseBg('${c}')"></div>`
-            ).join('');
-        }
-        
-        function setShowcaseBg(c) {
-            state.showcase.bg = c;
-            els.showcaseOverlay.style.background = c;
-            // Update active dot
-            document.querySelectorAll('.sc-mood-dot').forEach(d => {
-                d.classList.toggle('active', d.style.background === c);
-            });
-        }
-        
-        function setShowcaseLighting(type) {
-            // Remove old lighting classes
-            els.showcaseOverlay.classList.remove('lighting-spotlight', 'lighting-moonlight', 'lighting-golden', 'lighting-dreamy');
-            
-            showcaseLighting = type;
-            if(type !== 'none') {
-                els.showcaseOverlay.classList.add('lighting-' + type);
-            }
-            updateLightingButtons();
-        }
-        
-        function updateLightingButtons() {
-            document.querySelectorAll('.sc-lighting-grid .sc-effect-btn').forEach(btn => {
-                const type = btn.textContent.toLowerCase();
-                btn.classList.toggle('active', type === showcaseLighting);
-            });
-        }
-        
-        function toggleShowcaseEffect(type) {
-            showcaseEffects[type] = !showcaseEffects[type];
-            updateEffectButtons();
-            renderShowcaseEffects();
-        }
-        
-        function updateEffectButtons() {
-            document.querySelectorAll('.sc-effects-grid .sc-effect-btn').forEach(btn => {
-                const type = btn.textContent.toLowerCase().replace(' ', '');
-                const effectKey = type === 'lightrays' ? 'rays' : type;
-                btn.classList.toggle('active', showcaseEffects[effectKey]);
-            });
-        }
-        
-        function renderShowcaseEffects() {
-            const container = document.getElementById('showcaseEffects');
-            container.innerHTML = '';
-            
-            // Stars
-            if(showcaseEffects.stars) {
-                for(let i = 0; i < 30; i++) {
-                    const star = document.createElement('div');
-                    star.className = 'sc-star';
-                    star.style.left = Math.random() * 100 + '%';
-                    star.style.top = Math.random() * 60 + '%';
-                    star.style.animationDelay = Math.random() * 3 + 's';
-                    star.style.width = (1 + Math.random() * 2) + 'px';
-                    star.style.height = star.style.width;
-                    container.appendChild(star);
-                }
-            }
-            
-            // Particles
-            if(showcaseEffects.particles) {
-                for(let i = 0; i < 15; i++) {
-                    const particle = document.createElement('div');
-                    particle.className = 'sc-particle';
-                    particle.style.left = Math.random() * 100 + '%';
-                    particle.style.animationDelay = Math.random() * 8 + 's';
-                    particle.style.animationDuration = (6 + Math.random() * 6) + 's';
-                    container.appendChild(particle);
-                }
-            }
-            
-            // Mist
-            if(showcaseEffects.mist) {
-                const mist = document.createElement('div');
-                mist.className = 'sc-mist';
-                container.appendChild(mist);
-            }
-            
-            // Light rays
-            if(showcaseEffects.rays) {
-                for(let i = 0; i < 5; i++) {
-                    const ray = document.createElement('div');
-                    ray.className = 'sc-ray';
-                    ray.style.left = (15 + i * 18) + '%';
-                    ray.style.transform = `rotate(${-15 + i * 7}deg)`;
-                    ray.style.animationDelay = Math.random() * 5 + 's';
-                    container.appendChild(ray);
-                }
-            }
-        }
-
-        function renderShowcaseSelector() {
-            const list = document.getElementById('scPlantList');
-            list.innerHTML = '';
-            state.history.forEach((h, i) => {
-                const d = document.createElement('div');
-                d.className = 'sc-plant-thumb';
-                
-                // Create mini SVG preview using the same approach as harvest preview
-                const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-                svg.setAttribute("viewBox", "0 0 200 250");
-                svg.innerHTML = `<defs id="thumbDefs${i}"></defs><g id="thumbPlant${i}"></g><g id="thumbPot${i}"></g>`;
-                d.appendChild(svg);
-                
-                // Add name
-                const nameSpan = document.createElement('span');
-                nameSpan.className = 'thumb-name';
-                nameSpan.textContent = h.name;
-                d.appendChild(nameSpan);
-                
-                d.onclick = () => loadShowcasePlant(i);
-                list.appendChild(d);
-                
-                // Render using proper functions after DOM insertion
-                setTimeout(() => {
-                    const defs = svg.querySelector(`#thumbDefs${i}`);
-                    const plantG = svg.querySelector(`#thumbPlant${i}`);
-                    const potG = svg.querySelector(`#thumbPot${i}`);
-                    
-                    // Copy patterns to thumb defs
-                    const patterns = document.getElementById('plantDefs').innerHTML.match(/<pattern[\s\S]*?<\/pattern>/g);
-                    if(patterns && defs) defs.innerHTML = patterns.join('');
-                    
-                    // Add gradients for this plant
-                    if(defs) {
-                        defs.innerHTML += `
-                            <linearGradient id="thumbPlant${i}_stemGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-                                <stop offset="0%" style="stop-color:hsl(${h.dna.colorH}, ${h.dna.colorS}%, ${h.dna.colorL}%)" />
-                                <stop offset="100%" style="stop-color:hsl(${h.dna.colorH}, ${h.dna.colorS}%, ${h.dna.colorL + 20}%)" />
-                            </linearGradient>
-                            <linearGradient id="thumbPlant${i}_leafGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-                                <stop offset="0%" style="stop-color:hsl(${h.dna.colorH}, ${h.dna.colorS}%, ${h.dna.colorL + 5}%)" />
-                                <stop offset="100%" style="stop-color:hsl(${h.dna.colorH}, ${h.dna.colorS}%, ${h.dna.colorL + 25}%)" />
-                            </linearGradient>
-                        `;
-                    }
-                    
-                    // Use proper render functions
-                    if(potG) renderPot(potG, { potColor: h.potColor, potPattern: h.potPattern, potPatternColor: h.potPatternColor });
-                    if(plantG) renderPlant(`thumbPlant${i}`, h.dna, 5, false);
-                }, 0);
-            });
-            // Load first by default if none selected
-            if(state.history.length > 0) loadShowcasePlant(0);
-        }
-
-        function loadShowcasePlant(index) {
-            const stage = document.getElementById('showcaseStage');
-            stage.innerHTML = ''; // Clear
-            const h = state.history[index];
-            
-            // Create SVG container with defs for gradients
-            const box = document.createElement('div');
-            box.style.cssText = "width:200px; height:250px; position:relative;";
-            box.innerHTML = `<svg width="100%" height="100%" viewBox="0 0 200 250">
-                <defs id="scDefs"></defs>
-                <g id="scPlant"></g>
-                <g id="scPot"></g>
-            </svg>`;
-            stage.appendChild(box);
-            
-            // Copy patterns to showcase defs
-            const scDefs = box.querySelector('#scDefs');
-            const patterns = document.getElementById('plantDefs').innerHTML.match(/<pattern[\s\S]*?<\/pattern>/g);
-            if(patterns && scDefs) scDefs.innerHTML = patterns.join('');
-            
-            // Add gradients for this specific plant
-            scDefs.innerHTML += `
-                <linearGradient id="scPlant_stemGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-                    <stop offset="0%" style="stop-color:hsl(${h.dna.colorH}, ${h.dna.colorS}%, ${h.dna.colorL}%);stop-opacity:1" />
-                    <stop offset="100%" style="stop-color:hsl(${h.dna.colorH}, ${h.dna.colorS}%, ${h.dna.colorL + 20}%);stop-opacity:1" />
-                </linearGradient>
-                <linearGradient id="scPlant_leafGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-                    <stop offset="0%" style="stop-color:hsl(${h.dna.colorH}, ${h.dna.colorS}%, ${h.dna.colorL + 5}%);stop-opacity:1" />
-                    <stop offset="100%" style="stop-color:hsl(${h.dna.colorH}, ${h.dna.colorS}%, ${h.dna.colorL + 25}%);stop-opacity:1" />
-                </linearGradient>
-            `;
-            
-            // Render plant first, then pot on top
-            renderPlant('scPlant', h.dna, 5, false);
-            renderPot(box.querySelector('#scPot'), { potColor: h.potColor, potPattern: h.potPattern, potPatternColor: h.potPatternColor });
-            
-            // Highlight thumb
-            const thumbs = document.querySelectorAll('.sc-plant-thumb');
-            thumbs.forEach((t, i) => t.classList.toggle('selected', i === index));
-        }
-
-        /* --- HARVEST & RESET --- */
-        function harvestPlant() {
-            const defName = getStageName(state.stage);
-            els.harvestNameInput.value = state.name === defName ? "" : state.name;
-            els.harvestNameInput.placeholder = defName;
-            
-            // Clear old gradients from harvestDefs so they get recreated with current DNA
-            const hDefs = document.getElementById('harvestDefs');
-            if(hDefs) hDefs.innerHTML = '';
-            // Re-inject patterns
-            const patterns = document.getElementById('plantDefs').innerHTML.match(/<pattern[\s\S]*?<\/pattern>/g);
-            if(patterns && hDefs) hDefs.innerHTML = patterns.join('');
-            
-            // Render Preview with current plant
-            const potG = document.getElementById('harvestPotGroup');
-            const plantG = document.getElementById('harvestPlantGroup');
-            if(potG) potG.innerHTML = ''; 
-            if(plantG) plantG.innerHTML = '';
-            renderPot(potG, { potColor: state.potColor, potPattern: state.potPattern, potPatternColor: state.potPatternColor });
-            renderPlant('harvestPlantGroup', state.dna, state.stage);
-
-            els.harvestOverlay.classList.add('open'); toggleMenu();
-        }
-        function finalizeHarvest() {
-            state.name = els.harvestNameInput.value.trim() || state.name;
-            const now = Date.now();
-            state.history.push({ 
-                name: state.name, dna: state.dna, days: state.day, gen: state.generation, 
-                potColor: state.potColor, potPattern: state.potPattern, potPatternColor: state.potPatternColor,
-                harvestDate: now, lastRemembered: now,
-                scars: state.scars || [], // Preserve scars in history
-                crisisCount: state.crisisCount || 0
-            });
-            resetGame(false);
-            els.harvestOverlay.classList.remove('open');
-            els.showcaseLink.classList.add('visible'); // Unlock showcase
-            spawnFloatingText("Ascended!", "var(--accent-pink)");
-        }
-        function resetGame(isFullWipe) {
-             const oldHistory = isFullWipe ? [] : state.history;
-             const oldFF = isFullWipe ? {} : state.fireflies;
-             const oldScars = state.scars || [];
-             
-             if(isFullWipe) localStorage.clear();
-             
-             state = {
-                water: 20, sun: 50, love: 50, growth: 0,
-                stage: 1, isSunLampOn: false, isRainOn: false,
-                day: 1, generation: isFullWipe ? 1 : (state.generation + 1), 
-                name: "Sprout", dna: generateDNA(), 
-                potColor: POT_COLORS[0], potPattern: 'none', potPatternColor: 'rgba(255,255,255,0.5)',
-                timeAtZero: 0, isDead: false, history: oldHistory, lastSave: Date.now(),
-                growthMultiplier: 1, singCooldownUntil: 0, fertilizeCooldownUntil: 0,
-                fireflies: oldFF, showcase: { bg: '#141517' },
-                scars: [], // Fresh start for new plant
-                crisisCount: 0,
-                nestedFireflies: [],
-                lastDream: null,
-                // Inherit subtle traits from scarred parent (visual only, no mechanical effect)
-                inheritedScars: isFullWipe ? [] : oldScars.filter(s => s !== 'dormant')
-            };
-            
-            els.deathOverlay.classList.remove('open');
-            els.plantHero.classList.remove('dead-plant', 'dormant-plant'); 
-            els.plantHero.classList.add('breathing');
-            updateName(state.name); els.nameInput.value = state.name;
-            updatePotVisuals(); renderPlant('plantGroup', state.dna, state.stage);
-            if(isFullWipe) els.showcaseLink.classList.remove('visible');
-            saveState();
-        }
-        function confirmReset() { els.resetOverlay.classList.add('open'); toggleMenu(); }
-        function finalizeReset() { resetGame(true); els.resetOverlay.classList.remove('open'); }
-        function closeResetOverlay() { els.resetOverlay.classList.remove('open'); }
-
-        /* --- HELPERS --- */
-        function spawnFloatingText(text, color) {
-            const el = document.createElement('div'); el.classList.add('floating-text');
-            el.innerText = text; el.style.color = color;
-            const r = els.plantHero.getBoundingClientRect();
-            el.style.left = (r.left + r.width/2 - 20 + (Math.random()*60-30)) + 'px';
-            el.style.top = (r.top - 40 + (Math.random()*40-20)) + 'px'; 
-            document.body.appendChild(el); setTimeout(()=>el.remove(), 2000);
-        }
-        
-        function spawnSunParticles() {
-            const rect = els.plantHero.getBoundingClientRect();
-            const cx = rect.left + rect.width / 2;
-            const cy = rect.top + rect.height / 2;
-            const count = 12;
-            for (let i = 0; i < count; i++) {
-                const p = document.createElement('div');
-                p.classList.add('particle');
-                p.style.position = 'fixed';
-                p.style.left = cx + 'px';
-                p.style.top = cy + 'px';
-                p.style.width = '10px';
-                p.style.height = '10px';
-                p.style.background = 'var(--accent-sun)';
-                p.style.borderRadius = '50%';
-                p.style.boxShadow = '0 0 10px var(--accent-sun)';
-                p.style.animation = 'spiral 2s ease-out forwards';
-                p.style.setProperty('--rot', (i * (360/count)) + 'deg');
-                p.style.zIndex = '100';
-                document.body.appendChild(p);
-                setTimeout(() => p.remove(), 2000);
-            }
-        }
-        function updateName(v) { state.name = v || "Sprout"; els.nameDisplay.innerText = state.name; }
-        function toggleMenu() { els.menu.classList.toggle('open'); if(els.menu.classList.contains('open')) updateMenuStats(); }
-        function closeHarvestModal() { els.harvestOverlay.classList.remove('open'); }
-        function closeArchive() { els.archiveOverlay.classList.remove('open'); }
-        
-        function viewArchive(index) {
-            // Get the actual index (history is displayed reversed)
-            const actualIndex = state.history.length - 1 - index;
-            const h = state.history[actualIndex];
-            if(!h) return;
-            
-            // Update archive overlay content
-            document.getElementById('archiveName').innerText = h.name;
-            document.getElementById('archiveGen').innerText = h.gen;
-            document.getElementById('archiveAge').innerText = h.days + ' Suns';
-            
-            // Clear old gradients
-            const aDefs = document.getElementById('archiveDefs');
-            if(aDefs) aDefs.innerHTML = '';
-            const patterns = document.getElementById('plantDefs').innerHTML.match(/<pattern[\s\S]*?<\/pattern>/g);
-            if(patterns && aDefs) aDefs.innerHTML = patterns.join('');
-            
-            // Render the archived plant
-            const potG = document.getElementById('archivePotGroup');
-            const plantG = document.getElementById('archivePlantGroup');
-            if(potG) potG.innerHTML = '';
-            if(plantG) plantG.innerHTML = '';
-            renderPot(potG, { potColor: h.potColor || POT_COLORS[0], potPattern: h.potPattern || 'none', potPatternColor: h.potPatternColor || 'rgba(255,255,255,0.5)' });
-            renderPlant('archivePlantGroup', h.dna, 5); // Archived plants are always fully grown
-            
-            // Store the index for remember function
-            els.archiveOverlay.dataset.viewingIndex = actualIndex;
-            
-            // Check if plant has faded (12 hours since last remembered)
-            const lastRemembered = h.lastRemembered || h.harvestDate || Date.now();
-            const hoursSince = (Date.now() - lastRemembered) / (1000 * 60 * 60);
-            const archiveSVG = document.getElementById('archiveSVG');
-            
-            if(hoursSince >= 12) {
-                // Plant has faded - show grayscale
-                archiveSVG.style.filter = 'grayscale(100%) opacity(0.6)';
-                document.getElementById('btnRemember').style.display = 'block';
-            } else {
-                // Plant is vibrant
-                archiveSVG.style.filter = 'none';
-                document.getElementById('btnRemember').style.display = 'none';
-            }
-            
-            els.menu.classList.remove('open');
-            els.archiveOverlay.classList.add('open');
-        }
-        
-        function rememberPlant() {
-            const index = parseInt(els.archiveOverlay.dataset.viewingIndex);
-            const h = state.history[index];
-            if(!h) return;
-            
-            // Update the lastRemembered timestamp
-            h.lastRemembered = Date.now();
-            
-            // Restore vibrant colors
-            const archiveSVG = document.getElementById('archiveSVG');
-            archiveSVG.style.filter = 'none';
-            document.getElementById('btnRemember').style.display = 'none';
-            
-            spawnFloatingText("Remembered! 💭", "var(--accent-pink)");
-            saveState();
-        }
-        function closeHelp() { els.helpOverlay.classList.remove('open'); els.menu.classList.add('open'); }
-        function openHelp() { els.menu.classList.remove('open'); els.helpOverlay.classList.add('open'); }
-        function getStageName(i) { return ["","Sprout","Sapling","Vegetative","Budding","Blooming"][i]; }
-        
-        /* --- SAVE/LOAD/OFFLINE --- */
-        function saveState() {
-            state.lastSave = Date.now();
-            localStorage.setItem('pocketSproutSave_v2', JSON.stringify(state));
-        }
-        function loadState() {
-            // Migration from v1 to v2?
-            const s = localStorage.getItem('pocketSproutSave_v2');
-            if(s) {
-                const l = JSON.parse(s);
-                state = l;
-                // Patch missing properties
-                if(!state.fireflies || Array.isArray(state.fireflies)) state.fireflies = {}; // Reset FF if old format
-                if(!state.showcase) state.showcase = { bg: '#141517' };
-                // New properties for scar system
-                if(!state.scars) state.scars = [];
-                if(state.crisisCount === undefined) state.crisisCount = 0;
-                if(!state.nestedFireflies) state.nestedFireflies = [];
-                if(state.lastDream === undefined) state.lastDream = null;
-                // Convert old isDead to dormant scar
-                if(state.isDead && !state.scars.includes('dormant')) {
-                    state.scars.push('dormant');
-                    state.isDead = false; // No longer binary death
-                }
-            } else {
-                // Check for v1
-                const v1 = localStorage.getItem('pocketSproutSave');
-                if(v1) {
-                     const l = JSON.parse(v1);
-                     state.generation = l.generation; state.history = l.history || [];
-                     // Reset current plant but keep history/gen
-                }
-            }
-        }
-        
-        function processOfflineProgress() {
-            const now = Date.now();
-            const diff = (now - state.lastSave) / 1000;
-            if(diff < 60) return; // Ignore short drops
-
-            // Apply offline calculation based on lamp/rain states
-            const ticks = diff;
-            const hours = diff / 3600;
-            let waterChange = 0;
-            let sunChange = 0;
-            
-            // Water: if rain was on, it was gaining; otherwise decaying
-            if (state.isRainOn) {
-                // Rain fills water over time - faster gain
-                waterChange = ticks * 0.3 * CONFIG.offlineDecayFactor;
-                state.water = Math.min(100, state.water + waterChange);
-            } else {
-                waterChange = ticks * CONFIG.decayRate.water * CONFIG.offlineDecayFactor;
-                state.water = Math.max(0, state.water - waterChange);
-            }
-            
-            // Sun: if sun lamp was on, it was gaining; otherwise decaying
-            if (state.isSunLampOn) {
-                // Sun lamp fills sun over time - faster gain
-                sunChange = ticks * 0.4 * CONFIG.offlineDecayFactor;
-                state.sun = Math.min(100, state.sun + sunChange);
-            } else {
-                sunChange = ticks * CONFIG.decayRate.sun * CONFIG.offlineDecayFactor;
-                state.sun = Math.max(0, state.sun - sunChange);
-            }
-            
-            // Love decays slower offline
-            const loveDecay = ticks * CONFIG.decayRate.love * CONFIG.offlineDecayFactor * 0.5;
-            state.love = Math.max(0, state.love - loveDecay);
-            
-            // Calculate offline growth - 2x faster than before
-            const wasHappy = state.water > CONFIG.threshold && state.sun > CONFIG.threshold && state.love > CONFIG.threshold;
-            if (wasHappy && !state.isDead) {
-                const offlineGrowth = ticks * CONFIG.growthRate * state.growthMultiplier * CONFIG.offlineDecayFactor * 2;
-                state.growth += offlineGrowth;
-                
-                // Check for stage evolution
-                let nextStage = 1;
-                for(let i=1; i<CONFIG.stages.length; i++) {
-                    if(state.growth > CONFIG.stages[i]) nextStage = i+1;
-                }
-                if (nextStage > state.stage) {
-                    state.stage = nextStage;
-                    renderPlant('plantGroup', state.dna, state.stage);
-                }
-            }
-            
-            // Update day counter based on time passed (every hour = 1 day)
-            if(diff > 3600) {
-                state.day += Math.floor(diff / 3600);
-            }
-            
-            // Firefly nesting - chance increases with time away
-            let nestedFirefly = null;
-            if (hours >= 2 && Math.random() < Math.min(0.5, hours * 0.05)) {
-                // A firefly nested while you were away!
-                const nestedId = Math.floor(Math.random() * 256);
-                if (!state.fireflies[nestedId]) state.fireflies[nestedId] = 0;
-                state.fireflies[nestedId] = Math.min(CONFIG.maxFireflyStack, state.fireflies[nestedId] + 1);
-                nestedFirefly = {
-                    id: nestedId,
-                    family: FF_FAMILIES[Math.floor(nestedId / FF_BUCKET_SIZE)],
-                    color: getFireflyColor(nestedId)
-                };
-            }
-            
-            // Returning firefly - rare chance a previously caught firefly "returns"
-            let returningFirefly = null;
-            if (hours >= 4 && Math.random() < 0.15) {
-                const caughtIds = Object.keys(state.fireflies).filter(k => state.fireflies[k] >= 5);
-                if (caughtIds.length > 0) {
-                    const returnId = parseInt(caughtIds[Math.floor(Math.random() * caughtIds.length)]);
-                    returningFirefly = {
-                        id: returnId,
-                        family: FF_FAMILIES[Math.floor(returnId / FF_BUCKET_SIZE)],
-                        color: getFireflyColor(returnId)
-                    };
-                }
-            }
-            
-            // Pick a dream for longer absences
-            let dream = null;
-            if (hours >= 1) {
-                const dreamIndex = Math.floor(Math.random() * DREAMS.length);
-                // Avoid repeating the same dream
-                if (dreamIndex !== state.lastDream) {
-                    dream = DREAMS[dreamIndex];
-                    state.lastDream = dreamIndex;
-                }
-            }
-            
-            // Build welcome toast
-            if(diff > 600) { // 10+ minute absences
-                els.welcomeToast.classList.add('visible');
-                
-                let toastContent = '';
-                
-                // Dream first (most prominent)
-                if (dream) {
-                    toastContent += `<div style="font-style: italic; margin-bottom: 10px; opacity: 0.9;">"${dream}"</div>`;
-                }
-                
-                // Time summary
-                const timeStr = hours >= 1 ? `${Math.floor(hours)}h ${Math.floor((diff % 3600) / 60)}m` : `${Math.floor(diff/60)}m`;
-                toastContent += `<div style="font-size: 0.8rem; opacity: 0.7;">You were away for ${timeStr}</div>`;
-                
-                // Plant status
-                const plantState = getPlantState();
-                toastContent += `<div style="margin: 8px 0;">Your plant is <span style="color: ${plantState.color}; font-weight: bold;">${plantState.label}</span></div>`;
-                
-                // Firefly events
-                if (nestedFirefly) {
-                    toastContent += `<div style="color: ${nestedFirefly.color};">🦋 A ${nestedFirefly.family} firefly nested nearby!</div>`;
-                }
-                if (returningFirefly) {
-                    toastContent += `<div style="color: ${returningFirefly.color};">✨ An old friend returned to visit...</div>`;
-                }
-                
-                // Growth note
-                if (wasHappy) {
-                    toastContent += `<div style="opacity: 0.7; font-size: 0.85rem; margin-top: 5px;">Growth continued while you were away 🌱</div>`;
-                }
-                
-                document.getElementById('toastBody').innerHTML = toastContent;
-            }
-            
-            state.lastSave = now;
-            saveState();
-        }
-        function closeToast() { els.welcomeToast.classList.remove('visible'); }
-        function handleVisibility() {
-            if(document.visibilityState === 'visible') { 
-                processOfflineProgress(); 
-                if(audio.ctx) audio.ctx.resume();
-                // Resume rain sound if it was playing
-                if(state.isRainOn && audio.rainGain) {
-                    audio.rainGain.gain.linearRampToValueAtTime(0.05, audio.ctx.currentTime + 0.5);
-                }
-                // Resume CSS animations
-                document.body.classList.remove('paused');
-            } else { 
-                saveState();
-                // Pause rain sound
-                if(audio.rainGain && audio.ctx) {
-                    audio.rainGain.gain.linearRampToValueAtTime(0, audio.ctx.currentTime + 0.3);
-                }
-                // Pause CSS animations when backgrounded
-                document.body.classList.add('paused');
-            }
-        }
-
-        /* --- DEBUG --- */
-        let debugTapCount = 0; let debugTapTimer = null;
-        function handleDebugTap() {
-            debugTapCount++; clearTimeout(debugTapTimer);
-            debugTapTimer = setTimeout(() => debugTapCount=0, 2000);
-            if (debugTapCount >= 10) toggleDebug();
-        }
-        function toggleDebug() { document.getElementById('debugPanel').classList.toggle('open'); }
-        function debugMaxStats() { state.water=100; state.sun=100; state.love=100; render(); }
-        function debugGrow() { state.growth+=1000; grow(); render(); }
-        function debugUnlockAll() { 
-            for(let i=0; i<256; i++) state.fireflies[i] = 10;
-            openFireflyLog();
-        }
-        
-        /* --- MENU STATS UPDATE --- */
-        function updateMenuStats() {
-            if(document.activeElement !== els.nameInput) els.nameInput.value = state.name;
-            document.getElementById('menuStage').innerText = getStageName(state.stage);
-            document.getElementById('menuGen').innerText = state.generation;
-            document.getElementById('menuAge').innerText = state.day + " Suns";
-            
-            // Show qualitative state instead of percentage
-            const plantState = getPlantState();
-            const healthEl = document.getElementById('menuHealth');
-            healthEl.innerText = plantState.label;
-            healthEl.style.color = plantState.color;
-            
-            // Show scars if any
-            const scarsContainer = document.getElementById('menuScars');
-            const scarsList = document.getElementById('menuScarList');
-            if (state.scars && state.scars.length > 0) {
-                scarsContainer.style.display = 'flex';
-                const scarLabels = {
-                    'wilt': 'Wilted',
-                    'bend': 'Bent',
-                    'pale': 'Faded',
-                    'dormant': 'Dormant'
-                };
-                scarsList.innerText = state.scars.map(s => scarLabels[s] || s).join(', ');
-            } else {
-                scarsContainer.style.display = 'none';
-            }
-            
-            if (state.stage < 5) {
-                const totalNeeded = CONFIG.stages[state.stage];
-                const prevStage = CONFIG.stages[state.stage - 1];
-                const stageProgress = Math.max(0, state.growth - prevStage);
-                const stageTotal = totalNeeded - prevStage;
-                const pct = Math.min(100, (stageProgress / stageTotal) * 100);
-                if (els.progressBar) els.progressBar.style.width = pct + "%";
-                document.getElementById('menuNextStageTime').innerText = Math.floor(100-pct) + "% left";
-            } else {
-                 if (els.progressBar) els.progressBar.style.width = "100%";
-                 document.getElementById('menuNextStageTime').innerText = "Max";
-            }
-
-            if (state.stage >= 5) els.btnHarvest.classList.add('visible');
-            else els.btnHarvest.classList.remove('visible');
-            
-            const gh = els.greenhouseList; gh.innerHTML = "";
-            [...state.history].reverse().forEach((h,i) => {
-                const d = document.createElement('div'); d.className='greenhouse-item';
-                d.innerHTML = `<span><span class='gh-dot' style='background:${h.dna.flowerColor}'></span>${h.name}</span><span style='opacity:0.5'>Cycle ${h.gen}</span>`;
-                d.onclick = () => viewArchive(i);
-                gh.appendChild(d);
-            });
-        }
-
-        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-        else init();
-
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
