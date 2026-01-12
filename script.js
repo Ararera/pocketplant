@@ -84,14 +84,26 @@ function cacheElements(){
 
 function setupEventListeners(){
     document.addEventListener("visibilitychange",handleVisibility);
-    window.addEventListener("pagehide",saveState);window.addEventListener("beforeunload",saveState);
+    window.addEventListener("pagehide",saveState);
+    window.addEventListener("beforeunload",(e)=>{
+        saveState();
+    });
     const pot=document.getElementById('potGroup');
     if(pot){pot.addEventListener('mousedown',()=>handlePress(true));pot.addEventListener('mouseup',()=>handlePress(false));pot.addEventListener('mouseleave',()=>handlePress(false));pot.addEventListener('touchstart',e=>{e.preventDefault();handlePress(true)},{passive:false});pot.addEventListener('touchend',e=>{e.preventDefault();handlePress(false)})}
     setInterval(()=>{checkSingCooldown();checkFertilizeCooldown()},1000);checkSingCooldown();checkFertilizeCooldown();
-    // Push two states so back button has somewhere to go
-    history.pushState({page:'game'},'');
-    history.pushState({page:'game'},'');
-    window.addEventListener('popstate',handleBackButton);
+    
+    // Back button handling - maintain a history stack
+    window.addEventListener('popstate', handleBackButton);
+    // Push initial state
+    if(!history.state || !history.state.pocketSprout){
+        history.replaceState({pocketSprout:true, depth:0},'');
+    }
+    pushHistoryState();
+}
+
+function pushHistoryState(){
+    const depth = (history.state?.depth || 0) + 1;
+    history.pushState({pocketSprout:true, depth:depth},'');
 }
 
 function initPatterns(){
@@ -755,7 +767,15 @@ function fullReset(){
 
 function finalizeReset(){resetGame(false);els.resetOverlay.classList.remove('open')}
 function updateName(n){state.name=n.trim()||'Sprout';updateUI();saveState()}
+
 function handleBackButton(e){
+    // Check if this is our app's state
+    if(!e.state || !e.state.pocketSprout){
+        // Not our state - push back into our app
+        history.pushState({pocketSprout:true, depth:1},'');
+        return;
+    }
+    
     const overlays=[
         {el:els.fireflyOverlay,close:closeFireflyLog},
         {el:els.potOverlay,close:closePotDesigner},
@@ -774,8 +794,8 @@ function handleBackButton(e){
         }
     }
     
-    // Always push state forward to stay in app
-    history.pushState({page:'game'},'');
+    // Always push a new state to maintain our position
+    pushHistoryState();
 }
 
 function spawnFloatingText(text,color){
