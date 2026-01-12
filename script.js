@@ -152,14 +152,26 @@ function renderPlant(containerId,dna,stage,scarsOverride=null){
     if(hasPale){cS=Math.max(20,cS-30);cL=Math.min(70,cL+15)}
     const stemColor=`hsl(${cH},${cS}%,${cL}%)`,leafColor=`hsl(${cH},${cS}%,${cL+10}%)`,flowerColor=dna.flowerColor;
     const lean=dna.leanDirection||1,bendOff=hasBend?lean*15:0,wiltAng=hasWilt?20:0;
-    const baseY=187; // Plant grows from dirt mound
-    const stemH=dna.stemHeight*(0.3+stage*0.175),stemTop=baseY-stemH,curve=(dna.stemCurve||0)+bendOff;
-    const mainStemEndX=100+curve/2,mainStemEndY=stemTop;
+    const baseY=191; // Plant grows from dirt mound
+    const stemH=dna.stemHeight*(0.3+stage*0.175);
+    const curve=(dna.stemCurve||0)+bendOff;
+    
+    // Define stem path points for consistent positioning
+    const stemStartX=100, stemStartY=baseY;
+    const stemCtrlX=100+curve, stemCtrlY=baseY-stemH/2;
+    const stemEndX=100+curve/2, stemEndY=baseY-stemH;
+    
+    // Helper: get point on quadratic bezier at t (0-1)
+    function getPointOnStem(t){
+        const x = (1-t)*(1-t)*stemStartX + 2*(1-t)*t*stemCtrlX + t*t*stemEndX;
+        const y = (1-t)*(1-t)*stemStartY + 2*(1-t)*t*stemCtrlY + t*t*stemEndY;
+        return {x, y};
+    }
     
     // Main stem
     if(stage>=1){
         const stem=createSVGElement('path');
-        stem.setAttribute('d',`M100 ${baseY} Q${100+curve} ${stemTop+stemH/2} ${mainStemEndX} ${mainStemEndY}`);
+        stem.setAttribute('d',`M${stemStartX} ${stemStartY} Q${stemCtrlX} ${stemCtrlY} ${stemEndX} ${stemEndY}`);
         stem.setAttribute('stroke',stemColor);
         stem.setAttribute('stroke-width',3+stage*0.5);
         stem.setAttribute('fill','none');
@@ -172,19 +184,18 @@ function renderPlant(containerId,dna,stage,scarsOverride=null){
         const lc=Math.min(dna.leafCount||3,1+stage);
         for(let i=0;i<lc;i++){
             const t=0.25+(i/lc)*0.5;
-            const y=baseY-stemH*t;
-            const x=100+curve*t;
+            const pt=getPointOnStem(t);
             const side=i%2===0?-1:1;
             const ang=(dna.leafAngle||45)*side+(hasWilt?wiltAng*side:0);
-            renderLeaf(g,x,y,ang,dna.leafSize||1,leafColor,dna.leafShape||'round');
+            renderLeaf(g,pt.x,pt.y,ang,dna.leafSize||1,leafColor,dna.leafShape||'round');
         }
     }
     
     // Bud at stage 2
     if(stage===2){
         const bud=createSVGElement('ellipse');
-        bud.setAttribute('cx',mainStemEndX);
-        bud.setAttribute('cy',mainStemEndY);
+        bud.setAttribute('cx',stemEndX);
+        bud.setAttribute('cy',stemEndY);
         bud.setAttribute('rx',6);
         bud.setAttribute('ry',8);
         bud.setAttribute('fill',`hsl(${dna.flowerH},${dna.flowerS*0.5}%,${dna.flowerL-10}%)`);
@@ -195,45 +206,43 @@ function renderPlant(containerId,dna,stage,scarsOverride=null){
     if(stage>=3){
         const flowerScale=stage>=4?1.3:1;
         // Main flower at top of stem
-        renderFlower(g,mainStemEndX,mainStemEndY-5,dna.petalCount||5,dna.petalShape||'round',flowerColor,flowerScale);
+        renderFlower(g,stemEndX,stemEndY-5,dna.petalCount||5,dna.petalShape||'round',flowerColor,flowerScale);
         
-        // Additional flowers on branches (stage 4+ with floriferous trait)
+        // Additional flowers on branches (stage 4+ only)
         if(dna.flowerCount>=2&&stage>=4){
-            // Branch point on main stem (about 60% up)
-            const branchT=0.6;
-            const branchStartX=100+curve*branchT;
-            const branchStartY=baseY-stemH*branchT;
-            const branchEndX=branchStartX+lean*-25;
-            const branchEndY=branchStartY-20;
-            // Draw branch stem
+            // Branch 1: starts at 55% up stem, goes opposite to lean direction
+            const branchPt1=getPointOnStem(0.55);
+            const branch1EndX=branchPt1.x + lean*-30;
+            const branch1EndY=branchPt1.y - 25;
+            const branch1CtrlX=branchPt1.x + lean*-15;
+            const branch1CtrlY=branchPt1.y - 12;
+            
             const branch1=createSVGElement('path');
-            branch1.setAttribute('d',`M${branchStartX} ${branchStartY} Q${branchStartX+lean*-12} ${branchStartY-10} ${branchEndX} ${branchEndY}`);
+            branch1.setAttribute('d',`M${branchPt1.x} ${branchPt1.y} Q${branch1CtrlX} ${branch1CtrlY} ${branch1EndX} ${branch1EndY}`);
             branch1.setAttribute('stroke',stemColor);
             branch1.setAttribute('stroke-width',2);
             branch1.setAttribute('fill','none');
             branch1.setAttribute('stroke-linecap','round');
             g.appendChild(branch1);
-            // Flower at end of branch
-            renderFlower(g,branchEndX,branchEndY-3,dna.petalCount||5,dna.petalShape||'round',flowerColor,0.8);
+            renderFlower(g,branch1EndX,branch1EndY-3,dna.petalCount||5,dna.petalShape||'round',flowerColor,0.75);
         }
         
         if(dna.flowerCount>=3&&stage>=4){
-            // Second branch (about 70% up, opposite side)
-            const branchT=0.7;
-            const branchStartX=100+curve*branchT;
-            const branchStartY=baseY-stemH*branchT;
-            const branchEndX=branchStartX+lean*20;
-            const branchEndY=branchStartY-15;
-            // Draw branch stem
+            // Branch 2: starts at 70% up stem, goes same direction as lean
+            const branchPt2=getPointOnStem(0.70);
+            const branch2EndX=branchPt2.x + lean*25;
+            const branch2EndY=branchPt2.y - 18;
+            const branch2CtrlX=branchPt2.x + lean*12;
+            const branch2CtrlY=branchPt2.y - 9;
+            
             const branch2=createSVGElement('path');
-            branch2.setAttribute('d',`M${branchStartX} ${branchStartY} Q${branchStartX+lean*10} ${branchStartY-8} ${branchEndX} ${branchEndY}`);
+            branch2.setAttribute('d',`M${branchPt2.x} ${branchPt2.y} Q${branch2CtrlX} ${branch2CtrlY} ${branch2EndX} ${branch2EndY}`);
             branch2.setAttribute('stroke',stemColor);
             branch2.setAttribute('stroke-width',2);
             branch2.setAttribute('fill','none');
             branch2.setAttribute('stroke-linecap','round');
             g.appendChild(branch2);
-            // Flower at end of branch
-            renderFlower(g,branchEndX,branchEndY-3,dna.petalCount||5,dna.petalShape||'round',flowerColor,0.7);
+            renderFlower(g,branch2EndX,branch2EndY-3,dna.petalCount||5,dna.petalShape||'round',flowerColor,0.65);
         }
     }
 }
