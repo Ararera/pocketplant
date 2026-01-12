@@ -152,7 +152,7 @@ function renderPlant(containerId,dna,stage,scarsOverride=null){
     if(hasPale){cS=Math.max(20,cS-30);cL=Math.min(70,cL+15)}
     const stemColor=`hsl(${cH},${cS}%,${cL}%)`,leafColor=`hsl(${cH},${cS}%,${cL+10}%)`,flowerColor=dna.flowerColor;
     const lean=dna.leanDirection||1,bendOff=hasBend?lean*15:0,wiltAng=hasWilt?20:0;
-    const baseY=186; // Plant grows from dirt mound
+    const baseY=187; // Plant grows from dirt mound
     const stemH=dna.stemHeight*(0.3+stage*0.175),stemTop=baseY-stemH,curve=(dna.stemCurve||0)+bendOff;
     const mainStemEndX=100+curve/2,mainStemEndY=stemTop;
     

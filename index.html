@@ -293,14 +293,15 @@
                     <g id="plantGroup"></g>
                     
                     <g id="potGroup">
-                        <!-- Pot body first -->
-                        <path d="M72 190 L128 190 L118 230 L82 230 Z" class="pot-body" />
-                        <!-- Dirt mound inside pot (rendered before rim so rim covers edges) -->
-                        <ellipse cx="100" cy="190" rx="26" ry="7" class="dirt" />
-                        <ellipse cx="100" cy="188" rx="22" ry="5" class="dirt-top" />
-                        <!-- Pot rim on top -->
-                        <path d="M68 185 L132 185 L130 195 L70 195 Z" class="pot-body pot-rim" />
-                        <path id="potPatternPath" d="M72 195 L128 195 L118 230 L82 230 Z" fill="url(#patNone)" class="pot-pattern" />
+                        <!-- Pot body (below rim) -->
+                        <path d="M70 195 L130 195 L118 230 L82 230 Z" class="pot-body" />
+                        <!-- Pot rim (sits on top of body) -->
+                        <path d="M66 187 L134 187 L130 197 L70 197 Z" class="pot-body pot-rim" />
+                        <!-- Dirt mound visible in pot opening - raised up so it's clearly visible -->
+                        <ellipse cx="100" cy="189" rx="25" ry="6" class="dirt" />
+                        <ellipse cx="100" cy="187" rx="20" ry="4" class="dirt-top" />
+                        <!-- Pattern overlay on pot body only -->
+                        <path id="potPatternPath" d="M70 197 L130 197 L118 230 L82 230 Z" fill="url(#patNone)" class="pot-pattern" />
                     </g>
                     
                     <rect id="plantClickArea" x="60" y="80" width="80" height="110" onclick="animateJiggle()" class="plant-hitbox" />
