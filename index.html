@@ -292,17 +292,16 @@
                     <ellipse cx="100" cy="230" rx="40" ry="6" class="shadow" />
                     <g id="plantGroup"></g>
                     
-                    <g id="potGroup">
-                        <!-- Pot body -->
-                        <path d="M72 190 L128 190 L118 230 L82 230 Z" class="pot-body" />
-                        <!-- Dirt INSIDE pot (drawn before rim so rim covers edges) -->
-                        <ellipse cx="100" cy="193" rx="27" ry="7" class="dirt" />
-                        <ellipse cx="100" cy="191" rx="23" ry="5" class="dirt-top" />
-                        <!-- Pot rim (covers dirt edges) -->
-                        <path d="M68 185 L132 185 L130 195 L70 195 Z" class="pot-body pot-rim" />
-                        <!-- Pattern overlay -->
-                        <path id="potPatternPath" d="M72 195 L128 195 L118 230 L82 230 Z" fill="url(#patNone)" class="pot-pattern" />
-                    </g>
+<g id="potGroup">
+    <path d="M72 195 L128 195 L118 230 L82 230 Z" class="pot-body" />
+
+    <ellipse cx="100" cy="192" rx="24" ry="5" class="dirt" />
+    <ellipse cx="100" cy="190" rx="18" ry="4" class="dirt-top" />
+
+    <path id="potPatternPath" d="M72 197 L128 197 L118 230 L82 230 Z" fill="url(#patNone)" class="pot-pattern" />
+    
+    <path d="M68 187 L132 187 L128 197 L72 197 Z" class="pot-body pot-rim" />
+</g>
                     
                     <rect id="plantClickArea" x="60" y="80" width="80" height="110" onclick="animateJiggle()" class="plant-hitbox" />
                 </svg>
