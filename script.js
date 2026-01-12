@@ -126,17 +126,23 @@ function positionMoonbeam(){
     const dy = potCenterY - moonCenterY;
     const distance = Math.sqrt(dx * dx + dy * dy);
     
-    // Calculate angle: atan2(x, y) gives angle from positive Y axis (pointing down)
-    // Positive angle = clockwise rotation, negative = counter-clockwise
-    // Since pot is typically to the LEFT of moon, dx is negative, so angle will be negative
+    // Calculate angle from vertical (straight down)
+    // atan2(dx, dy) gives angle where:
+    //   dx negative (pot left of moon) = negative angle = rotate left
+    //   dx positive (pot right of moon) = positive angle = rotate right
     const angleRad = Math.atan2(dx, dy);
     const angleDeg = angleRad * (180 / Math.PI);
     
-    // Position beam: top-left corner at moon center, then shift left by half width
-    beam.style.left = moonCenterX + 'px';
+    // Get beam width to calculate left offset
+    const beamWidth = 180; // matches CSS width
+    
+    // Position: place TOP-CENTER of beam at moon center
+    // left position needs to account for beam width (center it on moon)
+    beam.style.left = (moonCenterX - beamWidth / 2) + 'px';
     beam.style.top = moonCenterY + 'px';
     beam.style.height = (distance + 80) + 'px';
-    beam.style.transform = `translateX(-50%) rotate(${angleDeg}deg)`;
+    // Rotate around top-center (transform-origin is already set in CSS)
+    beam.style.transform = `rotate(${angleDeg}deg)`;
 }
 
 function initPatterns(){
