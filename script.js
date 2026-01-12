@@ -88,7 +88,10 @@ function setupEventListeners(){
     const pot=document.getElementById('potGroup');
     if(pot){pot.addEventListener('mousedown',()=>handlePress(true));pot.addEventListener('mouseup',()=>handlePress(false));pot.addEventListener('mouseleave',()=>handlePress(false));pot.addEventListener('touchstart',e=>{e.preventDefault();handlePress(true)},{passive:false});pot.addEventListener('touchend',e=>{e.preventDefault();handlePress(false)})}
     setInterval(()=>{checkSingCooldown();checkFertilizeCooldown()},1000);checkSingCooldown();checkFertilizeCooldown();
-    history.pushState({popup:'none'},'');window.addEventListener('popstate',handleBackButton);
+    // Push two states so back button has somewhere to go
+    history.pushState({page:'game'},'');
+    history.pushState({page:'game'},'');
+    window.addEventListener('popstate',handleBackButton);
 }
 
 function initPatterns(){
@@ -409,7 +412,9 @@ function spawnVisualFirefly(fam,isGuardian){
         ff.style.transform='scale(1)';
     });
     
-    ff.onclick=e=>{
+    // Handle both click and touch for better mobile support
+    const handleTap = (e) => {
+        e.preventDefault();
         e.stopPropagation();
         if(isGuardian){
             activateGuardian(fam,ff);
@@ -417,6 +422,9 @@ function spawnVisualFirefly(fam,isGuardian){
             collectFirefly(fam,ff);
         }
     };
+    
+    ff.addEventListener('click', handleTap);
+    ff.addEventListener('touchend', handleTap, {passive: false});
     
     document.body.appendChild(ff);
     
@@ -748,9 +756,6 @@ function fullReset(){
 function finalizeReset(){resetGame(false);els.resetOverlay.classList.remove('open')}
 function updateName(n){state.name=n.trim()||'Sprout';updateUI();saveState()}
 function handleBackButton(e){
-    // Always prevent default back navigation by pushing state
-    e.preventDefault();
-    
     const overlays=[
         {el:els.fireflyOverlay,close:closeFireflyLog},
         {el:els.potOverlay,close:closePotDesigner},
@@ -761,19 +766,16 @@ function handleBackButton(e){
         {el:els.menuOverlay,close:toggleMenu}
     ];
     
-    // Check if any overlay is open
-    let closed=false;
+    // Check if any overlay is open and close it
     for(const o of overlays){
         if(o.el&&o.el.classList.contains('open')){
             o.close();
-            closed=true;
             break;
         }
     }
     
-    // Always push a new state to prevent exiting the app
-    // This keeps us in the app regardless of whether we closed something
-    history.pushState({popup:'none'},'');
+    // Always push state forward to stay in app
+    history.pushState({page:'game'},'');
 }
 
 function spawnFloatingText(text,color){
