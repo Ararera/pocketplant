@@ -362,9 +362,10 @@ body.time-evening .moon-icon {
 }
 
 .season-indicator {
-    font-size: 0.7rem;
-    opacity: 0.5;
+    font-size: 0.8rem;
+    opacity: 0.7;
     margin-top: 2px;
+    white-space: nowrap;
 }
 
 /* Evolution bar */
@@ -521,6 +522,7 @@ body.paused *::after {
 .pot-rim { filter: brightness(1.1); }
 .pot-pattern { opacity: 0.9; stroke: none; }
 .dirt { fill: #5d4037; stroke: none; }
+.dirt-top { fill: #6d4c41; stroke: none; }
 .shadow { fill: rgba(0,0,0,0.4); filter: blur(8px); }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -879,6 +881,18 @@ body.paused *::after {
     background: transparent;
     border: 1px solid rgba(255,255,255,0.2);
     color: rgba(255,255,255,0.8);
+}
+
+.reset-btn {
+    background: transparent;
+    border: 1px solid rgba(224, 49, 49, 0.4);
+    color: rgba(224, 49, 49, 0.8);
+    margin-top: 10px;
+}
+
+.reset-btn:hover {
+    background: rgba(224, 49, 49, 0.1);
+    border-color: rgba(224, 49, 49, 0.6);
 }
 
 .release-btn {

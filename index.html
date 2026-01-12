@@ -67,13 +67,7 @@
             <div class="plant-mood" id="plantMoodDisplay">awakening...</div>
         </div>
         <div class="status-right">
-            <div class="moon-cycle-container" id="moonCycleContainer">
-                <div class="moon-icon" id="moonIcon">🌕</div>
-                <div class="time-info">
-                    <div class="day-counter" id="dayDisplay">Day 1</div>
-                    <div class="season-indicator" id="seasonIndicator">🌸 Spring</div>
-                </div>
-            </div>
+            <div class="season-indicator" id="seasonIndicator">Day 1 · 🌸 Spring</div>
         </div>
     </div>
     
@@ -117,6 +111,7 @@
             <button class="btn-base help-btn" onclick="openHelp()">📖 How to Play</button>
 
             <button class="btn-base harvest-btn" id="btnHarvest" onclick="harvestPlant()">🌸 Ascend & Rebirth</button>
+            <button class="btn-base reset-btn" id="btnReset" onclick="openResetConfirm()">🔄 Reset Save</button>
             <button class="btn-base close-btn" onclick="toggleMenu()">Close</button>
         </div>
     </div>
@@ -298,10 +293,12 @@
                     <g id="plantGroup"></g>
                     
                     <g id="potGroup">
-                        <ellipse cx="100" cy="190" rx="28" ry="6" class="dirt" />
                         <path d="M72 190 L128 190 L118 230 L82 230 Z" class="pot-body" />
                         <path d="M68 185 L132 185 L130 195 L70 195 Z" class="pot-body pot-rim" />
                         <path id="potPatternPath" d="M72 195 L128 195 L118 230 L82 230 Z" fill="url(#patNone)" class="pot-pattern" />
+                        <!-- Dirt mound on top of pot rim -->
+                        <ellipse cx="100" cy="188" rx="26" ry="8" class="dirt" />
+                        <ellipse cx="100" cy="186" rx="22" ry="5" class="dirt-top" />
                     </g>
                     
                     <rect id="plantClickArea" x="60" y="80" width="80" height="110" onclick="animateJiggle()" class="plant-hitbox" />
