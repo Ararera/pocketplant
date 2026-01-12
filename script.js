@@ -95,9 +95,11 @@ function setupEventListeners(){
     window.addEventListener('popstate',handleBackButton);
     if(!history.state||!history.state.pocketSprout){history.replaceState({pocketSprout:true,depth:0},'')}
     pushHistoryState();
-    // Position moonbeam on load and resize
-    positionMoonbeam();
-    window.addEventListener('resize', positionMoonbeam);
+    // Position moonbeam after layout settles
+    requestAnimationFrame(() => {
+        requestAnimationFrame(positionMoonbeam);
+    });
+    window.addEventListener('resize', () => requestAnimationFrame(positionMoonbeam));
 }
 
 function pushHistoryState(){const depth=(history.state?.depth||0)+1;history.pushState({pocketSprout:true,depth:depth},'')}
@@ -106,32 +108,35 @@ function pushHistoryState(){const depth=(history.state?.depth||0)+1;history.push
 function positionMoonbeam(){
     const moon = document.getElementById('moonElement');
     const beam = document.getElementById('moonlightBeam');
-    const pot = document.getElementById('potGroup');
-    if(!moon || !beam || !pot) return;
+    const potGroup = document.getElementById('potGroup');
+    if(!moon || !beam || !potGroup) return;
     
     // Get moon center position
     const moonRect = moon.getBoundingClientRect();
     const moonCenterX = moonRect.left + moonRect.width / 2;
     const moonCenterY = moonRect.top + moonRect.height / 2;
     
-    // Get pot center position (bottom center of the pot)
-    const potRect = pot.getBoundingClientRect();
+    // Get pot center position
+    const potRect = potGroup.getBoundingClientRect();
     const potCenterX = potRect.left + potRect.width / 2;
-    const potBottomY = potRect.bottom - 10; // Slightly above the very bottom
+    const potCenterY = potRect.top + potRect.height / 2;
     
-    // Calculate distance and angle
+    // Calculate vector from moon to pot
     const dx = potCenterX - moonCenterX;
-    const dy = potBottomY - moonCenterY;
+    const dy = potCenterY - moonCenterY;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    const angle = Math.atan2(dx, dy) * (180 / Math.PI); // Angle in degrees
     
-    // Position beam at moon center
+    // Calculate angle: atan2(x, y) gives angle from positive Y axis (pointing down)
+    // Positive angle = clockwise rotation, negative = counter-clockwise
+    // Since pot is typically to the LEFT of moon, dx is negative, so angle will be negative
+    const angleRad = Math.atan2(dx, dy);
+    const angleDeg = angleRad * (180 / Math.PI);
+    
+    // Position beam: top-left corner at moon center, then shift left by half width
     beam.style.left = moonCenterX + 'px';
     beam.style.top = moonCenterY + 'px';
-    // Translate so top center of beam is at moon center
-    beam.style.transform = `translateX(-50%) rotate(${angle}deg)`;
-    // Set height to reach the pot
-    beam.style.height = (distance + 50) + 'px';
+    beam.style.height = (distance + 80) + 'px';
+    beam.style.transform = `translateX(-50%) rotate(${angleDeg}deg)`;
 }
 
 function initPatterns(){
