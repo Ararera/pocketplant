@@ -1,0 +1,461 @@
+/* --- Overlays & Modals --- */
+.menu-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(10, 10, 15, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 150;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.menu-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.menu-card {
+    background: rgba(30, 32, 35, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 25px;
+    border-radius: 24px;
+    width: 90%;
+    max-width: 340px;
+    text-align: center;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+    max-height: 85vh;
+    overflow-y: auto;
+    position: relative;
+}
+
+.menu-card.firefly-card {
+    max-width: 380px;
+    width: 92%;
+}
+
+.menu-title {
+    font-size: 1rem;
+    margin-bottom: 18px;
+    font-weight: 300;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.8);
+}
+
+.version-tag { font-size: 0.55rem; opacity: 0.4; margin-left: 5px; }
+
+.menu-section-title {
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    opacity: 0.5;
+    margin: 20px 0 10px;
+    text-align: left;
+}
+
+.name-input {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #fff;
+    font-size: 1.1rem;
+    padding: 12px;
+    border-radius: 12px;
+    width: 100%;
+    margin-bottom: 18px;
+    text-align: center;
+    font-family: inherit;
+}
+
+.menu-stat {
+    display: flex;
+    justify-content: space-between;
+    margin: 8px 0;
+    font-size: 0.8rem;
+    opacity: 0.8;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    padding-bottom: 8px;
+}
+
+/* --- Firefly Sanctuary Grid & Cards --- */
+.firefly-intro {
+    font-size: 0.8rem;
+    opacity: 0.6;
+    margin-bottom: 18px;
+    line-height: 1.5;
+}
+
+.firefly-family-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.family-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 10px 6px;
+    text-align: center;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.family-card:hover, .family-card.selected {
+    border-color: var(--family-color, rgba(255, 255, 255, 0.3));
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.family-card .family-orb {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    margin: 0 auto 5px;
+    box-shadow: 0 0 10px var(--family-color, #fff);
+}
+
+.family-card .family-name { font-size: 0.6rem; opacity: 0.7; margin-bottom: 2px; }
+.family-card .family-count { font-size: 0.9rem; font-weight: 500; }
+.family-card .family-power { font-size: 0.55rem; opacity: 0.5; margin-top: 3px; }
+
+.family-detail-panel {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 15px;
+    text-align: left;
+}
+
+.family-detail-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.family-detail-header .family-orb {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.family-info h3 { font-size: 0.95rem; font-weight: 400; margin: 0 0 3px 0; }
+.family-info p { font-size: 0.75rem; opacity: 0.6; margin: 0; }
+
+.guardian-progress-section {
+    margin-top: 15px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+}
+
+#guardianProgressText {
+    font-size: 0.75rem;
+    opacity: 0.7;
+    line-height: 1.4;
+    margin: 0;
+}
+
+/* --- Debug Panel (Hidden by Default) --- */
+.debug-panel {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 10000;
+    color: #0f0;
+    font-family: 'Courier New', monospace;
+    padding: 20px;
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+
+.debug-panel.open { display: block; }
+
+.debug-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #0f0;
+}
+
+.debug-header button {
+    background: #0f0; color: #000; border: none;
+    padding: 5px 15px; cursor: pointer; font-weight: bold;
+}
+
+.debug-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.debug-controls button {
+    background: rgba(0, 255, 0, 0.1); color: #0f0; border: 1px solid #0f0;
+    padding: 8px 12px; font-size: 0.7rem; cursor: pointer; transition: all 0.2s;
+}
+.debug-controls button:hover { background: rgba(0, 255, 0, 0.3); }
+
+/* --- Buttons --- */
+.btn-base {
+    margin-top: 8px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    width: 100%;
+    font-size: 0.85rem;
+    transition: transform 0.1s, opacity 0.2s, filter 0.2s;
+    font-family: inherit;
+}
+
+.btn-base:active { transform: scale(0.98); }
+.btn-base:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(1); }
+
+.firefly-btn { background: linear-gradient(135deg, #ffd43b, #fcc419); color: #1a1b1e; }
+.piano-btn { background: linear-gradient(135deg, #5c7cfa, #7950f2); color: #fff; }
+.fertilize-btn { background: linear-gradient(135deg, #795548, #8d6e63); color: #fff; }
+.music-btn { background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); }
+.music-btn.active { background: linear-gradient(135deg, #37b24d, #2f9e44); }
+.style-btn { background: transparent; border: 1px solid var(--pot-color); color: var(--pot-color); }
+.close-btn { background: transparent; border: 1px solid rgba(255,255,255,0.1); color: #fff; opacity: 0.6; }
+
+/* Purify Soil Specific */
+#btnCleanSoil {
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    color: white;
+    box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+    margin-top: 12px;
+}
+
+/* --- Firefly System --- */
+.firefly {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    pointer-events: auto;
+    cursor: pointer;
+    z-index: 120;
+    opacity: 0;
+    filter: blur(0.5px);
+}
+
+.firefly.guardian { width: 16px; height: 16px; filter: blur(0px); }
+.guardian-active { animation: guardianPulse 2s ease-in-out infinite; }
+
+@keyframes guardianPulse {
+    0%, 100% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 30px var(--firefly-color); }
+}
+
+@keyframes fireflyDrift {
+    0%   { transform: translate(-50%, -50%) translate(0px, 0px); }
+    25%  { transform: translate(-50%, -50%) translate(var(--fx1, 20px), var(--fy1, -30px)); }
+    50%  { transform: translate(-50%, -50%) translate(var(--fx2, -40px), var(--fy2, 10px)); }
+    75%  { transform: translate(-50%, -50%) translate(var(--fx3, 30px), var(--fy3, 40px)); }
+    100% { transform: translate(-50%, -50%) translate(0px, 0px); }
+}
+
+@keyframes fireflyFlicker {
+    0%   { opacity: 0;   transform: scale(0.6) translate(-50%, -50%); }
+    15%  { opacity: 0.9; transform: scale(1.0) translate(-50%, -50%); }
+    45%  { opacity: 0.35; transform: scale(0.85) translate(-50%, -50%); }
+    70%  { opacity: 1;   transform: scale(1.05) translate(-50%, -50%); }
+    100% { opacity: 0;   transform: scale(0.6) translate(-50%, -50%); }
+}
+
+
+
+/* --- Pot View Minigame --- */
+.water-drop {
+    position: absolute;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 20;
+    filter: blur(0.5px);
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+}
+
+.water-drop.clean {
+    background: radial-gradient(circle at 30% 30%, #93c5fd, #60a5fa);
+    box-shadow: 0 0 10px rgba(96,165,250,0.6);
+}
+
+.water-drop.polluted {
+    background: radial-gradient(circle at 30% 30%, #a8a29e, #78716c);
+    box-shadow: 0 0 10px rgba(120,113,108,0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+/* --- Notifications & Feedback --- */
+.toast {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 20px) + 20px);
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: rgba(30,30,35,0.98);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 16px 20px;
+    border-radius: 18px;
+    width: 85%;
+    max-width: 320px;
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+}
+
+.toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+
+.floating-text {
+    position: fixed;
+    pointer-events: none;
+    z-index: 200;
+    animation: floatUp 2s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+@keyframes floatUp {
+    0% { transform: translate(-50%, 10px); opacity: 0; }
+    20% { transform: translate(-50%, 0); opacity: 1; }
+    100% { transform: translate(-50%, -60px); opacity: 0; }
+}
+
+/* --- Pot Designer --- */
+.pot-preview-container {
+    background: rgba(0,0,0,0.2);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.pot-preview-svg { width: 100%; max-height: 80px; overflow: visible; }
+.color-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-start; }
+.color-dot { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.2s; }
+.color-dot.selected { border-color: #fff; transform: scale(1.1); }
+.pattern-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.pattern-btn { padding: 6px 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: #fff; font-size: 0.7rem; cursor: pointer; }
+.pattern-btn.selected { background: rgba(255,255,255,0.2); border-color: #fff; }
+
+/* --- Progress --- */
+.progress-container { width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+.progress-bar { height: 100%; background: var(--accent-growth); transition: width 0.5s ease; }
+
+
+/* Menu rows that are real links (keep them looking like menu items) */
+.menu-link { text-decoration: none; color: inherit; display: block; }
+.menu-link:focus { outline: none; }
+.menu-link:focus-visible { outline: 2px solid rgba(255,255,255,0.35); outline-offset: 6px; border-radius: 14px; }
+
+
+/* Fix: fireflies were being appended inside wrappers with left/top, but the .firefly itself was position:fixed (ignoring wrapper).
+   Make wrappers positioned, and fireflies positioned relative to them. */
+.firefly-wrapper, .guardian-wrapper {
+    position: fixed;
+    width: 0;
+    height: 0;
+    z-index: 120;
+    pointer-events: auto;
+    transform: translate(-50%, -50%);
+    will-change: transform;
+}
+
+.firefly {
+    position: absolute; /* was fixed */
+}
+
+
+/* Menu buttons: clearer hierarchy */
+.help-btn {
+    background: rgba(116, 143, 252, 0.16);
+    border: 1px solid rgba(116, 143, 252, 0.28);
+    color: #eaf0ff;
+}
+.help-btn:hover { background: rgba(116, 143, 252, 0.22); }
+
+.reset-btn {
+    background: rgba(255, 107, 107, 0.14);
+    border: 1px solid rgba(255, 107, 107, 0.28);
+    color: #ffecec;
+}
+.reset-btn:hover { background: rgba(255, 107, 107, 0.20); }
+
+/* Ascend & Rebirth: hidden until max stage (JS toggles .visible) */
+#btnHarvest { display: none; }
+#btnHarvest.visible { display: block; }
+.harvest-btn {
+    background: linear-gradient(135deg, rgba(74, 222, 128, 0.22), rgba(34, 197, 94, 0.12));
+    border: 1px solid rgba(74, 222, 128, 0.35);
+    color: #eafff1;
+    box-shadow: 0 10px 30px rgba(34, 197, 94, 0.12);
+}
+.harvest-btn:hover { filter: brightness(1.08); }
+
+
+/* Ascension modal styling */
+.menu-card.harvest-card {
+    background: rgba(18, 18, 24, 0.92);
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+}
+.harvest-preview {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin: 14px 0 8px;
+    padding: 12px 0;
+    border-radius: 18px;
+    background: radial-gradient(circle at 50% 30%, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+    border: 1px solid rgba(255,255,255,0.08);
+}
+.harvest-preview-svg { width: 170px; height: 220px; filter: drop-shadow(0 18px 22px rgba(0,0,0,0.35)); }
+.harvest-text { opacity: 0.85; line-height: 1.5; margin: 8px 0 14px; }
+.trait-inheritance-section {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    margin-bottom: 14px;
+}
+.trait-inheritance-section .section-label {
+    font-size: 0.65rem;
+    letter-spacing: 1.4px;
+    opacity: 0.65;
+    margin-bottom: 6px;
+}
+#inheritedTraitDisplay {
+    margin: 0;
+    font-size: 0.85rem;
+    opacity: 0.9;
+}
+.harvest-confirm-btn {
+    background: linear-gradient(135deg, rgba(74, 222, 128, 0.35), rgba(34, 197, 94, 0.18));
+    border: 1px solid rgba(74, 222, 128, 0.45);
+    color: #eafff1;
+    box-shadow: 0 12px 40px rgba(34, 197, 94, 0.16);
+}
+.harvest-confirm-btn:hover { filter: brightness(1.08); }
+
+
+
+/* --- Fix: rain button looked "off" after recent tweaks.
+   Give the active rain toggle the same "pressed" treatment as other toggles. */
+.action-btn.rain-active {
+  background: rgba(116, 143, 252, 0.12);
+  box-shadow: 0 0 0 1px rgba(116, 143, 252, 0.22) inset, 0 0 18px rgba(116, 143, 252, 0.22);
+  color: var(--accent-rain);
+}
