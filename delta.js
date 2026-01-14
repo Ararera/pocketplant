@@ -30,6 +30,22 @@ const rootSVG = document.getElementById('rootSVG');
 const waterLayer = document.getElementById('waterLayer');
 const pollutedCountDisplay = document.getElementById('pollutedCount');
 
+// Convert root SVG (viewBox) coordinates to waterLayer pixel coordinates,
+// so droplets track visible roots even when the pot scales on mobile.
+const ROOT_VB_W = 340;
+const ROOT_VB_H = 380;
+function rootCoordToLayerPx(x, y) {
+  if (!waterLayer) return { x, y };
+  const layerRect = waterLayer.getBoundingClientRect();
+  const svgRect = rootSVG ? rootSVG.getBoundingClientRect() : layerRect;
+  const sx = svgRect.width / ROOT_VB_W;
+  const sy = svgRect.height / ROOT_VB_H;
+  const ox = svgRect.left - layerRect.left;
+  const oy = svgRect.top - layerRect.top;
+  return { x: ox + x * sx, y: oy + y * sy };
+}
+
+
 // UI Constants (Mirrored from alpha.js / script.js)
 const SEASONS = [{name:'Spring',icon:'🌸'},{name:'Summer',icon:'☀️'},{name:'Autumn',icon:'🍂'},{name:'Winter',icon:'❄️'}];
 const STAGE_THRESHOLDS = [0, 300, 1000, 2500, 5000, 8000];
@@ -295,8 +311,9 @@ function spawnDroplet() {
     el.className = `water-drop ${isPolluted ? 'polluted' : 'clean'}`;
     
     const tip = visiblePoints[visiblePoints.length - 1];
-    el.style.left = tip.x + 'px';
-    el.style.top = tip.y + 'px';
+    const tipPx = rootCoordToLayerPx(tip.x, tip.y);
+    el.style.left = tipPx.x + 'px';
+    el.style.top = tipPx.y + 'px';
     el.style.opacity = "0";
     el.style.transform = "translate(-50%, -50%) scale(0)";
     waterLayer.appendChild(el);
@@ -332,8 +349,9 @@ function spawnDroplet() {
         const curX = p1.x + (p2.x - p1.x) * fraction;
         const curY = p1.y + (p2.y - p1.y) * fraction;
 
-        el.style.left = curX + 'px';
-        el.style.top = curY + 'px';
+        const curPx = rootCoordToLayerPx(curX, curY);
+        el.style.left = curPx.x + 'px';
+        el.style.top = curPx.y + 'px';
 
         if (pointIndex < 4) {
             const absorbProgress = Math.max(0, pointIndex / 4);

@@ -17,7 +17,9 @@
     /* Better yet, move the hover effect to the button itself but keep container for positioning */
     .back-btn:hover { background: rgba(40, 40, 50, 0.9); transform: scale(1.05); }
     .trait-card.locked::after { content: '🔒'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2rem; opacity: 0.7; }
-</style></head><body>
+</style><meta name="view-transition" content="same-origin">
+<link rel="prefetch" href="index.html">
+</head><body>
     <div class="grain-overlay"></div>
     <div class="sky-layer" style="opacity: 1;"><div class="stars-container"></div></div>
 
@@ -141,4 +143,32 @@
 })();
 </script>
 
+
+<script>
+(function(){
+  function isInternalLink(a){
+    const href = a.getAttribute('href');
+    if(!href || href.startsWith('#')) return false;
+    if(/^https?:/i.test(href)) return false;
+    return true;
+  }
+  function go(href){
+    try{
+      if(document.startViewTransition){
+        document.startViewTransition(()=>{ window.location.href = href; });
+      }else{
+        window.location.href = href;
+      }
+    }catch(_){
+      window.location.href = href;
+    }
+  }
+  document.addEventListener('click', (e)=>{
+    const a = e.target.closest('a');
+    if(!a || !isInternalLink(a)) return;
+    e.preventDefault();
+    go(a.getAttribute('href'));
+  }, {capture:true});
+})();
+</script>
 </body></html>

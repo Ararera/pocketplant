@@ -1,144 +1,371 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"><title>Pocket Sprout - Roots</title><link rel="stylesheet" href="stylea.css"><link rel="stylesheet" href="styleb.css"><link rel="stylesheet" href="stylec.css"><style>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+  <meta name="theme-color" content="#1a1b1e" />
+  <meta name="view-transition" content="same-origin" />
+  <title>Pocket Sprout - Roots</title>
+
+  <link rel="stylesheet" href="stylea.css" />
+  <link rel="stylesheet" href="styleb.css" />
+  <link rel="stylesheet" href="stylec.css" />
+  <link rel="prefetch" href="index.html" />
+
+  <style>
+    /* Mobile-first layout. Pot scales to screen, UI respects safe areas. */
     body { overflow: hidden; }
-    .root-container { position: relative; width: 100%; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-    
-    /* Zoomed Pot View */
-    .pot-cross-section { 
-        position: relative; 
-        width: 340px; 
-        height: 380px; 
-        background: linear-gradient(to bottom, #4a3728 0%, #2b1d12 100%); 
-        clip-path: polygon(0% 0%, 100% 0%, 90% 100%, 10% 100%);
-        border-top: 10px solid #5d4037; 
-        overflow: hidden; 
-        box-shadow: inset 0 0 60px rgba(0,0,0,0.9); 
-        transform: scale(1.1);
-        z-index: 5;
-        margin-bottom: 20px;
+    .root-page {
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
     }
 
-    .soil-texture { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.2; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E"); pointer-events: none; }
-    .root-svg-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
-    .water-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 20; }
-    
-    /* Centered Back Button Below Pot */
-    .back-btn-container { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 100; }
-    .back-btn { 
-        width: 44px; height: 44px; 
-        background: rgba(255,255,255,0.1); 
-        border-radius: 50%; 
-        display: flex; align-items: center; justify-content: center; 
-        color: #fff; 
-        border: 1px solid rgba(255,255,255,0.2); 
-        backdrop-filter: blur(10px); 
-        transition: transform 0.2s, background 0.2s; 
-        text-decoration: none;
+    .root-topbar {
+      position: sticky;
+      top: 0;
+      z-index: 120;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      gap: 10px;
+      background: rgba(20, 20, 25, 0.55);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
     }
-    .back-btn:hover { transform: scale(1.1); background: rgba(255,255,255,0.2); }
 
-    /* Instruction Box */
-    .instruction-box {
-        margin-top: 15px; 
-        background: rgba(20, 20, 25, 0.8);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
-        padding: 10px 20px;
-        text-align: center;
-        max-width: 260px;
-        z-index: 10;
-        pointer-events: none;
+    .root-back {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      text-decoration: none;
+      color: rgba(255,255,255,0.9);
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.14);
+      box-shadow: 0 8px 22px rgba(0,0,0,0.35);
+      transition: transform 120ms ease, background 120ms ease;
     }
-    .instruction-text { color: #e0e0e0; font-size: 0.8rem; line-height: 1.4; margin: 0; }
-    .highlight-polluted { color: #a8a29e; font-weight: bold; }
-    .highlight-clean { color: #60a5fa; font-weight: bold; }
-</style></head><body>
-    <div class="grain-overlay"></div>
+    .root-back:active { transform: scale(0.97); background: rgba(255,255,255,0.12); }
 
-    <!-- Status Panel (Mirrors Index) -->
+    .root-title {
+      flex: 1;
+      text-align: center;
+      font-size: 0.95rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      opacity: 0.75;
+      padding-right: 44px; /* balance the back button */
+      user-select: none;
+    }
+
+    /* Status panel sits under the topbar, stays readable, and scroll-free */
+    .status-panel {
+      position: relative;
+      z-index: 110;
+      margin: 10px 12px 0;
+      width: auto;
+      max-width: none;
+    }
+
+    .root-main {
+      position: relative;
+      flex: 1;
+      display: grid;
+      place-items: center;
+      padding: 6px 10px 0;
+      min-height: 0;
+    }
+
+    .pot-stage {
+      position: relative;
+      width: min(86vw, 460px);
+      aspect-ratio: 340 / 380;
+      transform: translateZ(0);
+    }
+
+    .pot-cross-section {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, #4a3728 0%, #2b1d12 100%);
+      clip-path: polygon(0% 0%, 100% 0%, 90% 100%, 10% 100%);
+      border-top: 10px solid #5d4037;
+      overflow: hidden;
+      box-shadow: inset 0 0 60px rgba(0,0,0,0.9), 0 18px 60px rgba(0,0,0,0.35);
+      z-index: 5;
+      view-transition-name: plant;
+    }
+
+    .soil-texture {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      opacity: 0.22;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    .root-svg-layer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .water-layer {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 20;
+      overflow: hidden;
+    }
+
+    /* Make tiny phones less cramped */
+    @media (max-height: 720px) {
+      .status-panel { margin-top: 8px; }
+      .root-main { padding-top: 6px; }
+      .root-hint { font-size: 0.82rem; }
+    }
+
+    /* Landscape: keep pot prominent and reduce overlays */
+    @media (orientation: landscape) and (max-height: 520px) {
+      .root-page { padding-bottom: env(safe-area-inset-bottom); }
+      .status-panel { margin-top: 6px; }
+      .root-hint { display: none; }
+      .pot-stage { width: min(62vw, 560px); }
+    }
+  
+    .root-help{
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.92);
+      font-weight: 800;
+      font-size: 18px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .root-help:active{ transform: scale(0.98); }
+    .root-help:focus{ outline: 2px solid rgba(255,255,255,0.18); outline-offset: 2px; }
+
+    .root-modal{
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: grid;
+      place-items: center;
+      padding: calc(14px + env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom));
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .root-modal[hidden]{ display: none; }
+
+    .root-modal-card{
+      width: min(92vw, 420px);
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(20, 23, 28, 0.92);
+      box-shadow: 0 16px 44px rgba(0,0,0,0.45);
+      padding: 14px 14px 12px;
+    }
+    .root-modal-head{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .root-modal-title{
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      color: rgba(255,255,255,0.92);
+    }
+    .root-modal-close{
+      width: 40px;
+      height: 40px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.88);
+      font-size: 18px;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .root-modal-body{
+      font-size: 0.95rem;
+      line-height: 1.45;
+      color: rgba(255,255,255,0.82);
+    }
+    .root-modal-body .polluted{ color: #a8a29e; font-weight: 800; }
+    .root-modal-body .clean{ color: #60a5fa; font-weight: 800; }
+    .root-modal-body .note{
+      margin-top: 10px;
+      padding: 10px 10px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.10);
+      color: rgba(255,255,255,0.78);
+      font-size: 0.9rem;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="grain-overlay"></div>
+
+  <div class="root-page">
+    <header class="root-topbar">
+      <a href="index.html" class="root-back" aria-label="Back to Surface">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 22px; height: 22px;">
+          <path d="M7 11l5-5 5 5" />
+          <path d="M7 18l5-5 5 5" />
+        </svg>
+      </a>
+      <div class="root-title">Roots</div>
+      <button class="root-help" id="rootHelpBtn" type="button" aria-label="How to Play">?</button>
+    </header>
+
+    <!-- Status Panel (mirrors index.html) -->
     <div class="status-panel" id="statusArea">
-        <div class="panel-header">
-            <div class="gen-badge" id="genBadge">CYCLE 1</div>
-            <div style="display:flex; gap:6px;">
-                <div class="season-indicator" id="seasonIndicator">🌸 Spring</div>
-                <div class="pollution-indicator" id="pollutionIndicator" style="display:flex; align-items:center; gap:4px; font-size:0.7rem; background:rgba(255,255,255,0.05); padding:3px 8px; border-radius:10px;">
-                    <div style="width:8px; height:8px; background:#fb923c; border-radius:50%;"></div>
-                    <span id="pollutedCount">0</span>
-                </div>
-            </div>
+      <div class="panel-header">
+        <div class="gen-badge" id="genBadge">CYCLE 1</div>
+        <div style="display:flex; gap:6px;">
+          <div class="season-indicator" id="seasonIndicator">🌸 Spring</div>
+          <div class="pollution-indicator" id="pollutionIndicator" style="display:flex; align-items:center; gap:4px; font-size:0.7rem; background:rgba(255,255,255,0.05); padding:3px 8px; border-radius:10px;">
+            <div style="width:8px; height:8px; background:#fb923c; border-radius:50%;"></div>
+            <span id="pollutedCount">0</span>
+          </div>
         </div>
-        <div class="plant-info">
-            <div class="plant-name" id="plantNameDisplay">Sprout</div>
-            <div class="plant-mood" id="plantMoodDisplay">growing deep...</div>
-        </div>
-        <div class="growth-wrapper">
-            <div class="growth-label">Evolution</div>
-            <div class="evolution-bar-track"><div class="evolution-bar" id="evolutionBar"></div></div>
-        </div>
-        <div class="growth-wrapper">
-            <div class="growth-label">Contamination</div>
-            <div class="evolution-bar-track"><div class="contamination-bar" id="contaminationBar"></div></div>
-        </div>
+      </div>
+      <div class="plant-info">
+        <div class="plant-name" id="plantNameDisplay">Sprout</div>
+        <div class="plant-mood" id="plantMoodDisplay">growing deep...</div>
+      </div>
+      <div class="growth-wrapper">
+        <div class="growth-label">Evolution</div>
+        <div class="evolution-bar-track"><div class="evolution-bar" id="evolutionBar"></div></div>
+      </div>
+      <div class="growth-wrapper">
+        <div class="growth-label">Contamination</div>
+        <div class="evolution-bar-track"><div class="contamination-bar" id="contaminationBar"></div></div>
+      </div>
     </div>
 
-    <div class="root-container">
+    <main class="root-main">
+      <section class="pot-stage" aria-label="Root view">
         <div class="pot-cross-section" id="potCrossSection">
-            <div class="soil-texture"></div>
-            <svg class="root-svg-layer" id="rootSVG" viewBox="0 0 340 380"></svg>
-            <div class="water-layer" id="waterLayer"></div>
+          <div class="soil-texture"></div>
+          <svg class="root-svg-layer" id="rootSVG" viewBox="0 0 340 380" preserveAspectRatio="xMidYMid slice"></svg>
+          <div class="water-layer" id="waterLayer"></div>
         </div>
+      </section>
+    </main>
+</div>
 
-        <div class="instruction-box">
-            <p class="instruction-text">
-                Tap <span class="highlight-polluted">Polluted</span> drops.<br>Let <span class="highlight-clean">Clean</span> drops pass.
-            </p>
-        </div>
+
+  <div class="root-modal" id="rootHelpOverlay" hidden>
+    <div class="root-modal-card" role="dialog" aria-modal="true" aria-labelledby="rootHelpTitle">
+      <div class="root-modal-head">
+        <div class="root-modal-title" id="rootHelpTitle">Root View</div>
+        <button class="root-modal-close" id="rootHelpClose" type="button" aria-label="Close">×</button>
+      </div>
+      <div class="root-modal-body">
+        Tap <span class="polluted">Polluted</span> drops to get rid of them.
+        Let <span class="clean">Clean</span> drops pass.
+        <div class="note">Each polluted drop absorbed by your plant adds +1 contamination.</div>
+      </div>
     </div>
-
-    <div class="back-btn-container">
-        <a href="index.html" class="back-btn" aria-label="Back to Surface">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 24px; height: 24px;">
-                <path d="M7 11l5-5 5 5M7 18l5-5 5 5"/>
-            </svg>
-        </a>
-    </div>
-
-    <script src="alpha.js"></script>
-    <script src="delta.js"></script>
-
-<script>
-  document.querySelectorAll('a').forEach(link => {
-    link.addEventListener('click', e => {
-      const target = link.getAttribute('href');
-      if (!target || target.startsWith('#')) return;
-      e.preventDefault();
-      document.body.classList.add('fade-out');
-      setTimeout(() => { window.location.href = target; }, 500);
-    });
-  });
-</script>
+  </div>
 
 
-<script>
-(function applyTimeOfDayBackground(){
-  function getTimeOfDay(){
-    const h = new Date().getHours();
-    if (h >= 5 && h < 7) return 'dawn';
-    if (h >= 7 && h < 10) return 'morning';
-    if (h >= 10 && h < 16) return 'day';
-    if (h >= 16 && h < 18) return 'afternoon';
-    if (h >= 18 && h < 20) return 'dusk';
-    if (h >= 20 && h < 22) return 'evening';
-    return 'night';
-  }
-  function apply(){
-    const t = getTimeOfDay();
-    document.body.className = document.body.className.replace(/time-\w+/g,'').trim();
-    document.body.classList.add('time-' + t);
-  }
-  apply();
-  setInterval(apply, 60 * 1000);
-})();
-</script>
+  <script src="alpha.js"></script>
+  <script src="delta.js"></script>
 
-</body></html>
+    <script>
+    (function(){
+      const btn = document.getElementById("rootHelpBtn");
+      const overlay = document.getElementById("rootHelpOverlay");
+      const close = document.getElementById("rootHelpClose");
+      if (!btn || !overlay || !close) return;
+
+      function open(){ overlay.hidden = false; }
+      function hide(){ overlay.hidden = true; }
+
+      btn.addEventListener("click", open);
+      close.addEventListener("click", hide);
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) hide();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") hide();
+      });
+    })();
+
+    // Smooth same-origin transitions (no 500ms delay). Uses View Transitions API when available.
+    (function () {
+      function isInternalLink(a) {
+        const href = a.getAttribute('href');
+        if (!href || href.startsWith('#')) return false;
+        if (/^https?:/i.test(href) || href.startsWith('mailto:') || href.startsWith('tel:')) return false;
+        return true;
+      }
+      function go(href) {
+        try {
+          if (document.startViewTransition) {
+            document.startViewTransition(() => { window.location.href = href; });
+          } else {
+            window.location.href = href;
+          }
+        } catch (_) {
+          window.location.href = href;
+        }
+      }
+      document.addEventListener('click', (e) => {
+        const a = e.target.closest && e.target.closest('a');
+        if (!a || !isInternalLink(a)) return;
+        e.preventDefault();
+        go(a.getAttribute('href'));
+      }, { capture: true });
+    })();
+  </script>
+
+  <script>
+    (function applyTimeOfDayBackground() {
+      function getTimeOfDay() {
+        const h = new Date().getHours();
+        if (h >= 5 && h < 7) return 'dawn';
+        if (h >= 7 && h < 10) return 'morning';
+        if (h >= 10 && h < 16) return 'day';
+        if (h >= 16 && h < 18) return 'afternoon';
+        if (h >= 18 && h < 20) return 'dusk';
+        if (h >= 20 && h < 22) return 'evening';
+        return 'night';
+      }
+      function apply() {
+        const t = getTimeOfDay();
+        document.body.className = document.body.className.replace(/time-\w+/g, '').trim();
+        document.body.classList.add('time-' + t);
+      }
+      apply();
+      setInterval(apply, 60 * 1000);
+    })();
+  </script>
+</body>
+</html>
