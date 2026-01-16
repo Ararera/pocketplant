@@ -1,6 +1,7 @@
 {
   "name": "Pocket Sprout",
   "short_name": "Sprout",
+  "description": "A serene living plant you nurture in real time, where every choice quietly shapes its growth and lineage.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#1a1b1e",
@@ -18,4 +19,5 @@
       "type": "image/png"
     }
   ]
+
 }
