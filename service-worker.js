@@ -1,11 +1,12 @@
 const CACHE_NAME = 'pocket-sprout-v1';
 const ASSETS_TO_CACHE = [
+    './',
     './index.html',
-    './manifest.json'
-    // If you add local images/sounds later, list them here
+    './manifest.json',
+    './icon-192.png',
+    './icon-512.png'
 ];
 
-// Install Event: Cache files
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
@@ -15,7 +16,6 @@ self.addEventListener('install', (event) => {
     );
 });
 
-// Fetch Event: Serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
     event.respondWith(
         caches.match(event.request)
@@ -25,7 +25,6 @@ self.addEventListener('fetch', (event) => {
     );
 });
 
-// Activate Event: Clean up old caches
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((cacheNames) => {
