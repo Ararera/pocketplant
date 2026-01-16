@@ -1,31 +1,41 @@
-// Name of the cache
-const CACHE_NAME = 'my-pwa-cache-v1';
-
-// Files to cache immediately
-const urlsToCache = [
-  '/',
-  '/index.html',
-  // Add other critical assets here like CSS or images
-  // '/styles.css',
-  // '/logo.png'
+const CACHE_NAME = 'pocket-sprout-v1';
+const ASSETS_TO_CACHE = [
+    './',
+    './index.html',
+    './manifest.json',
+    './icon-192.png',
+    './icon-512.png'
 ];
 
-// Install the Service Worker
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
-  );
+self.addEventListener('install', (event) => {
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+            .then((cache) => {
+                return cache.addAll(ASSETS_TO_CACHE);
+            })
+    );
 });
 
-// Fetch resources: Try network first, fall back to cache
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    fetch(event.request).catch(() => {
-      return caches.match(event.request);
-    })
-  );
+self.addEventListener('fetch', (event) => {
+    event.respondWith(
+        caches.match(event.request)
+            .then((response) => {
+                return response || fetch(event.request);
+            })
+    );
 });
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then((cacheNames) => {
+            return Promise.all(
+                cacheNames.map((cacheName) => {
+                    if (cacheName !== CACHE_NAME) {
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        })
+    );
+});
+
