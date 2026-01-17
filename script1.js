@@ -19,9 +19,21 @@ const STAGE_THRESHOLDS = [0,300,1000,2500,5000,8000];
 const MOODS = {thriving:{text:'basking contentedly',color:'#4ade80',threshold:75},content:{text:'swaying gently',color:'#a3e635',threshold:55},restless:{text:'reaching for light',color:'#facc15',threshold:35},struggling:{text:'wilting slowly',color:'#fb923c',threshold:15},dormant:{text:'in deep slumber',color:'#f87171',threshold:0}};
 const PLANT_STATES = {thriving:{min:80,label:"Thriving",color:"#4ade80"},content:{min:60,label:"Content",color:"#a3e635"},restless:{min:40,label:"Restless",color:"#facc15"},strained:{min:20,label:"Strained",color:"#fb923c"},dormant:{min:0,label:"Dormant",color:"#f87171"}};
 const INHERITABLE_TRAITS = [{id:'resilience',name:'Resilient',desc:'Slower stat decay'},{id:'bloomSpeed',name:'Quick Bloomer',desc:'Faster growth'},{id:'leafiness',name:'Lush',desc:'More leaves'},{id:'colorVibrancy',name:'Vibrant',desc:'Richer colors'},{id:'flowerPower',name:'Floriferous',desc:'More flowers'},{id:'fireflyAffinity',name:'Firefly Friend',desc:'Attracts more fireflies'}];
-const CONFIG = {decayRate:{water:0.035,sun:0.035,love:0.02},growthRate:0.35,tickRate:1000,threshold:40,deathTimeLimit:12*60*60*1000,offlineDecayFactor:0.08,singCooldown:300000,fertilizeCooldown:180000,maxFireflyPerFamily:50,debugTapThreshold:20};
+const CONFIG = {decayRate:{water:0.023,sun:0.025,love:0.018},growthRate:0.35,tickRate:1000,threshold:40,deathTimeLimit:14*60*60*1000,offlineDecayFactor:0.08,offlineLoveMultiplier:2.0,offlineOtherMultiplier:1.3,healThreshold1:30,healThreshold2:10,healMod1:0.5,healMod2:0.2,neglectThreshold:20,neglectWarnHours:2,neglectScarHours:6,neglectRecoveryRate:0.25,debugTapThreshold:20,singCooldown:300000,fertilizeCooldown:180000,maxFireflyPerFamily:50,crisisDormantHours:2,crisisScar1Hours:6,crisisScar2Hours:10,crisisDeathHours:14};
+function getHealMod(v){
+    if(v<CONFIG.healThreshold2) return CONFIG.healMod2;
+    if(v<CONFIG.healThreshold1) return CONFIG.healMod1;
+    return 1;
+}
+function applyHeal(stat,base){
+    const m=getHealMod(state[stat]);
+    const gained=base*m;
+    state[stat]=Math.min(100,state[stat]+gained);
+    return gained;
+}
+
 const DREAMS = ["dreamed of distant mountains","listened to rain and remembered forests","felt roots intertwining with the past","saw gardens yet to bloom","remembered its first sunrise","heard whispers from sleeping seeds","imagined dancing with fireflies","felt the heartbeat of the earth","dreamed of butterfly wings","whispered secrets to the moon"];
-let state = {water:50,sun:50,love:50,growth:0,stage:1,isSunLampOn:false,isRainOn:false,day:1,generation:1,name:"Sprout",season:0,dna:null,potColor:POT_COLORS[0],potPattern:'patNone',potPatternColor:'rgba(255,255,255,0.5)',timeAtZero:0,isDead:false,history:[],lastSave:Date.now(),growthMultiplier:1,singCooldownUntil:0,fertilizeCooldownUntil:0,fireflies:{},totalFireflies:0,activeGuardians:[],buffs:[],scars:[],crisisCount:0,inheritedTraits:[],lastDream:null,isMusicPlaying:false};
+let state = {water:50,sun:50,love:50,growth:0,stage:1,isSunLampOn:false,isRainOn:false,day:1,generation:1,name:"Sprout",season:0,dna:null,potColor:POT_COLORS[0],potPattern:'patNone',potPatternColor:'rgba(255,255,255,0.5)',timeAtZero:0,isDead:false,history:[],lastSave:Date.now(),growthMultiplier:1,singCooldownUntil:0,fertilizeCooldownUntil:0,fireflies:{},totalFireflies:0,activeGuardians:[],buffs:[],scars:[],crisisCount:0,inheritedTraits:[],lastDream:null,isMusicPlaying:false,neglect:{waterLowMs:0,sunLowMs:0,loveLowMs:0,crisisMs:0,partialDormant:false},lastWhisperAt:0};
 let els = {}, selectedFamily = null, activeBigFireflies = [];
 const audio = {
     ctx:null,rainOsc:null,rainGain:null,isRainPlaying:false,bgTimer:null,isMusicPlaying:false,
@@ -211,7 +223,6 @@ const audio = {
         this.bgTimers=[];
     }
 };
-
 function initPatterns(){
     const defs=document.getElementById('plantDefs');
     if(defs){
@@ -241,7 +252,20 @@ function setupWorld(){const c=Math.min(80,20+state.generation*8),s=document.getE
 function setupWeather(){const r=document.getElementById('rainContainer');if(r){r.innerHTML='';for(let i=0;i<60;i++){const d=document.createElement('div');d.className='raindrop';d.style.cssText=`left:${Math.random()*100}%;animation-delay:${Math.random()*2}s;animation-duration:${0.6+Math.random()*0.4}s`;r.appendChild(d)}}}
 function generateDNA(parent=null){
     const wild=Math.random()>0.75,baseH=wild?Math.random()*360:80+Math.random()*80;
-    const dna={colorH:parent?lerp(parent.colorH,baseH,0.3):baseH,colorS:45+Math.random()*35,colorL:35+Math.random()*20,flowerH:Math.random()*360,flowerS:60+Math.random()*30,flowerL:55+Math.random()*20,stemCurve:parent?parent.stemCurve*0.3+(Math.random()-0.5)*40:(Math.random()-0.5)*30,stemHeight:70+Math.random()*30,leafCount:Math.floor(3+Math.random()*3),leafNodes:Math.floor(3+Math.random()*3),leafSize:0.8+Math.random()*0.4,leafScale:0.9+Math.random()*0.3,leafAngle:35+Math.random()*30,leafShape:['round','pointed','heart','oak'][Math.floor(Math.random()*4)],leanDirection:Math.random()>0.5?1:-1,branchSpread:20+Math.random()*15,flowerCount:Math.floor(1+Math.random()*3),petalCount:Math.floor(4+Math.random()*5),petalShape:['round','pointed','wavy'][Math.floor(Math.random()*3)],resilience:parent?.resilience||(0.8+Math.random()*0.4),bloomSpeed:parent?.bloomSpeed||(0.9+Math.random()*0.2),fireflyChance:parent?.fireflyChance||0.05};
+    const dna={colorH:parent?lerp(parent.colorH,baseH,0.3):baseH,colorS:45+Math.random()*35,colorL:35+Math.random()*20,flowerH:Math.random()*360,flowerS:60+Math.random()*30,flowerL:55+Math.random()*20,stemCurve:parent?parent.stemCurve*0.3+(Math.random()-0.5)*40:(Math.random()-0.5)*30,stemHeight:70+Math.random()*30,leafCount:Math.floor(3+Math.random()*3),leafNodes:Math.floor(3+Math.random()*3),leafSize:0.8+Math.random()*0.4,leafScale:0.9+Math.random()*0.3,leafAngle:35+Math.random()*30,leafShape:['round','pointed','heart','oak','teardrop','fern','maple','needle'][Math.floor(Math.random()*8)],leanDirection:Math.random()>0.5?1:-1,branchSpread:20+Math.random()*15,flowerCount:Math.floor(1+Math.random()*3),petalCount:Math.floor(4+Math.random()*5),petalShape:['round','pointed','wavy'][Math.floor(Math.random()*3)],resilience:parent?.resilience||(0.8+Math.random()*0.4),bloomSpeed:parent?.bloomSpeed||(0.9+Math.random()*0.2),fireflyChance:parent?.fireflyChance||0.05};
+    dna.seed = parent && parent.seed ? (parent.seed + Math.floor(Math.random()*99991)) : Math.floor(Math.random()*1e9);
+    // Leaf variety: some plants have mixed leaf shapes and irregular leaf sizes
+    const _leafShapePool = ['round','pointed','heart','oak','teardrop','fern','maple','needle'];
+    if(Math.random()<0.35){
+        const n = 2 + Math.floor(Math.random()*2);
+        const set = new Set([dna.leafShape]);
+        while(set.size<n){ set.add(_leafShapePool[Math.floor(Math.random()*_leafShapePool.length)]); }
+        dna.leafShapes = [...set];
+    }else{
+        dna.leafShapes = [dna.leafShape];
+    }
+    dna.leafSizeVar = 0.18 + Math.random()*0.22;
+
     state.inheritedTraits.forEach(tid=>{const t=INHERITABLE_TRAITS.find(x=>x.id===tid);if(t){if(tid==='resilience')dna.resilience=Math.min(2,(dna.resilience||1)+0.2);if(tid==='bloomSpeed')dna.bloomSpeed=Math.min(1.5,(dna.bloomSpeed||1)+0.1);if(tid==='leafiness')dna.leafNodes=Math.min(6,(dna.leafNodes||4)+1);if(tid==='colorVibrancy')dna.colorS=Math.min(80,(dna.colorS||50)+10);if(tid==='flowerPower')dna.flowerCount=Math.min(4,(dna.flowerCount||1)+1);if(tid==='fireflyAffinity')dna.fireflyChance=Math.min(0.15,(dna.fireflyChance||0.05)+0.03)}});
     dna.flowerColor=`hsl(${dna.flowerH},${dna.flowerS}%,${dna.flowerL}%)`;return dna;
 }
@@ -251,21 +275,50 @@ function renderPlant(containerId,dna,stage,scarsOverride=null){
     const g=document.getElementById(containerId);if(!g||!dna)return;g.innerHTML='';
     const scars=scarsOverride||state.scars||[];
     const hasWilt=scars.includes('wilt'),hasBend=scars.includes('bend'),hasPale=scars.includes('pale');
+
     let cH=dna.colorH,cS=dna.colorS,cL=dna.colorL;
     if(hasPale){cS=Math.max(20,cS-30);cL=Math.min(70,cL+15)}
-    const stemColor=`hsl(${cH},${cS}%,${cL}%)`,leafColor=`hsl(${cH},${cS}%,${cL+10}%)`,flowerColor=dna.flowerColor;
-    const lean=dna.leanDirection||1,bendOff=hasBend?lean*15:0,wiltAng=hasWilt?20:0;
+    const stemColor=`hsl(${cH},${cS}%,${cL}%)`;
+    const leafColor=`hsl(${cH},${cS}%,${cL+10}%)`;
+    const flowerColor=dna.flowerColor;
+
+    // Layering groups: stems behind, leaves above stems, flowers above all.
+    const stemsG=createSVGElement('g');
+    const leavesG=createSVGElement('g');
+    const flowersG=createSVGElement('g');
+    g.appendChild(stemsG);
+    g.appendChild(leavesG);
+    g.appendChild(flowersG);
+
+    const lean=dna.leanDirection||1;
+    const bendOff=hasBend?lean*15:0;
+    const wiltAng=hasWilt?20:0;
     const baseY=189;
     const stemH=dna.stemHeight*(0.3+stage*0.175);
     const curve=(dna.stemCurve||0)+bendOff;
     const stemStartX=100,stemStartY=baseY;
     const stemCtrlX=100+curve,stemCtrlY=baseY-stemH/2;
     const stemEndX=100+curve/2,stemEndY=baseY-stemH;
+
+    // Deterministic per-plant randomness for leaf size/shape variance.
+    const seed=(dna.seed||0) + stage*101;
+    const rand=(function(){
+        let a=(seed>>>0) || 1;
+        return function(){
+            a |= 0; a = (a + 0x6D2B79F5) | 0;
+            let t=Math.imul(a ^ (a >>> 15), 1 | a);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    })();
+
     function getPointOnStem(t){
         const x=(1-t)*(1-t)*stemStartX+2*(1-t)*t*stemCtrlX+t*t*stemEndX;
         const y=(1-t)*(1-t)*stemStartY+2*(1-t)*t*stemCtrlY+t*t*stemEndY;
         return{x,y};
     }
+
+    // Main stem
     if(stage>=1){
         const stem=createSVGElement('path');
         stem.setAttribute('d',`M${stemStartX} ${stemStartY} Q${stemCtrlX} ${stemCtrlY} ${stemEndX} ${stemEndY}`);
@@ -273,18 +326,27 @@ function renderPlant(containerId,dna,stage,scarsOverride=null){
         stem.setAttribute('stroke-width',3+stage*0.5);
         stem.setAttribute('fill','none');
         stem.setAttribute('stroke-linecap','round');
-        g.appendChild(stem);
+        stemsG.appendChild(stem);
     }
+
+    // Leaves on main stem
     if(stage>=2){
         const lc=Math.min(dna.leafCount||3,stage);
+        const shapes=(dna.leafShapes && dna.leafShapes.length? dna.leafShapes : [dna.leafShape||'round']);
+        const baseSize=dna.leafSize||1;
+        const varAmt=(dna.leafSizeVar||0.2);
         for(let i=0;i<lc;i++){
             const t=0.25+(i/lc)*0.5;
             const pt=getPointOnStem(t);
             const side=i%2===0?-1:1;
             const ang=(dna.leafAngle||45)*side+(hasWilt?wiltAng*side:0);
-            renderLeaf(g,pt.x,pt.y,ang,dna.leafSize||1,leafColor,dna.leafShape||'round');
+            const sz=baseSize*(1 + (rand()*2-1)*varAmt);
+            const shape=shapes[Math.floor(rand()*shapes.length)] || 'round';
+            renderLeaf(leavesG,pt.x,pt.y,ang,sz,leafColor,shape);
         }
     }
+
+    // Bud
     if(stage===3){
         const bud=createSVGElement('ellipse');
         bud.setAttribute('cx',stemEndX);
@@ -292,52 +354,70 @@ function renderPlant(containerId,dna,stage,scarsOverride=null){
         bud.setAttribute('rx',6);
         bud.setAttribute('ry',8);
         bud.setAttribute('fill',`hsl(${dna.flowerH},${dna.flowerS*0.5}%,${dna.flowerL-10}%)`);
-        g.appendChild(bud);
+        flowersG.appendChild(bud);
     }
+
+    // Flowers + branches
     if(stage>=4){
         const flowerScale=stage>=5?1.3:1;
-        renderFlower(g,stemEndX,stemEndY-5,dna.petalCount||5,dna.petalShape||'round',flowerColor,flowerScale);
-        if(dna.flowerCount>=2&&stage>=5){
-            const branchPt1=getPointOnStem(0.55);
-            const branch1EndX=branchPt1.x+lean*-30;
-            const branch1EndY=branchPt1.y-25;
-            const branch1=createSVGElement('path');
-            branch1.setAttribute('d',`M${branchPt1.x} ${branchPt1.y} Q${branchPt1.x+lean*-15} ${branchPt1.y-12} ${branch1EndX} ${branch1EndY}`);
-            branch1.setAttribute('stroke',stemColor);
-            branch1.setAttribute('stroke-width',2);
-            branch1.setAttribute('fill','none');
-            branch1.setAttribute('stroke-linecap','round');
-            g.appendChild(branch1);
-            renderFlower(g,branch1EndX,branch1EndY-3,dna.petalCount||5,dna.petalShape||'round',flowerColor,0.75);
+        renderFlower(flowersG,stemEndX,stemEndY-5,dna.petalCount||5,dna.petalShape||'round',flowerColor,flowerScale);
+
+        const shapes=(dna.leafShapes && dna.leafShapes.length? dna.leafShapes : [dna.leafShape||'round']);
+        const baseSize=dna.leafSize||1;
+        const varAmt=(dna.leafSizeVar||0.2);
+
+        const makeBranch=(t,dx,dy,flowerScale2)=>{
+            const pt=getPointOnStem(t);
+            const endX=pt.x+dx;
+            const endY=pt.y+dy;
+            const br=createSVGElement('path');
+            br.setAttribute('d',`M${pt.x} ${pt.y} Q${pt.x+dx*0.5} ${pt.y+dy*0.5} ${endX} ${endY}`);
+            br.setAttribute('stroke',stemColor);
+            br.setAttribute('stroke-width',2);
+            br.setAttribute('fill','none');
+            br.setAttribute('stroke-linecap','round');
+            stemsG.appendChild(br);
+
+            // Branch leaves should always sit above all stems.
+            const leafN=1 + (rand()>0.55?1:0);
+            for(let i=0;i<leafN;i++){
+                const side=(i%2===0?-1:1);
+                const ang=(30+rand()*35)*side + (hasWilt?wiltAng*side:0);
+                const sz=baseSize*(0.75 + rand()*0.45)*(1 + (rand()*2-1)*varAmt);
+                const shape=shapes[Math.floor(rand()*shapes.length)] || 'round';
+                renderLeaf(leavesG,endX,endY,ang,sz,leafColor,shape);
+            }
+
+            renderFlower(flowersG,endX,endY-3,dna.petalCount||5,dna.petalShape||'round',flowerColor,flowerScale2);
+        };
+
+        if(dna.flowerCount>=2 && stage>=5){
+            makeBranch(0.55, lean*-30, -25, 0.75);
         }
-        if(dna.flowerCount>=3&&stage>=5){
-            const branchPt2=getPointOnStem(0.70);
-            const branch2EndX=branchPt2.x+lean*25;
-            const branch2EndY=branchPt2.y-18;
-            const branch2=createSVGElement('path');
-            branch2.setAttribute('d',`M${branchPt2.x} ${branchPt2.y} Q${branchPt2.x+lean*12} ${branchPt2.y-9} ${branch2EndX} ${branch2EndY}`);
-            branch2.setAttribute('stroke',stemColor);
-            branch2.setAttribute('stroke-width',2);
-            branch2.setAttribute('fill','none');
-            branch2.setAttribute('stroke-linecap','round');
-            g.appendChild(branch2);
-            renderFlower(g,branch2EndX,branch2EndY-3,dna.petalCount||5,dna.petalShape||'round',flowerColor,0.65);
+        if(dna.flowerCount>=3 && stage>=5){
+            makeBranch(0.70, lean*25, -18, 0.65);
         }
     }
 }
+
 function renderLeaf(g,x,y,angle,scale,color,shape){
     const leaf=createSVGElement('path'),sz=scale*15;
     const paths={
         pointed:`M0,0 Q${-sz*0.5},${-sz} 0,${-sz*1.5} Q${sz*0.5},${-sz} 0,0`,
         heart:`M0,0 C${-sz*0.8},${-sz*0.3} ${-sz*0.8},${-sz} 0,${-sz*1.2} C${sz*0.8},${-sz} ${sz*0.8},${-sz*0.3} 0,0`,
         oak:`M0,0 Q${-sz*0.3},${-sz*0.4} ${-sz*0.5},${-sz*0.5} Q${-sz*0.3},${-sz*0.8} 0,${-sz*1.2} Q${sz*0.3},${-sz*0.8} ${sz*0.5},${-sz*0.5} Q${sz*0.3},${-sz*0.4} 0,0`,
-        round:`M0,0 Q${-sz*0.7},${-sz*0.7} 0,${-sz*1.3} Q${sz*0.7},${-sz*0.7} 0,0`
+        round:`M0,0 Q${-sz*0.7},${-sz*0.7} 0,${-sz*1.3} Q${sz*0.7},${-sz*0.7} 0,0`,
+        teardrop:`M0,0 Q${-sz*0.5},${-sz*0.4} 0,${-sz*1.5} Q${sz*0.5},${-sz*0.4} 0,0`,
+        maple:`M0,0 Q${-sz*0.2},${-sz*0.2} ${-sz*0.45},${-sz*0.55} Q${-sz*0.15},${-sz*0.6} 0,${-sz*1.2} Q${sz*0.15},${-sz*0.6} ${sz*0.45},${-sz*0.55} Q${sz*0.2},${-sz*0.2} 0,0`,
+        fern:`M0,0 Q${-sz*0.25},${-sz*0.35} ${-sz*0.15},${-sz*0.6} Q${-sz*0.35},${-sz*0.8} 0,${-sz*1.35} Q${sz*0.35},${-sz*0.8} ${sz*0.15},${-sz*0.6} Q${sz*0.25},${-sz*0.35} 0,0`,
+        needle:`M0,0 Q${-sz*0.15},${-sz*0.6} 0,${-sz*1.6} Q${sz*0.15},${-sz*0.6} 0,0`
     };
     leaf.setAttribute('d',paths[shape]||paths.round);
     leaf.setAttribute('fill',color);
     leaf.setAttribute('transform',`translate(${x},${y}) rotate(${angle})`);
     g.appendChild(leaf);
 }
+
 function renderFlower(g,x,y,count,shape,color,scale){
     const fg=createSVGElement('g');
     fg.setAttribute('transform',`translate(${x},${y})`);
@@ -395,49 +475,127 @@ function startGameLoop(){setInterval(gameTick,CONFIG.tickRate)}
 function gameTick(){
     if(state.isDead||document.visibilityState!=='visible')return;
     lastTickTime=Date.now();
-    decay();checkDeath();grow();processBuffs();processGuardians();attemptSpawnFirefly();
+    decay();updateNeglect(CONFIG.tickRate,false);checkDeath();grow();processBuffs();processGuardians();attemptSpawnFirefly();
     if(!saveDebounceTimer){saveDebounceTimer=setTimeout(()=>{saveState();saveDebounceTimer=null},5000)}
     render();
 }
 function decay(){
-    const res=state.dna?.resilience||1,slow=state.buffs.find(b=>b.type==='slow')?0.5:1;
-    if(state.isRainOn){state.water=Math.min(100,state.water+0.2);if(state.water>=95&&Math.random()>0.95)spawnFloatingText("Too Wet!","#ff6b6b")}
-    else{state.water=Math.max(0,state.water-(CONFIG.decayRate.water/res)*slow)}
-    if(state.isSunLampOn){
-        if(isDaytime())state.sun=Math.min(100,state.sun+0.5);
-        else if(!isNewMoon())state.sun=Math.min(100,state.sun+0.2);
-        if(state.sun>90){state.water=Math.max(0,state.water-0.2);if(Math.random()>0.97)spawnFloatingText("Scorching!","orange")}
-    }else{state.sun=Math.max(0,state.sun-(CONFIG.decayRate.sun/res)*slow)}
-    state.love=Math.max(0,state.love-(CONFIG.decayRate.love/res)*slow*0.5);
-}
-function checkDeath(){
-    const crisis=state.water<=10&&state.sun<=10&&state.love<=10;
-    if(crisis){
-        state.timeAtZero+=CONFIG.tickRate;
-        const hrs=state.timeAtZero/(1000*60*60);
-        if(hrs>=1&&!state.scars.includes('wilt')){state.scars.push('wilt');spawnFloatingText("Leaves wilting...","#f87171");renderPlant('plantGroup',state.dna,state.stage)}
-        if(hrs>=3&&!state.scars.includes('bend')){state.scars.push('bend');spawnFloatingText("Stem bending...","#f87171");renderPlant('plantGroup',state.dna,state.stage)}
-        if(hrs>=6&&!state.scars.includes('pale')){state.scars.push('pale');spawnFloatingText("Colors fading...","#f87171");renderPlant('plantGroup',state.dna,state.stage)}
-        if(hrs>=9&&!state.scars.includes('dormant')){state.scars.push('dormant');els.plantHero.classList.add('dormant-plant');spawnFloatingText("Entering dormancy...","#f87171")}
-        if(state.timeAtZero>=CONFIG.deathTimeLimit)triggerDeath();
-    }else{
-        if(state.timeAtZero>0)state.timeAtZero=Math.max(0,state.timeAtZero-CONFIG.tickRate*0.5);
-        if(state.scars.includes('dormant')&&getAverageVitality()>50)els.plantHero.classList.remove('dormant-plant');
+    const res=state.dna?.resilience||1;
+    const slow=state.activeGuardians.includes(4)?0.7:1;
+    // Base decay (slower than before)
+    state.water=Math.max(0,state.water-(CONFIG.decayRate.water/res)*slow);
+    state.sun=Math.max(0,state.sun-(CONFIG.decayRate.sun/res)*slow*(isDaytime()?1:0.7));
+    state.love=Math.max(0,state.love-(CONFIG.decayRate.love/res)*slow);
+
+    // Natural recovery (intentionally slower than decay)
+    if(state.isRainOn && state.water<100){
+        applyHeal('water',0.18);
+    }
+    if(state.isSunLampOn && state.sun<100){
+        applyHeal('sun', isDaytime()?0.32:0.22);
     }
 }
-function triggerDeath(){state.isDead=true;els.plantHero.classList.add('dead-plant');els.deathOverlay.classList.add('open');saveState()}
+
+function updateNeglect(dtMs,offline){
+    if(!state.neglect){state.neglect={waterLowMs:0,sunLowMs:0,loveLowMs:0,crisisMs:0,partialDormant:false};}
+    const res=state.dna?.resilience||1;
+    const eff=dtMs/Math.max(0.6,res);
+    const t=CONFIG.neglectThreshold;
+    const rec=CONFIG.neglectRecoveryRate;
+
+    // per-stat low timers
+    if(state.water<t) state.neglect.waterLowMs+=eff; else state.neglect.waterLowMs=Math.max(0,state.neglect.waterLowMs-dtMs*rec);
+    if(state.sun<t) state.neglect.sunLowMs+=eff; else state.neglect.sunLowMs=Math.max(0,state.neglect.sunLowMs-dtMs*rec);
+    if(state.love<t) state.neglect.loveLowMs+=eff; else state.neglect.loveLowMs=Math.max(0,state.neglect.loveLowMs-dtMs*rec);
+
+    const warnMs=CONFIG.neglectWarnHours*60*60*1000;
+    const scarMs=CONFIG.neglectScarHours*60*60*1000;
+
+    // Subtle visual states
+    if(els.plantHero){
+        els.plantHero.classList.toggle('droop-plant', state.neglect.waterLowMs>=warnMs);
+        els.plantHero.classList.toggle('shade-plant', state.neglect.sunLowMs>=warnMs);
+        els.plantHero.classList.toggle('quiet-plant', state.neglect.loveLowMs>=warnMs);
+    }
+
+    // Graded scars
+    if(state.neglect.waterLowMs>=scarMs && !state.scars.includes('wilt')){
+        state.scars.push('wilt');
+        spawnFloatingText('Thirst left a trace.', null, 'bad');
+        renderPlant('plantGroup',state.dna,state.stage);
+    }
+    if(state.neglect.sunLowMs>=scarMs && !state.scars.includes('pale')){
+        state.scars.push('pale');
+        spawnFloatingText('Light faded.', null, 'bad');
+        renderPlant('plantGroup',state.dna,state.stage);
+    }
+    // Love neglect -> partial dormancy (not permanent)
+    if(state.neglect.loveLowMs>=scarMs){
+        state.neglect.partialDormant=true;
+    }
+    if(state.love>=35){
+        state.neglect.partialDormant=false;
+    }
+
+    // Triple crisis timer (slow tragedy)
+    const inCrisis = state.water<10 && state.sun<10 && state.love<10;
+    if(inCrisis) state.neglect.crisisMs+=eff;
+    else state.neglect.crisisMs=Math.max(0,state.neglect.crisisMs-dtMs*rec);
+
+    state.timeAtZero=state.neglect.crisisMs; // legacy field
+}
+
+function checkDeath(){
+    if(state.isDead) return;
+    const cMs=state.neglect?.crisisMs||0;
+    const hrs=cMs/(60*60*1000);
+    if(hrs>=CONFIG.crisisDormantHours && !state.scars.includes('dormant')){
+        state.scars.push('dormant');
+        if(els.plantHero) els.plantHero.classList.add('dormant-plant');
+        spawnFloatingText('It withdrew into stillness.', null, 'warn');
+        renderPlant('plantGroup',state.dna,state.stage);
+    }
+    if(hrs>=CONFIG.crisisScar1Hours && !state.scars.includes('wilt')){
+        state.scars.push('wilt');
+        spawnFloatingText('Crisis left a scar.', null, 'bad');
+        renderPlant('plantGroup',state.dna,state.stage);
+    }
+    if(hrs>=CONFIG.crisisScar2Hours && !state.scars.includes('bend')){
+        state.scars.push('bend');
+        renderPlant('plantGroup',state.dna,state.stage);
+    }
+    if(cMs>=CONFIG.deathTimeLimit || hrs>=CONFIG.crisisDeathHours){
+        triggerDeath();
+    }
+}
+
 function grow(){
-    const happy=state.water>CONFIG.threshold&&state.sun>CONFIG.threshold&&state.love>CONFIG.threshold;
-    const seasonG=SEASONS[state.season%4].growth,bloom=state.dna?.bloomSpeed||1,dormPen=state.scars.includes('dormant')?0.5:1;
-    if(happy)state.growth+=CONFIG.growthRate*state.growthMultiplier*seasonG*bloom*dormPen;
+    const seasonG=SEASONS[state.season%4].growth;
+    const bloom=state.dna?.bloomSpeed||1;
+    const dormantPen=state.scars.includes('dormant')?0.5:1;
+    const partialPen=(state.neglect&&state.neglect.partialDormant)?0.75:1;
+
+    const w=state.water, s=state.sun, l=state.love;
+    const min=Math.min(w,s,l);
+    const avg=(w+s+l)/3;
+
+    // Care bands: low care still grows (barely), excellent care grows notably faster.
+    let careMult=0.12;
+    if(min<10) careMult=0.05;
+    else if(avg<30) careMult=0.12;
+    else if(avg<60) careMult=0.45;
+    else careMult=(min>75?1.0:0.70);
+
+    state.growth += CONFIG.growthRate * state.growthMultiplier * seasonG * bloom * dormantPen * partialPen * careMult;
+
     let next=1;
-    for(let i=1;i<STAGE_THRESHOLDS.length;i++)if(state.growth>=STAGE_THRESHOLDS[i])next=i+1;
+    for(let i=1;i<STAGE_THRESHOLDS.length;i++) if(state.growth>=STAGE_THRESHOLDS[i]) next=i+1;
     if(next>state.stage){
         state.stage=next;
         els.plantHero.classList.add('evolving');
         setTimeout(()=>els.plantHero.classList.remove('evolving'),2000);
         renderPlant('plantGroup',state.dna,state.stage);
-        spawnFloatingText("✨ EVOLVED!","white");
+        spawnFloatingText("✨ Evolved.",null,'good');
         audio.chime();
     }
 }
