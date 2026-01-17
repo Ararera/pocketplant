@@ -480,6 +480,143 @@
     text-shadow: 0 2px 10px rgba(0,0,0,0.4);
     opacity: 0;
 }
+
+/* --- Feedback stack (replaces quick popups with a calmer voice) --- */
+.feedback-stack{
+    position: fixed;
+    left: 50%;
+    bottom: 92px;
+    transform: translateX(-50%);
+    width: min(520px, calc(100vw - 24px));
+    pointer-events: none;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+}
+.feedback-bubble{
+    pointer-events: none;
+    max-width: 100%;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.10);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    font-size: 0.95rem;
+    letter-spacing: 0.2px;
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+    animation: feedbackIn 240ms ease-out forwards, feedbackOut 700ms ease-in forwards;
+    animation-delay: 0ms, var(--life, 3600ms);
+}
+.feedback-bubble .fb-sub{
+    display: block;
+    opacity: 0.65;
+    font-size: 0.8rem;
+    margin-top: 2px;
+}
+@keyframes feedbackIn{
+    to{opacity:1; transform: translateY(0) scale(1);} 
+}
+@keyframes feedbackOut{
+    to{opacity:0; transform: translateY(-8px) scale(0.98);} 
+}
+
+/* Trait ledger (new UI matches Firefly Sanctuary tone) */
+.menu-card.trait-card{ max-width: 380px; width: 92%; text-align: left; }
+.trait-intro{
+    font-size: 0.8rem;
+    opacity: 0.65;
+    margin: -6px 0 14px;
+    line-height: 1.5;
+}
+.trait-filters{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.trait-filter{
+    appearance: none;
+    border: 1px solid rgba(255,255,255,0.10);
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.78);
+    padding: 10px 10px;
+    border-radius: 14px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.1s, background 0.2s, border-color 0.2s, color 0.2s;
+}
+.trait-filter:active{ transform: scale(0.98); }
+.trait-filter.active{
+    border-color: rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.10);
+    color: rgba(255,255,255,0.95);
+}
+.trait-ledger-grid{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: min(55vh, 440px);
+    overflow: auto;
+    padding-right: 6px;
+}
+.trait-item{
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+    transition: transform 0.12s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.trait-item:active{ transform: scale(0.995); }
+.trait-orb{
+    width: 30px;
+    height: 30px;
+    border-radius: 12px;
+    flex: 0 0 auto;
+    background: var(--trait-color, rgba(255,255,255,0.12));
+    box-shadow: 0 0 18px color-mix(in srgb, var(--trait-color, #fff) 55%, transparent);
+    border: 1px solid rgba(255,255,255,0.16);
+}
+.trait-body{ flex: 1 1 auto; min-width: 0; }
+.trait-title{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+}
+.trait-desc{
+    margin-top: 6px;
+    opacity: 0.72;
+    font-size: 0.88rem;
+    line-height: 1.35;
+}
+.trait-pill{
+    font-size: 0.72rem;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.10);
+    opacity: 0.85;
+    white-space: nowrap;
+}
+.trait-item.owned{
+    border-color: rgba(74,222,128,0.35);
+    background: rgba(74,222,128,0.06);
+}
+.trait-item.owned .trait-pill{
+    background: rgba(74,222,128,0.16);
+    border-color: rgba(74,222,128,0.25);
+    opacity: 1;
+}
 @keyframes floatUp {
     0% { transform: translateY(10px) scale(0.9); opacity: 0; }
     20% { opacity: 1; transform: translateY(0) scale(1); }
@@ -545,4 +682,51 @@
     overflow-y: auto;
     white-space: pre-wrap;
     word-break: break-all;
+}
+
+/* --- Trait Ledger --- */
+.trait-ledger{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 14px;
+    max-height: 52vh;
+    overflow: auto;
+    padding-right: 4px;
+}
+.trait-item{
+    padding: 12px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+}
+.trait-item.owned{
+    border-color: rgba(74,222,128,0.35);
+    background: rgba(74,222,128,0.06);
+}
+.trait-title{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-weight: 700;
+}
+.trait-desc{
+    margin-top: 6px;
+    opacity: 0.75;
+    font-size: 0.9rem;
+    line-height: 1.35;
+}
+.trait-pill{
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.10);
+    opacity: 0.8;
+}
+.trait-item.owned .trait-pill{
+    background: rgba(74,222,128,0.16);
+    border-color: rgba(74,222,128,0.25);
+    opacity: 1;
 }

@@ -113,7 +113,24 @@ function handlePress(down){
 function getFireflyColor(i){const f=FIREFLY_FAMILIES[i];return`hsl(${f.hue},${f.sat||70}%,60%)`}
 function attemptSpawnFirefly(){
     if(els.menuOverlay&&els.menuOverlay.classList.contains('open'))return;
-    if(Math.random()<(state.dna?.fireflyChance||0.05)){spawnVisualFirefly(Math.floor(Math.random()*8),false)}
+    const season=getSeason();
+    const tod=getTimeOfDay();
+    const todMul=(tod==='dusk'||tod==='evening'||tod==='night')?1.45:(tod==='dawn'?1.15:0.65);
+    let mult=(season.fireflies||1)*todMul;
+    const au=state.seasonEvents?.flags?.auroraUntil;
+    if(au && Date.now()<au) mult*=1.9;
+
+    // Seasonal festival spawns (set in seasonalEventsTick).
+    if(state.seasonEvents?.flags?.festivalSpawns>0){
+        if(Math.random()<0.55){
+            state.seasonEvents.flags.festivalSpawns--;
+            spawnVisualFirefly(Math.floor(Math.random()*8),false);
+        }
+    }
+
+    if(Math.random()<((state.dna?.fireflyChance||0.05)*mult)){
+        spawnVisualFirefly(Math.floor(Math.random()*8),false);
+    }
     FIREFLY_FAMILIES.forEach((_,i)=>{if(hasGuardian(i)&&!activeBigFireflies.includes(i)&&Math.random()<0.008){spawnVisualFirefly(i,true)}});
 }
 function spawnVisualFirefly(fam,isGuardian){
@@ -183,6 +200,80 @@ function releaseFirefly(){
 function toggleMenu(){els.menuOverlay.classList.toggle('open');if(els.menuOverlay.classList.contains('open'))updateMenuStats()}
 function openFireflyLog(){els.menuOverlay.classList.remove('open');els.fireflyOverlay.classList.add('open');selectedFamily=null;renderSanctuary()}
 function closeFireflyLog(){els.fireflyOverlay.classList.remove('open');els.menuOverlay.classList.add('open')}
+
+function openTraitLedger(){
+    if(!els.traitOverlay) return;
+    els.menuOverlay.classList.remove('open');
+    els.traitOverlay.classList.add('open');
+    // default filter
+    if(typeof state.uiTraitFilter !== 'string') state.uiTraitFilter = 'all';
+    syncTraitFilterUI();
+    renderTraitLedger();
+    pushHistoryState();
+}
+function closeTraitLedger(){
+    if(!els.traitOverlay) return;
+    els.traitOverlay.classList.remove('open');
+    els.menuOverlay.classList.add('open');
+}
+
+function setTraitFilter(which){
+    state.uiTraitFilter = which;
+    syncTraitFilterUI();
+    renderTraitLedger();
+}
+
+function syncTraitFilterUI(){
+    const map = {all:'traitFilterAll', owned:'traitFilterOwned', possible:'traitFilterPossible'};
+    Object.values(map).forEach(id=>{
+        const el = document.getElementById(id);
+        if(el) el.classList.remove('active');
+    });
+    const active = document.getElementById(map[state.uiTraitFilter] || map.all);
+    if(active) active.classList.add('active');
+}
+
+function hashHue(str){
+    // deterministic 0..359 for pleasant orb colors
+    let h=2166136261;
+    for(let i=0;i<str.length;i++){
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619);
+    }
+    return Math.abs(h) % 360;
+}
+
+function renderTraitLedger(){
+    const root = document.getElementById('traitLedger');
+    if(!root) return;
+    const owned = new Set(state.inheritedTraits||[]);
+    root.innerHTML='';
+    const filter = (typeof state.uiTraitFilter === 'string') ? state.uiTraitFilter : 'all';
+    INHERITABLE_TRAITS.forEach(tr=>{
+        const isOwned = owned.has(tr.id);
+        if(filter==='owned' && !isOwned) return;
+        if(filter==='possible' && isOwned) return;
+
+        const item = document.createElement('div');
+        item.className = 'trait-item' + (isOwned ? ' owned' : '');
+
+        const hue = hashHue(tr.id);
+        item.style.setProperty('--trait-color', `hsl(${hue}, 70%, 60%)`);
+
+        const pill = isOwned ? 'Owned' : 'Possible';
+        item.innerHTML = `
+            <div class="trait-orb" aria-hidden="true"></div>
+            <div class="trait-body">
+                <div class="trait-title">
+                    <span>${escapeHtml(tr.name)}</span>
+                    <span class="trait-pill">${pill}</span>
+                </div>
+                <div class="trait-desc">${escapeHtml(tr.desc)}</div>
+            </div>
+        `;
+        root.appendChild(item);
+    });
+}
 function renderSanctuary(){
     const grid=document.getElementById('fireflyFamilyGrid');if(!grid)return;
     grid.innerHTML='';
@@ -243,7 +334,11 @@ function confirmHarvest(){
     const tid=document.getElementById('inheritedTraitDisplay').dataset.traitId;
     if(!state.inheritedTraits.includes(tid))state.inheritedTraits.push(tid);
     const oldName=state.name;
-    state.generation++;state.day=1;state.stage=1;state.growth=0;state.water=50;state.sun=50;state.love=50;state.scars=[];state.timeAtZero=0;state.name='Sprout';state.season=(state.season+1)%4;state.dna=generateDNA(state.dna);
+    state.generation++;state.day=1;state.stage=1;state.growth=0;state.water=50;state.sun=50;state.love=50;state.scars=[];state.timeAtZero=0;state.name='Sprout';
+    // Seasons are tied to the repeating 14-day arc, not a manual counter.
+    if(state.seasonOverride!==undefined) delete state.seasonOverride;
+    state.seasonEvents={arcDay:null,lastTimeOfDay:null,cooldowns:{},flags:{}};
+    state.dna=generateDNA(state.dna);
     els.harvestOverlay.classList.remove('open');
     spawnFloatingText(`A seed from ${oldName} takes root...`,'var(--accent-growth)');
     setupWorld();renderPlant('plantGroup',state.dna,state.stage);updateSeason();updateUI();saveState();
@@ -311,10 +406,53 @@ function processOfflineProgress(){
     if(diff<60)return;
     const hrs=diff/3600;
     const wasHappy=state.water>40&&state.sun>40&&state.love>40;
-    if(!state.isRainOn)state.water=Math.max(0,state.water-diff*CONFIG.offlineDecayFactor);
-    if(!state.isSunLampOn)state.sun=Math.max(0,state.sun-diff*CONFIG.offlineDecayFactor);
-    state.love=Math.max(0,state.love-diff*CONFIG.offlineDecayFactor*0.5);
-    if(wasHappy)state.growth+=diff*0.15;
+
+    // Offline is meaningfully harsher than active time, but uses the same logic.
+    const res=Math.max(0.5, state.dna?.resilience||1);
+    const mul=CONFIG.offlineDecayFactor;
+    const season=getSeason();
+    const d=season.decay||{water:1,sun:1,love:1};
+    const r=season.recovery||{water:1,sun:1,love:1};
+
+    // Water
+    if(state.isRainOn){
+        // Rain still helps while away, but recovery is slower when struggling.
+        const gainPerSec = 0.11;
+        state.water = Math.min(100, state.water + (gainPerSec*diff) * (state.water<=10?0.35:state.water<=30?0.6:1) * r.water);
+    }else{
+        let extra=1;
+        if(state.seasonEvents?.flags?.heatwaveUntil && now<state.seasonEvents.flags.heatwaveUntil) extra*=1.6;
+        state.water = Math.max(0, state.water - ((CONFIG.decayRate.water/res) * diff * mul * d.water * extra));
+    }
+
+    // Sun
+    if(state.isSunLampOn){
+        const gainPerSec = 0.18;
+        state.sun = Math.min(100, state.sun + (gainPerSec*diff) * (state.sun<=10?0.35:state.sun<=30?0.6:1) * r.sun);
+        if(state.sun>92) state.water = Math.max(0, state.water - (0.07*diff));
+    }else{
+        state.sun = Math.max(0, state.sun - ((CONFIG.decayRate.sun/res) * diff * mul * d.sun));
+    }
+
+    // Love: absence hits harder.
+    state.love = Math.max(0, state.love - ((CONFIG.decayRate.love/res) * diff * (mul*1.35) * d.love));
+
+    // Growth continues if the plant was in a good place.
+    if(wasHappy){
+        const seasonG=season.growth||1;
+        const bloom=state.dna?.bloomSpeed||1;
+        state.growth += (CONFIG.growthRate * diff) * seasonG * bloom * 0.55;
+    }
+
+    // Update neglect trackers roughly (enough to make long absences leave traces).
+    if(state.neglect){
+        const ms=diff*1000;
+        if(state.water<20) state.neglect.water += ms; else state.neglect.water = Math.max(0, state.neglect.water - ms*0.4);
+        if(state.sun<20) state.neglect.sun += ms; else state.neglect.sun = Math.max(0, state.neglect.sun - ms*0.4);
+        if(state.love<20) state.neglect.love += ms; else state.neglect.love = Math.max(0, state.neglect.love - ms*0.4);
+        const crisis = (state.water<=10 && state.sun<=10 && state.love<=10);
+        if(crisis) state.neglect.crisis += ms; else state.neglect.crisis = Math.max(0, state.neglect.crisis - ms*0.4);
+    }
     state.day+=Math.floor(diff/14400);
     let nested=null;
     if(hrs>=2&&Math.random()<0.4){const fi=Math.floor(Math.random()*8);if(!state.fireflies[fi])state.fireflies[fi]=0;state.fireflies[fi]++;state.totalFireflies++;nested=FIREFLY_FAMILIES[fi]}
@@ -339,17 +477,22 @@ function handleVisibility(){
         processOfflineProgress();
         if(audio.ctx)audio.ctx.resume();
         if(state.isRainOn){audio.startRainSound()}
+        if(state.isMusicPlaying){audio.playBackgroundMusic()}
         document.body.classList.remove('paused');
         state.activeGuardians.forEach(i=>{if(!document.querySelector(`.guardian[data-family="${i}"]`)){spawnVisualFirefly(i,true)}});
         setTimeout(positionMoonbeam, 100);
     }else{
         saveState();
         if(audio.isRainPlaying){audio.stopRainSound()}
+        // Pause music cleanly so it doesn't continue while minimized.
+        if(state.isMusicPlaying){audio.stopBackgroundMusic()}
         document.body.classList.add('paused');
     }
 }
 function saveState(){state.lastSave=Date.now();try{localStorage.setItem('pocketSprout',JSON.stringify(state))}catch(e){}}
 function loadState(){try{const s=localStorage.getItem('pocketSprout');if(s)state={...state,...JSON.parse(s)}}catch(e){}}
+// Backward compatibility for older saves.
+if(!state.neglect) state.neglect={water:0,sun:0,love:0,crisis:0};
 function resetGame(preserveHistory=true){
     if(preserveHistory&&state.name!=='Sprout'&&!state.isDead){state.history.push({name:state.name,gen:state.generation,days:state.day,dna:{...state.dna},stage:state.stage,scars:[...state.scars],potColor:state.potColor,potPattern:state.potPattern})}
     const hist=preserveHistory?state.history:[];
@@ -357,7 +500,7 @@ function resetGame(preserveHistory=true){
     const ff=preserveHistory?state.fireflies:{};
     const it=preserveHistory?state.inheritedTraits:[];
     const gen=preserveHistory?state.generation+1:1;
-    state={water:50,sun:50,love:50,growth:0,stage:1,isSunLampOn:false,isRainOn:false,day:1,generation:gen,name:"Sprout",season:state.season||0,dna:generateDNA(),potColor:POT_COLORS[0],potPattern:'patNone',potPatternColor:'rgba(255,255,255,0.5)',timeAtZero:0,isDead:false,history:hist,lastSave:Date.now(),growthMultiplier:1,singCooldownUntil:0,fertilizeCooldownUntil:0,fireflies:ff,totalFireflies:tf,activeGuardians:[],buffs:[],scars:[],crisisCount:0,inheritedTraits:it,lastDream:null,isMusicPlaying:false};
+    state={water:50,sun:50,love:50,growth:0,stage:1,isSunLampOn:false,isRainOn:false,day:1,generation:gen,name:"Sprout",season:state.season||0,dna:generateDNA(),potColor:POT_COLORS[0],potPattern:'patNone',potPatternColor:'rgba(255,255,255,0.5)',timeAtZero:0,neglect:{water:0,sun:0,love:0,crisis:0},isDead:false,history:hist,lastSave:Date.now(),growthMultiplier:1,singCooldownUntil:0,fertilizeCooldownUntil:0,fireflies:ff,totalFireflies:tf,activeGuardians:[],buffs:[],scars:[],crisisCount:0,inheritedTraits:it,lastDream:null,isMusicPlaying:false,seasonEvents:{arcDay:null,lastTimeOfDay:null,cooldowns:{},flags:{}}};
     els.deathOverlay.classList.remove('open');
     els.plantHero.classList.remove('dead-plant','dormant-plant');
     audio.stopRainSound();
@@ -367,6 +510,7 @@ function handleBackButton(e){
     if(!e.state||!e.state.pocketSprout){history.pushState({pocketSprout:true,depth:1},'');return}
     const overlays=[
         {el:els.fireflyOverlay,close:closeFireflyLog},
+        {el:els.traitOverlay,close:closeTraitLedger},
         {el:els.potOverlay,close:closePotDesigner},
         {el:els.harvestOverlay,close:closeHarvestModal},
         {el:els.archiveOverlay,close:closeArchive},
@@ -377,16 +521,40 @@ function handleBackButton(e){
     for(const o of overlays){if(o.el&&o.el.classList.contains('open')){o.close();break}}
     pushHistoryState();
 }
-function spawnFloatingText(text,color){
-    const el=document.createElement('div');
-    el.className='floating-text';
-    el.textContent=text;
-    el.style.color=color;
-    el.style.left='50%';
-    el.style.top='40%';
-    el.style.transform='translateX(-50%)';
-    document.body.appendChild(el);
-    setTimeout(()=>el.remove(),2000);
+function spawnFloatingText(text,color,sub=null){
+    // New feedback personality: calmer, longer-lived, stackable.
+    const stack = document.getElementById('feedbackStack');
+    if(!stack){
+        // Fallback to old behavior if stack doesn't exist.
+        const el=document.createElement('div');
+        el.className='floating-text';
+        el.textContent=text;
+        el.style.color=color;
+        el.style.left='50%';
+        el.style.top='40%';
+        el.style.transform='translateX(-50%)';
+        document.body.appendChild(el);
+        setTimeout(()=>el.remove(),2400);
+        return;
+    }
+    const bubble=document.createElement('div');
+    bubble.className='feedback-bubble';
+    bubble.style.setProperty('--life','4200ms');
+    bubble.style.color=color||'rgba(255,255,255,0.9)';
+    bubble.innerHTML = sub ? `${escapeHtml(text)}<span class="fb-sub">${escapeHtml(sub)}</span>` : escapeHtml(text);
+    stack.appendChild(bubble);
+    // Keep the stack from growing forever.
+    while(stack.children.length>4) stack.removeChild(stack.firstChild);
+    setTimeout(()=>bubble.remove(),5200);
+}
+
+function escapeHtml(str){
+    return String(str)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;')
+        .replace(/'/g,'&#039;');
 }
 let debugTapCount=0,debugTapTimer=null;
 function handleDebugTap(){debugTapCount++;clearTimeout(debugTapTimer);debugTapTimer=setTimeout(()=>debugTapCount=0,3000);if(debugTapCount>=CONFIG.debugTapThreshold){toggleDebug();debugTapCount=0}}
@@ -400,7 +568,13 @@ function debugKill(){triggerDeath();debugLog('Killed')}
 function debugUnlockFireflies(){FIREFLY_FAMILIES.forEach((_,i)=>{state.fireflies[i]=CONFIG.maxFireflyPerFamily});state.totalFireflies=8*CONFIG.maxFireflyPerFamily;debugLog('All fireflies')}
 function debugAddFirefly(){const i=Math.floor(Math.random()*8);if(!state.fireflies[i])state.fireflies[i]=0;state.fireflies[i]++;state.totalFireflies++;debugLog(`+${FIREFLY_FAMILIES[i].name}`)}
 function debugCycleTime(){const ts=['night','dawn','morning','day','afternoon','dusk','evening'],c=ts.findIndex(t=>document.body.classList.contains('time-'+t)),n=(c+1)%ts.length;document.body.className=document.body.className.replace(/time-\w+/g,'');document.body.classList.add('time-'+ts[n]);debugLog('Time: '+ts[n])}
-function debugCycleSeason(){state.season=(state.season+1)%4;updateSeason();debugLog('Season: '+SEASONS[state.season].name)}
+function debugCycleSeason(){
+    // For debugging only: force a season override without changing the arc.
+    const cur=(typeof state.seasonOverride==='number')?state.seasonOverride:getSeasonIndex();
+    state.seasonOverride=(cur+1)%4;
+    updateSeason();
+    debugLog('Season Override: '+getSeason().name);
+}
 function debugCycleMoon(){const m=document.getElementById('moonElement');if(m){const ps=[0,25,50,75,100,-75,-50,-25],c=ps.indexOf(parseInt(m.style.getPropertyValue('--moon-phase'))||0),n=(c+1)%ps.length;m.style.setProperty('--moon-phase',ps[n]+'%');debugLog('Moon cycled')}}
 function debugAddScar(){const st=['wilt','bend','pale','dormant'],av=st.filter(s=>!state.scars.includes(s));if(av.length>0){const s=av[Math.floor(Math.random()*av.length)];state.scars.push(s);renderPlant('plantGroup',state.dna,state.stage);updateUI();debugLog('Scar: '+s)}else{debugLog('All scars')}}
 function debugResetGame(){localStorage.removeItem('pocketSprout');location.reload()}
@@ -417,7 +591,7 @@ function init(){
     audio.init();
 }
 function cacheElements(){
-    ['skyLayer','starsContainer','moonElement','moonlightBeam','seasonalContainer','rainContainer','rainbowContainer','statusArea','genBadge','plantNameDisplay','plantMoodDisplay','seasonIndicator','evolutionBar','menuOverlay','fireflyOverlay','potOverlay','helpOverlay','harvestOverlay','deathOverlay','archiveOverlay','resetOverlay','welcomeToast','toastBody','plantHero','plantGraphics','potGroup','plantGroup','vitals','ringWater','ringSun','ringLove','nameInput','menuGen','menuAge','menuStage','menuHealth','menuProgressBar','menuScars','menuScarList','menuInherited','menuInheritedList','greenhouseList','btnHarvest','btnSing','btnFertilize','btnMusic','btnReset','btnRain','btnSun','btnMenu','fireflyFamilyGrid','familyDetailPanel','detailOrb','detailFamilyName','detailFamilyPower','detailFireflyCount','releaseBtn','guardianProgressText','potColorGrid','potPatternGrid','patternColorGrid','potPreviewGroup','harvestPlantGroup','inheritedTraitDisplay','archivePlantGroup','archivePotGroup','archiveTitle','archiveStats','debugPanel','debugLog','debugState'].forEach(id=>els[id]=document.getElementById(id));
+    ['skyLayer','starsContainer','moonElement','moonlightBeam','seasonalContainer','rainContainer','rainbowContainer','feedbackStack','statusArea','genBadge','plantNameDisplay','plantMoodDisplay','seasonIndicator','evolutionBar','menuOverlay','fireflyOverlay','traitOverlay','traitLedger','potOverlay','helpOverlay','harvestOverlay','deathOverlay','archiveOverlay','resetOverlay','welcomeToast','toastBody','plantHero','plantGraphics','potGroup','plantGroup','vitals','ringWater','ringSun','ringLove','nameInput','menuGen','menuAge','menuStage','menuHealth','menuProgressBar','menuScars','menuScarList','menuInherited','menuInheritedList','greenhouseList','btnHarvest','btnSing','btnFertilize','btnMusic','btnReset','btnRain','btnSun','btnMenu','fireflyFamilyGrid','familyDetailPanel','detailOrb','detailFamilyName','detailFamilyPower','detailFireflyCount','releaseBtn','guardianProgressText','potColorGrid','potPatternGrid','patternColorGrid','potPreviewGroup','harvestPlantGroup','inheritedTraitDisplay','archivePlantGroup','archivePotGroup','archiveTitle','archiveStats','debugPanel','debugLog','debugState'].forEach(id=>els[id]=document.getElementById(id));
 }
 function setupEventListeners(){
     document.addEventListener("visibilitychange",handleVisibility);

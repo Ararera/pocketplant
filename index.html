@@ -26,6 +26,9 @@
     <div class="rain-container" id="rainContainer"></div>
     <div class="rainbow" id="rainbowContainer"></div>
 
+    <!-- Ambient feedback (gentle, persistent, stackable) -->
+    <div class="feedback-stack" id="feedbackStack" aria-live="polite" aria-atomic="true"></div>
+
     <div class="debug-panel" id="debugPanel">
         <div class="debug-header">
             <span>🐞 DEBUG</span>
@@ -97,6 +100,7 @@
             
             <div class="menu-section-title">Actions</div>
             <button class="btn-base firefly-btn" onclick="openFireflyLog()">🦋 Firefly Sanctuary</button>
+            <button class="btn-base style-btn" onclick="openTraitLedger()">🧬 Trait Ledger</button>
             <button class="btn-base piano-btn" id="btnSing" onclick="singToPlant()">🎵 Sing to Plant</button>
             <button class="btn-base fertilize-btn" id="btnFertilize" onclick="fertilizePlant()">🌿 Fertilize</button>
             <button class="btn-base music-btn" id="btnMusic" onclick="toggleBackgroundMusic()">🎶 Background Music</button>
@@ -133,6 +137,22 @@
                 <p id="guardianProgressText">Collect 10 of any family to summon their Guardian.</p>
             </div>
             <button class="btn-base close-btn" onclick="closeFireflyLog()">Close</button>
+        </div>
+    </div>
+
+    <div class="menu-overlay" id="traitOverlay">
+        <div class="menu-card trait-card">
+            <div class="menu-title">🧬 Trait Ledger</div>
+            <p class="trait-intro">Traits carry forward across cycles. Some reshape growth. Some protect against neglect. This is your lineage’s vocabulary.</p>
+
+            <div class="trait-filters" role="tablist" aria-label="Trait filters">
+                <button class="trait-filter active" id="traitFilterAll" onclick="setTraitFilter('all')" role="tab">All</button>
+                <button class="trait-filter" id="traitFilterOwned" onclick="setTraitFilter('owned')" role="tab">Owned</button>
+                <button class="trait-filter" id="traitFilterPossible" onclick="setTraitFilter('possible')" role="tab">Possible</button>
+            </div>
+
+            <div class="trait-ledger-grid" id="traitLedger"></div>
+            <button class="btn-base close-btn" onclick="closeTraitLedger()">Close</button>
         </div>
     </div>
 
@@ -302,21 +322,5 @@
 
     <script src="script1.js"></script>
     <script src="script2.js"></script>
-
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
-        .then(registration => {
-          console.log('Service Worker registered with scope:', registration.scope);
-        })
-        .catch(error => {
-          console.log('Service Worker registration failed:', error);
-        });
-    });
-  }
-</script>
-    
 </body>
-
 </html>
