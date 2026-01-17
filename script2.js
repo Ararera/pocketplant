@@ -1,494 +1,59 @@
-function render(){
-    if(els.ringWater)els.ringWater.style.strokeDashoffset=283*(1-state.water/100);
-    if(els.ringSun)els.ringSun.style.strokeDashoffset=264*(1-state.sun/100);
-    if(els.ringLove)els.ringLove.style.strokeDashoffset=245*(1-state.love/100);
-    if(els.genBadge)els.genBadge.textContent=`CYCLE ${state.generation}`;
-    if(els.plantNameDisplay)els.plantNameDisplay.textContent=state.name;
-    const mood=getMood();
-    if(els.plantMoodDisplay){els.plantMoodDisplay.textContent=mood.text;els.plantMoodDisplay.style.color=mood.color}
-    if(els.btnSun)els.btnSun.classList.toggle('sun-active',state.isSunLampOn);
-    if(els.btnRain)els.btnRain.classList.toggle('rain-active',state.isRainOn);
-    if(els.evolutionBar){
-        if(state.stage<6){const prev=STAGE_THRESHOLDS[state.stage-1]||0,next=STAGE_THRESHOLDS[state.stage];els.evolutionBar.style.width=Math.min(100,((state.growth-prev)/(next-prev))*100)+'%'}
-        else{els.evolutionBar.style.width='100%'}
-    }
-    const scale=Math.min(1.4,1+(state.growth/6000));
-    if(els.plantGraphics)els.plantGraphics.style.transform=`scale(${scale})`;
-    if(els.menuOverlay&&els.menuOverlay.classList.contains('open'))updateMenuStats();
-    updateSeason();
-}
+function renderPlant(containerId,dna,stage,scarsOverride=null){const g=document.getElementById(containerId);if(!g||!dna)return;g.innerHTML='';const scars=scarsOverride||state.scars||[];const hasWilt=scars.includes('wilt'),hasBend=scars.includes('bend'),hasPale=scars.includes('pale');let cH=dna.colorH,cS=dna.colorS,cL=dna.colorL;if(hasPale){cS=Math.max(20,cS-30);cL=Math.min(70,cL+15)}const stemColor=`hsl(${cH},${cS}%,${cL}%)`,leafColor=`hsl(${cH},${cS}%,${cL+10}%)`,flowerColor=dna.flowerColor;const stemsG=createSVGElement('g'),leavesG=createSVGElement('g'),flowersG=createSVGElement('g');g.appendChild(stemsG);g.appendChild(leavesG);g.appendChild(flowersG);const lean=dna.leanDirection||1,bendOff=hasBend?lean*15:0,wiltAng=hasWilt?20:0,baseY=189,stemH=dna.stemHeight*(0.3+stage*0.175),curve=(dna.stemCurve||0)+bendOff,stemStartX=100,stemStartY=baseY,stemCtrlX=100+curve,stemCtrlY=baseY-stemH/2,stemEndX=100+curve/2,stemEndY=baseY-stemH;const seed=(dna.seed||0)+stage*101;const rand=(function(){let a=(seed>>>0)||1;return function(){a|=0;a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296}})();function getPointOnStem(t){return{x:(1-t)*(1-t)*stemStartX+2*(1-t)*t*stemCtrlX+t*t*stemEndX,y:(1-t)*(1-t)*stemStartY+2*(1-t)*t*stemCtrlY+t*t*stemEndY}}if(stage>=1){const stem=createSVGElement('path');stem.setAttribute('d',`M${stemStartX} ${stemStartY} Q${stemCtrlX} ${stemCtrlY} ${stemEndX} ${stemEndY}`);stem.setAttribute('stroke',stemColor);stem.setAttribute('stroke-width',3+stage*0.5);stem.setAttribute('fill','none');stem.setAttribute('stroke-linecap','round');stemsG.appendChild(stem)}if(stage>=2){const lc=Math.min(dna.leafCount||3,stage),shapes=(dna.leafShapes&&dna.leafShapes.length?dna.leafShapes:[dna.leafShape||'round']),baseSize=dna.leafSize||1,varAmt=dna.leafSizeVar||0.2;for(let i=0;i<lc;i++){const t=0.25+(i/lc)*0.5,pt=getPointOnStem(t),side=i%2===0?-1:1,ang=(dna.leafAngle||45)*side+(hasWilt?wiltAng*side:0),sz=baseSize*(1+(rand()*2-1)*varAmt),shape=shapes[Math.floor(rand()*shapes.length)]||'round';renderLeaf(leavesG,pt.x,pt.y,ang,sz,leafColor,shape)}}if(stage===3){const bud=createSVGElement('ellipse');bud.setAttribute('cx',stemEndX);bud.setAttribute('cy',stemEndY);bud.setAttribute('rx',6);bud.setAttribute('ry',8);bud.setAttribute('fill',`hsl(${dna.flowerH},${dna.flowerS*0.5}%,${dna.flowerL-10}%)`);flowersG.appendChild(bud)}if(stage>=4){const flowerScale=stage>=5?1.3:1;renderFlower(flowersG,stemEndX,stemEndY-5,dna.petalCount||5,dna.petalShape||'round',flowerColor,flowerScale);const shapes=(dna.leafShapes&&dna.leafShapes.length?dna.leafShapes:[dna.leafShape||'round']),baseSize=dna.leafSize||1,varAmt=dna.leafSizeVar||0.2;const makeBranch=(t,dx,dy,flowerScale2)=>{const pt=getPointOnStem(t),endX=pt.x+dx,endY=pt.y+dy,br=createSVGElement('path');br.setAttribute('d',`M${pt.x} ${pt.y} Q${pt.x+dx*0.5} ${pt.y+dy*0.5} ${endX} ${endY}`);br.setAttribute('stroke',stemColor);br.setAttribute('stroke-width',2);br.setAttribute('fill','none');br.setAttribute('stroke-linecap','round');stemsG.appendChild(br);const leafN=1+(rand()>0.55?1:0);for(let i=0;i<leafN;i++){const side=(i%2===0?-1:1),ang=(30+rand()*35)*side+(hasWilt?wiltAng*side:0),sz=baseSize*(0.75+rand()*0.45)*(1+(rand()*2-1)*varAmt),shape=shapes[Math.floor(rand()*shapes.length)]||'round';renderLeaf(leavesG,endX,endY,ang,sz,leafColor,shape)}renderFlower(flowersG,endX,endY-3,dna.petalCount||5,dna.petalShape||'round',flowerColor,flowerScale2)};if(dna.flowerCount>=2&&stage>=5)makeBranch(0.55,lean*-30,-25,0.75);if(dna.flowerCount>=3&&stage>=5)makeBranch(0.70,lean*25,-18,0.65)}}
+function renderLeaf(g,x,y,angle,scale,color,shape){const leaf=createSVGElement('path'),sz=scale*15;const paths={pointed:`M0,0 Q${-sz*0.5},${-sz} 0,${-sz*1.5} Q${sz*0.5},${-sz} 0,0`,heart:`M0,0 C${-sz*0.8},${-sz*0.3} ${-sz*0.8},${-sz} 0,${-sz*1.2} C${sz*0.8},${-sz} ${sz*0.8},${-sz*0.3} 0,0`,oak:`M0,0 Q${-sz*0.3},${-sz*0.4} ${-sz*0.5},${-sz*0.5} Q${-sz*0.3},${-sz*0.8} 0,${-sz*1.2} Q${sz*0.3},${-sz*0.8} ${sz*0.5},${-sz*0.5} Q${sz*0.3},${-sz*0.4} 0,0`,round:`M0,0 Q${-sz*0.7},${-sz*0.7} 0,${-sz*1.3} Q${sz*0.7},${-sz*0.7} 0,0`,teardrop:`M0,0 Q${-sz*0.5},${-sz*0.4} 0,${-sz*1.5} Q${sz*0.5},${-sz*0.4} 0,0`,maple:`M0,0 Q${-sz*0.2},${-sz*0.2} ${-sz*0.45},${-sz*0.55} Q${-sz*0.15},${-sz*0.6} 0,${-sz*1.2} Q${sz*0.15},${-sz*0.6} ${sz*0.45},${-sz*0.55} Q${sz*0.2},${-sz*0.2} 0,0`,fern:`M0,0 Q${-sz*0.25},${-sz*0.35} ${-sz*0.15},${-sz*0.6} Q${-sz*0.35},${-sz*0.8} 0,${-sz*1.35} Q${sz*0.35},${-sz*0.8} ${sz*0.15},${-sz*0.6} Q${sz*0.25},${-sz*0.35} 0,0`,needle:`M0,0 Q${-sz*0.15},${-sz*0.6} 0,${-sz*1.6} Q${sz*0.15},${-sz*0.6} 0,0`};leaf.setAttribute('d',paths[shape]||paths.round);leaf.setAttribute('fill',color);leaf.setAttribute('transform',`translate(${x},${y}) rotate(${angle})`);g.appendChild(leaf)}
+function renderFlower(g,x,y,count,shape,color,scale){const fg=createSVGElement('g');fg.setAttribute('transform',`translate(${x},${y})`);const sz=12*scale;const paths={pointed:`M0,0 Q${sz*0.3},${-sz*0.7} 0,${-sz} Q${-sz*0.3},${-sz*0.7} 0,0`,wavy:`M0,0 C${sz*0.4},${-sz*0.3} ${sz*0.2},${-sz*0.7} 0,${-sz} C${-sz*0.2},${-sz*0.7} ${-sz*0.4},${-sz*0.3} 0,0`,round:`M0,0 Q${sz*0.5},${-sz*0.5} 0,${-sz} Q${-sz*0.5},${-sz*0.5} 0,0`};for(let i=0;i<count;i++){const p=createSVGElement('path');p.setAttribute('d',paths[shape]||paths.round);p.setAttribute('fill',color);p.setAttribute('transform',`rotate(${(360/count)*i})`);p.style.opacity='0.9';fg.appendChild(p)}const c=createSVGElement('circle');c.setAttribute('r',4*scale);c.setAttribute('fill','#fbbf24');fg.appendChild(c);g.appendChild(fg)}
+function render(){if(els.ringWater)els.ringWater.style.strokeDashoffset=283*(1-state.water/100);if(els.ringSun)els.ringSun.style.strokeDashoffset=264*(1-state.sun/100);if(els.ringLove)els.ringLove.style.strokeDashoffset=245*(1-state.love/100);if(els.genBadge)els.genBadge.textContent=`CYCLE ${state.generation}`;if(els.plantNameDisplay)els.plantNameDisplay.textContent=state.name;const mood=getMood();if(els.plantMoodDisplay){els.plantMoodDisplay.textContent=mood.text;els.plantMoodDisplay.style.color=mood.color}if(els.btnSun)els.btnSun.classList.toggle('sun-active',state.isSunLampOn);if(els.btnRain)els.btnRain.classList.toggle('rain-active',state.isRainOn);if(els.evolutionBar){if(state.stage<6){const prev=STAGE_THRESHOLDS[state.stage-1]||0,next=STAGE_THRESHOLDS[state.stage];els.evolutionBar.style.width=Math.min(100,((state.growth-prev)/(next-prev))*100)+'%'}else els.evolutionBar.style.width='100%'}const scale=Math.min(1.4,1+(state.growth/6000));if(els.plantGraphics)els.plantGraphics.style.transform=`scale(${scale})`;if(els.menuOverlay&&els.menuOverlay.classList.contains('open'))updateMenuStats();updateSeason()}
 function getMood(){const avg=getAverageVitality();for(const[k,m]of Object.entries(MOODS))if(avg>=m.threshold)return m;return MOODS.dormant}
 function getPlantState(){const avg=getAverageVitality();if(avg>=80)return PLANT_STATES.thriving;if(avg>=60)return PLANT_STATES.content;if(avg>=40)return PLANT_STATES.restless;if(avg>=20)return PLANT_STATES.strained;return PLANT_STATES.dormant}
 function getAverageVitality(){return(state.water+state.sun+state.love)/3}
 function updateUI(){render();updateMenuStats()}
-function updateMenuStats(){
-    if(els.nameInput&&document.activeElement!==els.nameInput)els.nameInput.value=state.name;
-    if(els.menuGen)els.menuGen.textContent=state.generation;
-    if(els.menuAge)els.menuAge.textContent=state.day+" Days";
-    if(els.menuStage)els.menuStage.textContent=STAGES[state.stage-1]||'Seed';
-    const ps=getPlantState();
-    if(els.menuHealth){els.menuHealth.textContent=ps.label;els.menuHealth.style.color=ps.color}
-    if(els.menuProgressBar){
-        if(state.stage<6){const prev=STAGE_THRESHOLDS[state.stage-1]||0,next=STAGE_THRESHOLDS[state.stage];els.menuProgressBar.style.width=Math.min(100,((state.growth-prev)/(next-prev))*100)+'%'}
-        else{els.menuProgressBar.style.width='100%'}
-    }
-    if(els.menuScars&&els.menuScarList){
-        if(state.scars.length>0){els.menuScars.style.display='flex';els.menuScarList.textContent=state.scars.map(s=>({wilt:'Wilted',bend:'Bent',pale:'Faded',dormant:'Dormant'}[s]||s)).join(', ')}
-        else{els.menuScars.style.display='none'}
-    }
-    if(els.menuInherited&&els.menuInheritedList){
-        if(state.inheritedTraits.length>0){els.menuInherited.style.display='flex';els.menuInheritedList.textContent=state.inheritedTraits.map(id=>{const t=INHERITABLE_TRAITS.find(x=>x.id===id);return t?t.name:id}).join(', ')}
-        else{els.menuInherited.style.display='none'}
-    }
-    if(els.btnHarvest)els.btnHarvest.classList.toggle('visible',state.stage>=5);
-    if(els.greenhouseList){
-        els.greenhouseList.innerHTML='';
-        [...state.history].reverse().forEach((h,i)=>{
-            const item=document.createElement('div');
-            item.className='greenhouse-item';
-            const col=h.dna?.flowerColor||`hsl(${h.dna?.flowerH||0},50%,50%)`;
-            item.innerHTML=`<span><span class="gh-dot" style="background:${col}"></span>${h.name}</span><span style="opacity:0.5">Cycle ${h.gen}</span>`;
-            item.onclick=()=>viewArchive(state.history.length-1-i);
-            els.greenhouseList.appendChild(item);
-        });
-    }
-}
-function interact(type,e){
-    if(state.isDead)return;
-    if(e)e.stopPropagation();
-    if(type==='rain'){
-        state.isRainOn=!state.isRainOn;
-        spawnFloatingText(state.isRainOn?"☁️ Rain ON":"☁️ Rain OFF","var(--accent-water)");
-        applyTheme();
-    }else if(type==='sun'){
-        if(isDaytime()){
-            state.isSunLampOn=!state.isSunLampOn;
-            spawnFloatingText(state.isSunLampOn?"☀️ ON":"🌑 OFF","var(--accent-sun)");
-        }else{
-            if(isNewMoon()){spawnFloatingText("New Moon - No light","#888");return}
-            state.isSunLampOn=!state.isSunLampOn;
-            spawnFloatingText(state.isSunLampOn?"🌙 Moonlight ON":"🌙 OFF","#fef9c3");
-            const beam=document.getElementById('moonlightBeam');
-            if(beam)beam.classList.toggle('active',state.isSunLampOn);
-        }
-        audio.sun();
-        applyTheme();
-    }else if(type==='love'){
-        if(state.love>=100){spawnFloatingText("Fully Loved!","var(--accent-love)");return}
-        const gained=applyHeal('love',15);
-        spawnFloatingText('❤', 'var(--accent-love)', gained<8? 'warn':'good');
-        audio.love();
-        els.plantHero.classList.remove('plant-bloop');
-        void els.plantHero.offsetWidth;
-        els.plantHero.classList.add('plant-bloop');
-        setTimeout(()=>els.plantHero.classList.remove('plant-bloop'),500);
-    }
-    render();
-}
-function applyTheme(){
-    document.body.classList.toggle('sun-mode',state.isSunLampOn&&isDaytime());
-    const rc=document.getElementById('rainContainer');
-    if(rc)rc.classList.toggle('active',state.isRainOn);
-    const rb=document.getElementById('rainbowContainer');
-    if(rb)rb.classList.toggle('visible',state.isSunLampOn&&state.isRainOn);
-    audio.toggleRainSound(state.isRainOn);
-    const beam=document.getElementById('moonlightBeam');
-    if(beam&&!isDaytime())beam.classList.toggle('active',state.isSunLampOn);
-}
+function updateMenuStats(){if(els.nameInput&&document.activeElement!==els.nameInput)els.nameInput.value=state.name;if(els.menuGen)els.menuGen.textContent=state.generation;if(els.menuAge)els.menuAge.textContent=state.day+" Days";if(els.menuStage)els.menuStage.textContent=STAGES[state.stage-1]||'Seed';const ps=getPlantState();if(els.menuHealth){els.menuHealth.textContent=ps.label;els.menuHealth.style.color=ps.color}if(els.menuProgressBar){if(state.stage<6){const prev=STAGE_THRESHOLDS[state.stage-1]||0,next=STAGE_THRESHOLDS[state.stage];els.menuProgressBar.style.width=Math.min(100,((state.growth-prev)/(next-prev))*100)+'%'}else els.menuProgressBar.style.width='100%'}if(els.menuScars&&els.menuScarList){if(state.scars.length>0){els.menuScars.style.display='flex';els.menuScarList.textContent=state.scars.map(s=>({wilt:'Wilted',bend:'Bent',pale:'Faded',dormant:'Dormant'}[s]||s)).join(', ')}else els.menuScars.style.display='none'}if(els.menuInherited&&els.menuInheritedList){if(state.inheritedTraits.length>0){els.menuInherited.style.display='flex';els.menuInheritedList.textContent=state.inheritedTraits.map(id=>{const t=INHERITABLE_TRAITS.find(x=>x.id===id);return t?t.name:id}).join(', ')}else els.menuInherited.style.display='none'}if(els.btnHarvest)els.btnHarvest.classList.toggle('visible',state.stage>=5);if(els.greenhouseList){els.greenhouseList.innerHTML='';[...state.history].reverse().forEach((h,i)=>{const item=document.createElement('div');item.className='greenhouse-item';const col=h.dna?.flowerColor||`hsl(${h.dna?.flowerH||0},50%,50%)`;item.innerHTML=`<span><span class="gh-dot" style="background:${col}"></span>${h.name}</span><span style="opacity:0.5">Cycle ${h.gen}</span>`;item.onclick=()=>viewArchive(state.history.length-1-i);els.greenhouseList.appendChild(item)})}}
+function interact(type,e){if(state.isDead)return;if(e)e.stopPropagation();if(type==='rain'){state.isRainOn=!state.isRainOn;spawnFloatingText(state.isRainOn?"☁️ Rain ON":"☁️ Rain OFF","var(--accent-water)");applyTheme()}else if(type==='sun'){if(isDaytime()){state.isSunLampOn=!state.isSunLampOn;spawnFloatingText(state.isSunLampOn?"☀️ ON":"🌑 OFF","var(--accent-sun)")}else{if(isNewMoon()){spawnFloatingText("New Moon - No light","#888");return}state.isSunLampOn=!state.isSunLampOn;spawnFloatingText(state.isSunLampOn?"🌙 Moonlight ON":"🌙 OFF","#fef9c3");const beam=document.getElementById('moonlightBeam');if(beam)beam.classList.toggle('active',state.isSunLampOn)}audio.sun();applyTheme()}else if(type==='love'){if(state.love>=100){spawnFloatingText("Fully Loved!","var(--accent-love)");return}const gained=applyHeal('love',15);spawnFloatingText('❤','var(--accent-love)',gained<8?'warn':'good');audio.love();els.plantHero.classList.remove('plant-bloop');void els.plantHero.offsetWidth;els.plantHero.classList.add('plant-bloop');setTimeout(()=>els.plantHero.classList.remove('plant-bloop'),500)}render()}
+function applyTheme(){document.body.classList.toggle('sun-mode',state.isSunLampOn&&isDaytime());const rc=document.getElementById('rainContainer');if(rc)rc.classList.toggle('active',state.isRainOn);const rb=document.getElementById('rainbowContainer');if(rb)rb.classList.toggle('visible',state.isSunLampOn&&state.isRainOn);audio.toggleRainSound(state.isRainOn);const beam=document.getElementById('moonlightBeam');if(beam&&!isDaytime())beam.classList.toggle('active',state.isSunLampOn)}
 function animateJiggle(){els.plantHero.classList.remove('plant-jiggle');void els.plantHero.offsetWidth;els.plantHero.classList.add('plant-jiggle')}
 let pressTimer=null,isPressed=false;
-function handlePress(down){
-    if(state.isDead)return;
-    if(down){
-        isPressed=true;
-        pressTimer=setTimeout(()=>{els.vitals.classList.add('active')},300);
-    }else{
-        if(!isPressed)return;
-        isPressed=false;
-        clearTimeout(pressTimer);
-        if(els.vitals.classList.contains('active'))els.vitals.classList.remove('active');
-        else interact('love');
-    }
-}
+function handlePress(down){if(state.isDead)return;if(down){isPressed=true;pressTimer=setTimeout(()=>{els.vitals.classList.add('active')},300)}else{if(!isPressed)return;isPressed=false;clearTimeout(pressTimer);if(els.vitals.classList.contains('active'))els.vitals.classList.remove('active');else interact('love')}}
 function getFireflyColor(i){const f=FIREFLY_FAMILIES[i];return`hsl(${f.hue},${f.sat||70}%,60%)`}
-function attemptSpawnFirefly(){
-    if(els.menuOverlay&&els.menuOverlay.classList.contains('open'))return;
-    if(Math.random()<(state.dna?.fireflyChance||0.05)){spawnVisualFirefly(Math.floor(Math.random()*8),false)}
-    FIREFLY_FAMILIES.forEach((_,i)=>{if(hasGuardian(i)&&!activeBigFireflies.includes(i)&&Math.random()<0.008){spawnVisualFirefly(i,true)}});
-}
-function spawnVisualFirefly(fam,isGuardian){
-    const col=getFireflyColor(fam);
-    const ff=document.createElement('div');
-    ff.className='firefly'+(isGuardian?' guardian':'');
-    ff.dataset.family=fam;
-    ff.style.setProperty('--firefly-color',col);
-    ff.style.background=col;
-    ff.style.boxShadow=`0 0 ${isGuardian?20:8}px ${col}`;
-    ff.style.left=(10+Math.random()*80)+'%';
-    ff.style.top=(15+Math.random()*50)+'%';
-    ff.style.opacity='0';
-    ff.style.transform='scale(0.5)';
-    requestAnimationFrame(()=>{
-        ff.style.transition='opacity 0.8s ease-out, transform 0.8s ease-out';
-        ff.style.opacity='1';
-        ff.style.transform='scale(1)';
-    });
-    const handleTap=(e)=>{e.preventDefault();e.stopPropagation();if(isGuardian){activateGuardian(fam,ff)}else{collectFirefly(fam,ff)}};
-    ff.addEventListener('click',handleTap);
-    ff.addEventListener('touchend',handleTap,{passive:false});
-    document.body.appendChild(ff);
-    if(!isGuardian){setTimeout(()=>{if(ff.parentNode){ff.style.transition='opacity 1s ease-out, transform 1s ease-out';ff.style.opacity='0';ff.style.transform='scale(0.3)';setTimeout(()=>ff.remove(),1000)}},11000)}
-}
-function collectFirefly(fam,el){
-    el.style.transition='opacity 0.3s, transform 0.3s';
-    el.style.opacity='0';
-    el.style.transform='scale(1.5)';
-    setTimeout(()=>el.remove(),300);
-    audio.chime();
-    if(!state.fireflies[fam])state.fireflies[fam]=0;
-    if(state.fireflies[fam]<CONFIG.maxFireflyPerFamily){
-        state.fireflies[fam]++;
-        state.totalFireflies++;
-        spawnFloatingText(`+${FIREFLY_FAMILIES[fam].name}!`,getFireflyColor(fam));
-        if(state.fireflies[fam]===GUARDIAN_THRESHOLD){spawnFloatingText(`🏆 ${FIREFLY_FAMILIES[fam].name} Guardian!`,getFireflyColor(fam))}
-    }else{spawnFloatingText("Max collected!","#fff")}
-    state.growth+=2;
-}
+function attemptSpawnFirefly(){if(els.menuOverlay&&els.menuOverlay.classList.contains('open'))return;if(Math.random()<(state.dna?.fireflyChance||0.05))spawnVisualFirefly(Math.floor(Math.random()*8),false);FIREFLY_FAMILIES.forEach((_,i)=>{if(hasGuardian(i)&&!activeBigFireflies.includes(i)&&Math.random()<0.008)spawnVisualFirefly(i,true)})}
+function spawnVisualFirefly(fam,isGuardian){const col=getFireflyColor(fam),ff=document.createElement('div');ff.className='firefly'+(isGuardian?' guardian':'');ff.dataset.family=fam;ff.style.setProperty('--firefly-color',col);ff.style.background=col;ff.style.boxShadow=`0 0 ${isGuardian?20:8}px ${col}`;ff.style.left=(10+Math.random()*80)+'%';ff.style.top=(15+Math.random()*50)+'%';ff.style.opacity='0';ff.style.transform='scale(0.5)';requestAnimationFrame(()=>{ff.style.transition='opacity 0.8s ease-out, transform 0.8s ease-out';ff.style.opacity='1';ff.style.transform='scale(1)'});const handleTap=(e)=>{e.preventDefault();e.stopPropagation();if(isGuardian)activateGuardian(fam,ff);else collectFirefly(fam,ff)};ff.addEventListener('click',handleTap);ff.addEventListener('touchend',handleTap,{passive:false});document.body.appendChild(ff);if(!isGuardian)setTimeout(()=>{if(ff.parentNode){ff.style.transition='opacity 1s ease-out, transform 1s ease-out';ff.style.opacity='0';ff.style.transform='scale(0.3)';setTimeout(()=>ff.remove(),1000)}},11000)}
+function collectFirefly(fam,el){el.style.transition='opacity 0.3s, transform 0.3s';el.style.opacity='0';el.style.transform='scale(1.5)';setTimeout(()=>el.remove(),300);audio.chime();if(!state.fireflies[fam])state.fireflies[fam]=0;if(state.fireflies[fam]<CONFIG.maxFireflyPerFamily){state.fireflies[fam]++;state.totalFireflies++;spawnFloatingText(`+${FIREFLY_FAMILIES[fam].name}!`,getFireflyColor(fam));if(state.fireflies[fam]===GUARDIAN_THRESHOLD)spawnFloatingText(`🏆 ${FIREFLY_FAMILIES[fam].name} Guardian!`,getFireflyColor(fam))}else spawnFloatingText("Max collected!","#fff");state.growth+=2}
 function hasGuardian(i){return(state.fireflies[i]||0)>=GUARDIAN_THRESHOLD}
-function activateGuardian(fam,el){
-    if(activeBigFireflies.includes(fam))return;
-    activeBigFireflies.push(fam);
-    if(!state.activeGuardians.includes(fam)){state.activeGuardians.push(fam)}
-    spawnFloatingText(`${FIREFLY_FAMILIES[fam].name} Guardian Active!`,getFireflyColor(fam));
-    el.classList.add('guardian-active');
-    el.style.pointerEvents='none';
-    setTimeout(()=>{
-        el.style.transition='opacity 2s ease-out, transform 2s ease-out';
-        el.style.opacity='0';
-        el.style.transform='scale(0.3)';
-        setTimeout(()=>{el.remove();activeBigFireflies=activeBigFireflies.filter(x=>x!==fam);state.activeGuardians=state.activeGuardians.filter(x=>x!==fam)},2000);
-    },58000);
-}
-function releaseFirefly(){
-    if(selectedFamily===null||!state.fireflies[selectedFamily]||state.fireflies[selectedFamily]<1)return;
-    state.fireflies[selectedFamily]--;
-    state.totalFireflies--;
-    const f=FIREFLY_FAMILIES[selectedFamily];
-    let bt=f.effect,bs=0.5,dur=30;
-    if(bt==='random'){bt=['water','sun','love','growth','health'][Math.floor(Math.random()*5)];bs=1;dur=45}
-    state.buffs.push({type:bt,strength:bs,remaining:dur});
-    spawnFloatingText(`${f.power} released!`,getFireflyColor(selectedFamily));
-    renderSanctuary();
-}
+function activateGuardian(fam,el){if(activeBigFireflies.includes(fam))return;activeBigFireflies.push(fam);if(!state.activeGuardians.includes(fam))state.activeGuardians.push(fam);spawnFloatingText(`${FIREFLY_FAMILIES[fam].name} Guardian Active!`,getFireflyColor(fam));el.classList.add('guardian-active');el.style.pointerEvents='none';setTimeout(()=>{el.style.transition='opacity 2s ease-out, transform 2s ease-out';el.style.opacity='0';el.style.transform='scale(0.3)';setTimeout(()=>{el.remove();activeBigFireflies=activeBigFireflies.filter(x=>x!==fam);state.activeGuardians=state.activeGuardians.filter(x=>x!==fam)},2000)},58000)}
+function releaseFirefly(){if(selectedFamily===null||!state.fireflies[selectedFamily]||state.fireflies[selectedFamily]<1)return;state.fireflies[selectedFamily]--;state.totalFireflies--;const f=FIREFLY_FAMILIES[selectedFamily];let bt=f.effect,bs=0.5,dur=30;if(bt==='random'){bt=['water','sun','love','growth','health'][Math.floor(Math.random()*5)];bs=1;dur=45}state.buffs.push({type:bt,strength:bs,remaining:dur});spawnFloatingText(`${f.power} released!`,getFireflyColor(selectedFamily));renderSanctuary()}
 function toggleMenu(){els.menuOverlay.classList.toggle('open');if(els.menuOverlay.classList.contains('open'))updateMenuStats()}
 function openFireflyLog(){els.menuOverlay.classList.remove('open');els.fireflyOverlay.classList.add('open');selectedFamily=null;renderSanctuary()}
 function closeFireflyLog(){els.fireflyOverlay.classList.remove('open');els.menuOverlay.classList.add('open')}
-function renderSanctuary(){
-    const grid=document.getElementById('fireflyFamilyGrid');if(!grid)return;
-    grid.innerHTML='';
-    FIREFLY_FAMILIES.forEach((f,i)=>{
-        const cnt=state.fireflies[i]||0;
-        const isG=cnt>=GUARDIAN_THRESHOLD;
-        const col=getFireflyColor(i);
-        const card=document.createElement('div');
-        card.className='family-card'+(selectedFamily===i?' selected':'');
-        card.style.setProperty('--family-color',col);
-        card.innerHTML=`<div class="family-orb" style="background:${col}"></div><div class="family-name">${f.name}</div><div class="family-count">${cnt}</div><div class="family-power">${isG?'👑':f.power}</div>`;
-        card.onclick=()=>{selectedFamily=i;renderSanctuary()};
-        grid.appendChild(card);
-    });
-    const det=document.getElementById('familyDetailPanel');
-    if(selectedFamily!==null&&det){
-        det.style.display='block';
-        const f=FIREFLY_FAMILIES[selectedFamily],cnt=state.fireflies[selectedFamily]||0,col=getFireflyColor(selectedFamily);
-        det.style.setProperty('--family-color',col);
-        document.getElementById('detailOrb').style.cssText=`background:${col};box-shadow:0 0 20px ${col}`;
-        document.getElementById('detailFamilyName').textContent=f.name+' Family';
-        document.getElementById('detailFamilyPower').textContent=f.desc;
-        document.getElementById('detailFireflyCount').textContent=`You have ${cnt} fireflies`;
-        const btn=document.getElementById('releaseBtn');
-        btn.disabled=cnt<1;
-        btn.textContent=cnt>0?`Release One (${cnt} left)`:'None to release';
-    }else if(det){det.style.display='none'}
-    const gt=document.getElementById('guardianProgressText');
-    if(gt){
-        const gs=FIREFLY_FAMILIES.filter((_,i)=>hasGuardian(i));
-        gt.textContent=gs.length>0?`Guardians unlocked: ${gs.map(f=>f.name).join(', ')}`:`Collect ${GUARDIAN_THRESHOLD} of any family to summon their Guardian.`;
-    }
-}
+function renderSanctuary(){const grid=document.getElementById('fireflyFamilyGrid');if(!grid)return;grid.innerHTML='';FIREFLY_FAMILIES.forEach((f,i)=>{const cnt=state.fireflies[i]||0,isG=cnt>=GUARDIAN_THRESHOLD,col=getFireflyColor(i),card=document.createElement('div');card.className='family-card'+(selectedFamily===i?' selected':'');card.style.setProperty('--family-color',col);card.innerHTML=`<div class="family-orb" style="background:${col}"></div><div class="family-name">${f.name}</div><div class="family-count">${cnt}</div><div class="family-power">${isG?'👑':f.power}</div>`;card.onclick=()=>{selectedFamily=i;renderSanctuary()};grid.appendChild(card)});const det=document.getElementById('familyDetailPanel');if(selectedFamily!==null&&det){det.style.display='block';const f=FIREFLY_FAMILIES[selectedFamily],cnt=state.fireflies[selectedFamily]||0,col=getFireflyColor(selectedFamily);det.style.setProperty('--family-color',col);document.getElementById('detailOrb').style.cssText=`background:${col};box-shadow:0 0 20px ${col}`;document.getElementById('detailFamilyName').textContent=f.name+' Family';document.getElementById('detailFamilyPower').textContent=f.desc;document.getElementById('detailFireflyCount').textContent=`You have ${cnt} fireflies`;const btn=document.getElementById('releaseBtn');btn.disabled=cnt<1;btn.textContent=cnt>0?`Release One (${cnt} left)`:'None to release'}else if(det)det.style.display='none';const gt=document.getElementById('guardianProgressText');if(gt){const gs=FIREFLY_FAMILIES.filter((_,i)=>hasGuardian(i));gt.textContent=gs.length>0?`Guardians unlocked: ${gs.map(f=>f.name).join(', ')}`:`Collect ${GUARDIAN_THRESHOLD} of any family to summon their Guardian.`}}
 function openPotDesigner(){els.menuOverlay.classList.remove('open');els.potOverlay.classList.add('open');renderPotDesigner()}
 function closePotDesigner(){els.potOverlay.classList.remove('open');els.menuOverlay.classList.add('open');saveState()}
-function renderPotDesigner(){
-    const cg=document.getElementById('potColorGrid');
-    if(cg){cg.innerHTML='';POT_COLORS.forEach(c=>{const d=document.createElement('div');d.className='color-dot'+(state.potColor===c?' selected':'');d.style.background=c;d.onclick=()=>{state.potColor=c;renderPotDesigner();renderPotPreview()};cg.appendChild(d)})}
-    const pg=document.getElementById('potPatternGrid');
-    if(pg){pg.innerHTML='';PATTERNS.forEach(p=>{const unlocked=state.totalFireflies>=p.unlockAt;const btn=document.createElement('button');btn.className='pattern-btn'+(state.potPattern===p.id?' selected':'')+(!unlocked?' locked':'');btn.textContent=unlocked?p.name:`🔒 ${p.unlockAt}`;btn.disabled=!unlocked;btn.onclick=()=>{if(unlocked){state.potPattern=p.id;renderPotDesigner();renderPotPreview()}};pg.appendChild(btn)})}
-    const pcg=document.getElementById('patternColorGrid');
-    if(pcg){pcg.innerHTML='';PATTERN_COLORS.forEach(c=>{const d=document.createElement('div');d.className='color-dot'+(state.potPatternColor===c?' selected':'');d.style.background=c;d.onclick=()=>{state.potPatternColor=c;renderPotDesigner();renderPotPreview()};pcg.appendChild(d)})}
-}
+function renderPotDesigner(){const cg=document.getElementById('potColorGrid');if(cg){cg.innerHTML='';POT_COLORS.forEach(c=>{const d=document.createElement('div');d.className='color-dot'+(state.potColor===c?' selected':'');d.style.background=c;d.onclick=()=>{state.potColor=c;renderPotDesigner();renderPotPreview()};cg.appendChild(d)})}const pg=document.getElementById('potPatternGrid');if(pg){pg.innerHTML='';PATTERNS.forEach(p=>{const unlocked=state.totalFireflies>=p.unlockAt,btn=document.createElement('button');btn.className='pattern-btn'+(state.potPattern===p.id?' selected':'')+(!unlocked?' locked':'');btn.textContent=unlocked?p.name:`🔒 ${p.unlockAt}`;btn.disabled=!unlocked;btn.onclick=()=>{if(unlocked){state.potPattern=p.id;renderPotDesigner();renderPotPreview()}};pg.appendChild(btn)})}const pcg=document.getElementById('patternColorGrid');if(pcg){pcg.innerHTML='';PATTERN_COLORS.forEach(c=>{const d=document.createElement('div');d.className='color-dot'+(state.potPatternColor===c?' selected':'');d.style.background=c;d.onclick=()=>{state.potPatternColor=c;renderPotDesigner();renderPotPreview()};pcg.appendChild(d)})}}
 function openHelp(){els.menuOverlay.classList.remove('open');els.helpOverlay.classList.add('open')}
 function closeHelp(){els.helpOverlay.classList.remove('open');els.menuOverlay.classList.add('open')}
-function openTraitGlossary(){
-    els.menuOverlay.classList.remove('open');
-    renderTraitGlossary();
-    els.traitOverlay.classList.add('open');
-}
-function closeTraitGlossary(){
-    els.traitOverlay.classList.remove('open');
-    els.menuOverlay.classList.add('open');
-}
-function renderTraitGlossary(){
-    const list=els.traitGlossaryList;
-    if(!list)return;
-    const explain={
-        resilience:'Slows vital decay and makes neglect timers accumulate more slowly.',
-        bloomSpeed:'Boosts growth especially in moderate/high care.',
-        leafiness:'Adds extra leaf nodes and leaf count.',
-        colorVibrancy:'Increases saturation; plant appears richer.',
-        flowerPower:'Increases number of flowers in later stages.',
-        fireflyAffinity:'Slightly increases firefly spawn chance.'
-    };
-    list.innerHTML='';
-    INHERITABLE_TRAITS.forEach(t=>{
-        const item=document.createElement('div');
-        item.className='trait-item';
-        const extra=explain[t.id]||t.desc||'';
-        item.innerHTML=`<div class="trait-row"><div class="trait-name">${t.name}</div><div class="trait-tag">${t.id}</div></div><div class="trait-desc">${extra}</div>`;
-        list.appendChild(item);
-    });
-}
-
-function harvestPlant(){
-    if(state.stage<5)return;
-    els.menuOverlay.classList.remove('open');
-    els.harvestOverlay.classList.add('open');
-    renderPlant('harvestPlantGroup',state.dna,state.stage);
-    const trait=INHERITABLE_TRAITS[Math.floor(Math.random()*INHERITABLE_TRAITS.length)];
-    document.getElementById('inheritedTraitDisplay').textContent=`${trait.name}: ${trait.desc}`;
-    document.getElementById('inheritedTraitDisplay').dataset.traitId=trait.id;
-}
+function openTraitGlossary(){els.menuOverlay.classList.remove('open');renderTraitGlossary();els.traitOverlay.classList.add('open')}
+function closeTraitGlossary(){els.traitOverlay.classList.remove('open');els.menuOverlay.classList.add('open')}
+function renderTraitGlossary(){const list=els.traitGlossaryList;if(!list)return;const explain={resilience:'Slows vital decay and makes neglect timers accumulate more slowly.',bloomSpeed:'Boosts growth especially in moderate/high care.',leafiness:'Adds extra leaf nodes and leaf count.',colorVibrancy:'Increases saturation; plant appears richer.',flowerPower:'Increases number of flowers in later stages.',fireflyAffinity:'Slightly increases firefly spawn chance.'};list.innerHTML='';INHERITABLE_TRAITS.forEach(t=>{const item=document.createElement('div');item.className='trait-item';item.innerHTML=`<div class="trait-row"><div class="trait-name">${t.name}</div><div class="trait-tag">${t.id}</div></div><div class="trait-desc">${explain[t.id]||t.desc||''}</div>`;list.appendChild(item)})}
+function harvestPlant(){if(state.stage<5)return;els.menuOverlay.classList.remove('open');els.harvestOverlay.classList.add('open');renderPlant('harvestPlantGroup',state.dna,state.stage);const trait=INHERITABLE_TRAITS[Math.floor(Math.random()*INHERITABLE_TRAITS.length)];document.getElementById('inheritedTraitDisplay').textContent=`${trait.name}: ${trait.desc}`;document.getElementById('inheritedTraitDisplay').dataset.traitId=trait.id}
 function closeHarvestModal(){els.harvestOverlay.classList.remove('open');els.menuOverlay.classList.add('open')}
-function confirmHarvest(){
-    state.history.push({name:state.name,gen:state.generation,days:state.day,dna:{...state.dna},stage:state.stage,scars:[...state.scars],potColor:state.potColor,potPattern:state.potPattern});
-    const tid=document.getElementById('inheritedTraitDisplay').dataset.traitId;
-    if(!state.inheritedTraits.includes(tid))state.inheritedTraits.push(tid);
-    const oldName=state.name;
-    state.generation++;state.day=1;state.stage=1;state.growth=0;state.water=50;state.sun=50;state.love=50;state.scars=[];state.timeAtZero=0;state.name='Sprout';state.season=(state.season+1)%4;state.dna=generateDNA(state.dna);
-    els.harvestOverlay.classList.remove('open');
-    spawnFloatingText(`A seed from ${oldName} takes root...`,'var(--accent-growth)');
-    setupWorld();renderPlant('plantGroup',state.dna,state.stage);updateSeason();updateUI();saveState();
-}
-function viewArchive(i){
-    if(i<0||i>=state.history.length)return;
-    const a=state.history[i];
-    els.menuOverlay.classList.remove('open');
-    els.archiveOverlay.classList.add('open');
-    document.getElementById('archiveTitle').textContent=a.name;
-    renderPlant('archivePlantGroup',a.dna,a.stage,a.scars||[]);
-    const stats=document.getElementById('archiveStats');
-    stats.innerHTML=`<div class="archive-stat"><span>Generation</span><span>${a.gen}</span></div><div class="archive-stat"><span>Days Lived</span><span>${a.days}</span></div><div class="archive-stat"><span>Stage</span><span>${STAGES[a.stage-1]||'Unknown'}</span></div>${a.scars?.length?`<div class="archive-stat"><span>Scars</span><span>${a.scars.join(', ')}</span></div>`:''}`;
-}
+function confirmHarvest(){state.history.push({name:state.name,gen:state.generation,days:state.day,dna:{...state.dna},stage:state.stage,scars:[...state.scars],potColor:state.potColor,potPattern:state.potPattern});const tid=document.getElementById('inheritedTraitDisplay').dataset.traitId;if(!state.inheritedTraits.includes(tid))state.inheritedTraits.push(tid);const oldName=state.name;state.generation++;state.day=1;state.dayProgress=0;state.stage=1;state.growth=0;state.water=50;state.sun=50;state.love=50;state.scars=[];state.timeAtZero=0;state.neglect={waterLowMs:0,sunLowMs:0,loveLowMs:0,crisisMs:0,partialDormant:false};state.name='Sprout';state.season=(state.season+1)%4;state.dna=generateDNA(state.dna);els.harvestOverlay.classList.remove('open');spawnFloatingText(`A seed from ${oldName} takes root...`,'var(--accent-growth)');setupWorld();renderPlant('plantGroup',state.dna,state.stage);updateSeason();updateUI();saveState()}
+function viewArchive(i){if(i<0||i>=state.history.length)return;const a=state.history[i];els.menuOverlay.classList.remove('open');els.archiveOverlay.classList.add('open');document.getElementById('archiveTitle').textContent=a.name;renderPlant('archivePlantGroup',a.dna,a.stage,a.scars||[]);document.getElementById('archiveStats').innerHTML=`<div class="archive-stat"><span>Generation</span><span>${a.gen}</span></div><div class="archive-stat"><span>Days Lived</span><span>${a.days}</span></div><div class="archive-stat"><span>Stage</span><span>${STAGES[a.stage-1]||'Unknown'}</span></div>${a.scars?.length?`<div class="archive-stat"><span>Scars</span><span>${a.scars.join(', ')}</span></div>`:''}`}
 function closeArchive(){els.archiveOverlay.classList.remove('open');els.menuOverlay.classList.add('open')}
 function openResetConfirm(){els.menuOverlay.classList.remove('open');els.resetOverlay.classList.add('open')}
 function closeResetOverlay(){els.resetOverlay.classList.remove('open');els.menuOverlay.classList.add('open')}
 function finalizeReset(){resetGame(false);els.resetOverlay.classList.remove('open')}
 function updateName(n){state.name=n.trim()||'Sprout';updateUI();saveState()}
-function singToPlant(){
-    if(Date.now()<state.singCooldownUntil)return;
-    state.singCooldownUntil=Date.now()+CONFIG.singCooldown;
-    checkSingCooldown();toggleMenu();
-    spawnFloatingText("🎵 Singing...","#748ffc");
-    let needed=STAGE_THRESHOLDS[state.stage]||1000;
-    if(state.stage<4)needed=STAGE_THRESHOLDS[state.stage+1]-STAGE_THRESHOLDS[state.stage];
-    const boost=needed*0.1;
-    state.growth+=boost;
-    setTimeout(()=>spawnFloatingText(`+${Math.floor(boost)} Growth!`,"#4ade80"),500);
-    els.plantHero.classList.add('sing-glow');
-    setTimeout(()=>els.plantHero.classList.remove('sing-glow'),3000);
-    let i=0;const notes=[261,329,392,523];
-    const iv=setInterval(()=>{if(i>=notes.length){clearInterval(iv);return}audio.play(notes[i],'triangle',0.3);i++},300);
-}
-function fertilizePlant(){
-    if(Date.now()<state.fertilizeCooldownUntil)return;
-    state.fertilizeCooldownUntil=Date.now()+CONFIG.fertilizeCooldown;
-    checkFertilizeCooldown();toggleMenu();
-    spawnFloatingText("🌿 Fertilized!","#795548");
-    state.growthMultiplier=2;
-    setTimeout(()=>{state.growthMultiplier=1},60000);
-    state.growth+=50;
-}
-function checkSingCooldown(){
-    const r=state.singCooldownUntil-Date.now();
-    if(els.btnSing){
-        if(r>0){els.btnSing.disabled=true;els.btnSing.textContent=`🎵 Sing (${Math.ceil(r/60000)}m)`}
-        else{els.btnSing.disabled=false;els.btnSing.textContent='🎵 Sing to Plant'}
-    }
-}
-function checkFertilizeCooldown(){
-    const r=state.fertilizeCooldownUntil-Date.now();
-    if(els.btnFertilize){
-        if(r>0){els.btnFertilize.disabled=true;els.btnFertilize.textContent=`🌿 Fertilize (${Math.ceil(r/60000)}m)`}
-        else{els.btnFertilize.disabled=false;els.btnFertilize.textContent='🌿 Fertilize'}
-    }
-}
-function toggleBackgroundMusic(){
-    state.isMusicPlaying=!state.isMusicPlaying;
-    if(state.isMusicPlaying){audio.playBackgroundMusic();els.btnMusic.classList.add('active');els.btnMusic.textContent='🎶 Music ON'}
-    else{audio.stopBackgroundMusic();els.btnMusic.classList.remove('active');els.btnMusic.textContent='🎶 Background Music'}
-}
-function processOfflineProgress(){
-    const now=Date.now();
-    const diffSec=(now-state.lastSave)/1000;
-    if(diffSec<60) return;
-
-    const hrs=diffSec/3600;
-    const res=state.dna?.resilience||1;
-    const slow=state.activeGuardians.includes(4)?0.7:1;
-    const multOther=CONFIG.offlineOtherMultiplier||1.3;
-    const multLove=CONFIG.offlineLoveMultiplier||2.0;
-
-    const w0=state.water, s0=state.sun, l0=state.love;
-
-    // Offline time is intentionally harsher than online time: you are absent.
-    if(!state.isRainOn){
-        state.water=Math.max(0,state.water-(CONFIG.decayRate.water/res)*slow*multOther*diffSec);
-    }
-    if(!state.isSunLampOn){
-        // Use a soft day/night approximation: average daylight factor over a day.
-        const dayFactor=0.85;
-        state.sun=Math.max(0,state.sun-(CONFIG.decayRate.sun/res)*slow*multOther*dayFactor*diffSec);
-    }
-    state.love=Math.max(0,state.love-(CONFIG.decayRate.love/res)*slow*multLove*diffSec);
-
-    // Growth continues, but depends on care bands (like online).
-    const seasonG=SEASONS[state.season%4].growth;
-    const bloom=state.dna?.bloomSpeed||1;
-    const dormantPen=state.scars.includes('dormant')?0.5:1;
-    const partialPen=(state.neglect&&state.neglect.partialDormant)?0.75:1;
-
-    const min=Math.min(state.water,state.sun,state.love);
-    const avg=(state.water+state.sun+state.love)/3;
-    let careMult=0.12;
-    if(min<10) careMult=0.05;
-    else if(avg<30) careMult=0.12;
-    else if(avg<60) careMult=0.45;
-    else careMult=(min>75?1.0:0.70);
-
-    state.growth += CONFIG.growthRate * state.growthMultiplier * seasonG * bloom * dormantPen * partialPen * careMult * diffSec;
-
-    // Advance day counter (every 4 hours counts as a "day" for the in-game age meter)
-    state.day += Math.floor(diffSec/14400);
-
-    // Update neglect timers and crisis progression based on time passed.
-    updateNeglect(diffSec*1000,true);
-    checkDeath();
-
-    // Toast: poetic return note
-    const wasHappy = w0>40 && s0>40 && l0>40;
-    let nested=null;
-    if(hrs>=2&&Math.random()<0.4){
-        const fi=Math.floor(Math.random()*8);
-        state.fireflies[fi]=(state.fireflies[fi]||0)+1;
-        state.totalFireflies++;
-        nested=FIREFLY_FAMILIES[fi];
-    }
-    let dream=null;
-    if(hrs>=1){
-        const di=Math.floor(Math.random()*DREAMS.length);
-        if(di!==state.lastDream){dream=DREAMS[di];state.lastDream=di}
-    }
-
-    if(diffSec>600 && els.toastBody){
-        let tc='';
-        if(dream) tc+=`<div style="font-style:italic;margin-bottom:10px;opacity:0.9;">While away, your plant ${dream}</div>`;
-        tc+=`<div style="font-size:0.8rem;opacity:0.7;">You were away for ${hrs>=1?`${Math.floor(hrs)}h ${Math.floor((diffSec%3600)/60)}m`:`${Math.floor(diffSec/60)}m`}</div>`;
-        const ps=getPlantState();
-        tc+=`<div style="margin:8px 0;">Your plant is <span style="color:${ps.color};font-weight:bold;">${ps.label}</span></div>`;
-        if(nested) tc+=`<div style="color:${getFireflyColor(FIREFLY_FAMILIES.indexOf(nested))};">🦋 A ${nested.name} firefly nested nearby!</div>`;
-        if(wasHappy) tc+=`<div style="opacity:0.7;font-size:0.85rem;margin-top:5px;">Some growth continued while you were away 🌱</div>`;
-        els.toastBody.innerHTML=tc;
-        els.welcomeToast.classList.add('visible');
-    }
-
-    state.lastSave=now;
-    saveState();
-}
-
+function singToPlant(){if(Date.now()<state.singCooldownUntil)return;state.singCooldownUntil=Date.now()+CONFIG.singCooldown;checkSingCooldown();toggleMenu();spawnFloatingText("🎵 Singing...","#748ffc");let needed=STAGE_THRESHOLDS[state.stage]||1000;if(state.stage<4)needed=STAGE_THRESHOLDS[state.stage+1]-STAGE_THRESHOLDS[state.stage];const boost=needed*0.1;state.growth+=boost;setTimeout(()=>spawnFloatingText(`+${Math.floor(boost)} Growth!`,"#4ade80"),500);els.plantHero.classList.add('sing-glow');setTimeout(()=>els.plantHero.classList.remove('sing-glow'),3000);let i=0;const notes=[261,329,392,523],iv=setInterval(()=>{if(i>=notes.length){clearInterval(iv);return}audio.play(notes[i],'triangle',0.3);i++},300)}
+function fertilizePlant(){if(Date.now()<state.fertilizeCooldownUntil)return;state.fertilizeCooldownUntil=Date.now()+CONFIG.fertilizeCooldown;checkFertilizeCooldown();toggleMenu();spawnFloatingText("🌿 Fertilized!","#795548");state.growthMultiplier=2;setTimeout(()=>{state.growthMultiplier=1},60000);state.growth+=50}
+function checkSingCooldown(){const r=state.singCooldownUntil-Date.now();if(els.btnSing){if(r>0){els.btnSing.disabled=true;els.btnSing.textContent=`🎵 Sing (${Math.ceil(r/60000)}m)`}else{els.btnSing.disabled=false;els.btnSing.textContent='🎵 Sing to Plant'}}}
+function checkFertilizeCooldown(){const r=state.fertilizeCooldownUntil-Date.now();if(els.btnFertilize){if(r>0){els.btnFertilize.disabled=true;els.btnFertilize.textContent=`🌿 Fertilize (${Math.ceil(r/60000)}m)`}else{els.btnFertilize.disabled=false;els.btnFertilize.textContent='🌿 Fertilize'}}}
+function toggleBackgroundMusic(){state.isMusicPlaying=!state.isMusicPlaying;if(state.isMusicPlaying){audio.playBackgroundMusic();els.btnMusic.classList.add('active');els.btnMusic.textContent='🎶 Music ON'}else{audio.stopBackgroundMusic();els.btnMusic.classList.remove('active');els.btnMusic.textContent='🎶 Background Music'}}
+function processOfflineProgress(){const now=Date.now(),diffSec=(now-state.lastSave)/1000;if(diffSec<60)return;const w0=state.water,s0=state.sun,l0=state.love,g0=state.growth,scars0=[...state.scars],chunkSize=CONFIG.offlineChunkSize;let totalGrowth=0,allScars=[];for(let elapsed=0;elapsed<diffSec&&!state.isDead;elapsed+=chunkSize){const dt=Math.min(chunkSize,diffSec-elapsed),result=simulateStep(dt,'offline');totalGrowth+=result.growth;if(result.scarsAdded)allScars.push(...result.scarsAdded)}const hrs=diffSec/3600;let nested=null;if(hrs>=2&&Math.random()<0.4){const fi=Math.floor(Math.random()*8);state.fireflies[fi]=(state.fireflies[fi]||0)+1;state.totalFireflies++;nested=FIREFLY_FAMILIES[fi]}let dream=null;if(hrs>=1){const di=Math.floor(Math.random()*DREAMS.length);if(di!==state.lastDream){dream=DREAMS[di];state.lastDream=di}}if(diffSec>600&&els.toastBody){let tc='';if(dream)tc+=`<div style="font-style:italic;margin-bottom:10px;opacity:0.9;">While away, your plant ${dream}</div>`;const hrsDisplay=hrs>=1?`${Math.floor(hrs)}h ${Math.floor((diffSec%3600)/60)}m`:`${Math.floor(diffSec/60)}m`;tc+=`<div style="font-size:0.85rem;opacity:0.8;margin-bottom:8px;">You were away for <b>${hrsDisplay}</b></div>`;tc+=`<div style="font-size:0.8rem;margin-bottom:4px;">💧 Water: ${w0.toFixed(0)} → <b>${state.water.toFixed(0)}</b> (${(state.water-w0)>=0?'+':''}${(state.water-w0).toFixed(0)})</div>`;tc+=`<div style="font-size:0.8rem;margin-bottom:4px;">☀️ Sun: ${s0.toFixed(0)} → <b>${state.sun.toFixed(0)}</b> (${(state.sun-s0)>=0?'+':''}${(state.sun-s0).toFixed(0)})</div>`;tc+=`<div style="font-size:0.8rem;margin-bottom:4px;">❤️ Love: ${l0.toFixed(0)} → <b>${state.love.toFixed(0)}</b> (${(state.love-l0)>=0?'+':''}${(state.love-l0).toFixed(0)})</div>`;tc+=`<div style="font-size:0.8rem;margin-bottom:8px;">🌱 Growth: +<b>${Math.floor(totalGrowth)}</b></div>`;const newScars=[...new Set(allScars)].filter(s=>!scars0.includes(s));if(newScars.length>0)tc+=`<div style="color:#fb923c;font-size:0.85rem;">🩹 New scars: ${newScars.map(s=>({wilt:'Wilted',bend:'Bent',pale:'Faded',dormant:'Dormant'}[s]||s)).join(', ')}</div>`;const ps=getPlantState();tc+=`<div style="margin-top:8px;">Your plant is <span style="color:${ps.color};font-weight:bold;">${ps.label}</span></div>`;if(nested)tc+=`<div style="color:${getFireflyColor(FIREFLY_FAMILIES.indexOf(nested))};margin-top:5px;">🦋 A ${nested.name} firefly nested nearby!</div>`;els.toastBody.innerHTML=tc;els.welcomeToast.classList.add('visible')}state.lastSave=now;saveState();renderPlant('plantGroup',state.dna,state.stage);updateUI()}
 function closeToast(){els.welcomeToast.classList.remove('visible')}
-function handleVisibility(){
-    if(document.visibilityState==='visible'){
-        if(state.isRainOn) audio.startRainSound();
-        if(state.isMusicPlaying) audio.playBackgroundMusic();
-        lastTickTime=Date.now();
-    }else{
-        audio.stopRainSound();
-        audio.stopBackgroundMusic();
-    }
-}
+function handleVisibility(){if(document.visibilityState==='visible'){if(state.isRainOn)audio.startRainSound();if(state.isMusicPlaying)audio.playBackgroundMusic();lastTickTime=Date.now()}else{audio.stopRainSound();audio.stopBackgroundMusic()}}
 function saveState(){state.lastSave=Date.now();try{localStorage.setItem('pocketSprout',JSON.stringify(state))}catch(e){}}
-function ensureStateDefaults(){
-    if(!state.neglect) state.neglect={waterLowMs:0,sunLowMs:0,loveLowMs:0,crisisMs:0,partialDormant:false};
-    if(typeof state.lastWhisperAt!=='number') state.lastWhisperAt=0;
-}
-function loadState(){try{const s=localStorage.getItem('pocketSprout');if(s)state={...state,...JSON.parse(s)}; ensureStateDefaults()}catch(e){}}
-function resetGame(preserveHistory=true){
-    if(preserveHistory&&state.name!=='Sprout'&&!state.isDead){state.history.push({name:state.name,gen:state.generation,days:state.day,dna:{...state.dna},stage:state.stage,scars:[...state.scars],potColor:state.potColor,potPattern:state.potPattern})}
-    const hist=preserveHistory?state.history:[];
-    const tf=preserveHistory?state.totalFireflies:0;
-    const ff=preserveHistory?state.fireflies:{};
-    const it=preserveHistory?state.inheritedTraits:[];
-    const gen=preserveHistory?state.generation+1:1;
-    state={water:50,sun:50,love:50,growth:0,stage:1,isSunLampOn:false,isRainOn:false,day:1,generation:gen,name:"Sprout",season:state.season||0,dna:generateDNA(),potColor:POT_COLORS[0],potPattern:'patNone',potPatternColor:'rgba(255,255,255,0.5)',timeAtZero:0,isDead:false,history:hist,lastSave:Date.now(),growthMultiplier:1,singCooldownUntil:0,fertilizeCooldownUntil:0,fireflies:ff,totalFireflies:tf,activeGuardians:[],buffs:[],scars:[],crisisCount:0,inheritedTraits:it,lastDream:null,isMusicPlaying:false,neglect:{waterLowMs:0,sunLowMs:0,loveLowMs:0,crisisMs:0,partialDormant:false},lastWhisperAt:0};
-    els.deathOverlay.classList.remove('open');
-    els.plantHero.classList.remove('dead-plant','dormant-plant');
-    audio.stopRainSound();
-    setupWorld();renderPlant('plantGroup',state.dna,state.stage);renderPotPreview();updateUI();saveState();
-}
-function handleBackButton(e){
-    if(!e.state||!e.state.pocketSprout){history.pushState({pocketSprout:true,depth:1},'');return}
-    const overlays=[
-        {el:els.fireflyOverlay,close:closeFireflyLog},
-        {el:els.potOverlay,close:closePotDesigner},
-        {el:els.harvestOverlay,close:closeHarvestModal},
-        {el:els.archiveOverlay,close:closeArchive},
-        {el:els.traitOverlay,close:closeTraitGlossary},
-        {el:els.helpOverlay,close:closeHelp},
-        {el:els.resetOverlay,close:closeResetOverlay},
-        {el:els.menuOverlay,close:toggleMenu}
-    ];
-    for(const o of overlays){if(o.el&&o.el.classList.contains('open')){o.close();break}}
-    pushHistoryState();
-}
-function spawnFloatingText(text,color=null,kind='info'){
-    const stack=els.whisperStack||document.getElementById('whisperStack');
-    if(!stack) return;
-
-    const msg=document.createElement('div');
-    msg.className=`whisper ${kind}`;
-    if(color) msg.style.setProperty('--whisper-color',color);
-
-    const dot=document.createElement('div');
-    dot.className='whisper-dot';
-    const body=document.createElement('div');
-    body.className='whisper-text';
-    body.textContent=text;
-
-    msg.appendChild(dot);
-    msg.appendChild(body);
-
-    stack.prepend(msg);
-
-    // Keep the last few whispers; they're meant to linger, not shout.
-    while(stack.children.length>4){
-        stack.lastElementChild?.remove();
-    }
-
-    const life=5200;
-    setTimeout(()=>msg.classList.add('fade'),Math.max(0,life-520));
-    setTimeout(()=>msg.remove(),life);
-}
-
-
+function ensureStateDefaults(){if(!state.neglect)state.neglect={waterLowMs:0,sunLowMs:0,loveLowMs:0,crisisMs:0,partialDormant:false};if(typeof state.lastWhisperAt!=='number')state.lastWhisperAt=0;if(typeof state.dayProgress!=='number')state.dayProgress=0}
+function loadState(){try{const s=localStorage.getItem('pocketSprout');if(s)state={...state,...JSON.parse(s)};ensureStateDefaults()}catch(e){}}
+function resetGame(preserveHistory=true){if(preserveHistory&&state.name!=='Sprout'&&!state.isDead)state.history.push({name:state.name,gen:state.generation,days:state.day,dna:{...state.dna},stage:state.stage,scars:[...state.scars],potColor:state.potColor,potPattern:state.potPattern});const hist=preserveHistory?state.history:[],tf=preserveHistory?state.totalFireflies:0,ff=preserveHistory?state.fireflies:{},it=preserveHistory?state.inheritedTraits:[],gen=preserveHistory?state.generation+1:1;state={water:50,sun:50,love:50,growth:0,stage:1,isSunLampOn:false,isRainOn:false,day:1,dayProgress:0,generation:gen,name:"Sprout",season:state.season||0,dna:generateDNA(),potColor:POT_COLORS[0],potPattern:'patNone',potPatternColor:'rgba(255,255,255,0.5)',timeAtZero:0,isDead:false,history:hist,lastSave:Date.now(),growthMultiplier:1,singCooldownUntil:0,fertilizeCooldownUntil:0,fireflies:ff,totalFireflies:tf,activeGuardians:[],buffs:[],scars:[],crisisCount:0,inheritedTraits:it,lastDream:null,isMusicPlaying:false,neglect:{waterLowMs:0,sunLowMs:0,loveLowMs:0,crisisMs:0,partialDormant:false},lastWhisperAt:0};els.deathOverlay.classList.remove('open');els.plantHero.classList.remove('dead-plant','dormant-plant');audio.stopRainSound();setupWorld();renderPlant('plantGroup',state.dna,state.stage);renderPotPreview();updateUI();saveState()}
+function handleBackButton(e){if(!e.state||!e.state.pocketSprout){history.pushState({pocketSprout:true,depth:1},'');return}const overlays=[{el:els.fireflyOverlay,close:closeFireflyLog},{el:els.potOverlay,close:closePotDesigner},{el:els.harvestOverlay,close:closeHarvestModal},{el:els.archiveOverlay,close:closeArchive},{el:els.traitOverlay,close:closeTraitGlossary},{el:els.helpOverlay,close:closeHelp},{el:els.resetOverlay,close:closeResetOverlay},{el:els.menuOverlay,close:toggleMenu}];for(const o of overlays)if(o.el&&o.el.classList.contains('open')){o.close();break}pushHistoryState()}
+function spawnFloatingText(text,color=null,kind='info'){const stack=els.whisperStack||document.getElementById('whisperStack');if(!stack)return;const msg=document.createElement('div');msg.className=`whisper ${kind}`;if(color)msg.style.setProperty('--whisper-color',color);const dot=document.createElement('div');dot.className='whisper-dot';const body=document.createElement('div');body.className='whisper-text';body.textContent=text;msg.appendChild(dot);msg.appendChild(body);stack.prepend(msg);while(stack.children.length>4)stack.lastElementChild?.remove();const life=5200;setTimeout(()=>msg.classList.add('fade'),Math.max(0,life-520));setTimeout(()=>msg.remove(),life)}
 let debugTapCount=0,debugTapTimer=null;
 function handleDebugTap(){debugTapCount++;clearTimeout(debugTapTimer);debugTapTimer=setTimeout(()=>debugTapCount=0,3000);if(debugTapCount>=CONFIG.debugTapThreshold){toggleDebug();debugTapCount=0}}
 function toggleDebug(){els.debugPanel.classList.toggle('open');if(els.debugPanel.classList.contains('open'))updateDebugState()}
@@ -496,77 +61,21 @@ function debugLog(m){const l=document.getElementById('debugLog');if(l)l.innerHTM
 function updateDebugState(){const s=document.getElementById('debugState');if(s)s.textContent=JSON.stringify(state,null,2)}
 function debugMaxStats(){state.water=100;state.sun=100;state.love=100;render();debugLog('Max stats')}
 function debugGrow(){state.growth+=1000;render();debugLog('+1000 growth')}
-function debugEvolve(){if(state.stage<5){state.stage++;renderPlant('plantGroup',state.dna,state.stage);debugLog(`Stage ${state.stage}`)}else{debugLog('Max stage')}}
+function debugEvolve(){if(state.stage<5){state.stage++;renderPlant('plantGroup',state.dna,state.stage);debugLog(`Stage ${state.stage}`)}else debugLog('Max stage')}
 function debugKill(){triggerDeath();debugLog('Killed')}
 function debugUnlockFireflies(){FIREFLY_FAMILIES.forEach((_,i)=>{state.fireflies[i]=CONFIG.maxFireflyPerFamily});state.totalFireflies=8*CONFIG.maxFireflyPerFamily;debugLog('All fireflies')}
 function debugAddFirefly(){const i=Math.floor(Math.random()*8);if(!state.fireflies[i])state.fireflies[i]=0;state.fireflies[i]++;state.totalFireflies++;debugLog(`+${FIREFLY_FAMILIES[i].name}`)}
 function debugCycleTime(){const ts=['night','dawn','morning','day','afternoon','dusk','evening'],c=ts.findIndex(t=>document.body.classList.contains('time-'+t)),n=(c+1)%ts.length;document.body.className=document.body.className.replace(/time-\w+/g,'');document.body.classList.add('time-'+ts[n]);debugLog('Time: '+ts[n])}
 function debugCycleSeason(){state.season=(state.season+1)%4;updateSeason();debugLog('Season: '+SEASONS[state.season].name)}
 function debugCycleMoon(){const m=document.getElementById('moonElement');if(m){const ps=[0,25,50,75,100,-75,-50,-25],c=ps.indexOf(parseInt(m.style.getPropertyValue('--moon-phase'))||0),n=(c+1)%ps.length;m.style.setProperty('--moon-phase',ps[n]+'%');debugLog('Moon cycled')}}
-function debugAddScar(){const st=['wilt','bend','pale','dormant'],av=st.filter(s=>!state.scars.includes(s));if(av.length>0){const s=av[Math.floor(Math.random()*av.length)];state.scars.push(s);renderPlant('plantGroup',state.dna,state.stage);updateUI();debugLog('Scar: '+s)}else{debugLog('All scars')}}
+function debugAddScar(){const st=['wilt','bend','pale','dormant'],av=st.filter(s=>!state.scars.includes(s));if(av.length>0){const s=av[Math.floor(Math.random()*av.length)];state.scars.push(s);renderPlant('plantGroup',state.dna,state.stage);updateUI();debugLog('Scar: '+s)}else debugLog('All scars')}
 function debugResetGame(){localStorage.removeItem('pocketSprout');location.reload()}
-function init(){
-    cacheElements();loadState();
-    if(!state.dna)state.dna=generateDNA();
-    initPatterns();setupWorld();setupWeather();
-    renderPlant('plantGroup',state.dna,state.stage);
-    renderPotPreview();updateTimeOfDay();updateMoonPhase();updateSeason();updateUI();
-    if(state.isRainOn)applyTheme();
-    processOfflineProgress();
-    startGameLoop();setupEventListeners();
-    setInterval(()=>{updateTimeOfDay();updateMoonPhase()},60000);
-    audio.init();
-    if(document.visibilityState==='visible'){
-        if(state.isRainOn) audio.startRainSound();
-        if(state.isMusicPlaying) audio.playBackgroundMusic();
-    }
-}
-function cacheElements(){
-    ['skyLayer','starsContainer','moonElement','moonlightBeam','seasonalContainer','rainContainer','rainbowContainer','statusArea','genBadge','plantNameDisplay','plantMoodDisplay','seasonIndicator','evolutionBar','menuOverlay','fireflyOverlay','potOverlay','helpOverlay','traitOverlay','harvestOverlay','deathOverlay','archiveOverlay','resetOverlay','welcomeToast','toastBody','traitGlossaryList','plantHero','plantGraphics','potGroup','plantGroup','vitals','ringWater','ringSun','ringLove','nameInput','menuGen','menuAge','menuStage','menuHealth','menuProgressBar','menuScars','menuScarList','menuInherited','menuInheritedList','greenhouseList','btnHarvest','btnSing','btnFertilize','btnMusic','btnReset','btnRain','btnSun','btnMenu','fireflyFamilyGrid','familyDetailPanel','detailOrb','detailFamilyName','detailFamilyPower','detailFireflyCount','releaseBtn','guardianProgressText','potColorGrid','potPatternGrid','patternColorGrid','potPreviewGroup','harvestPlantGroup','inheritedTraitDisplay','archivePlantGroup','archivePotGroup','archiveTitle','archiveStats','debugPanel','debugLog','debugState'].forEach(id=>els[id]=document.getElementById(id));
-}
-function setupEventListeners(){
-    document.addEventListener("visibilitychange",handleVisibility);
-    window.addEventListener("pagehide",saveState);
-    window.addEventListener("beforeunload",()=>saveState());
-    const pot=document.getElementById('potGroup');
-    if(pot){
-        pot.addEventListener('mousedown',()=>handlePress(true));
-        pot.addEventListener('mouseup',()=>handlePress(false));
-        pot.addEventListener('mouseleave',()=>handlePress(false));
-        pot.addEventListener('touchstart',e=>{e.preventDefault();handlePress(true)},{passive:false});
-        pot.addEventListener('touchend',e=>{e.preventDefault();handlePress(false)});
-    }
-    setInterval(()=>{checkSingCooldown();checkFertilizeCooldown()},1000);
-    checkSingCooldown();checkFertilizeCooldown();
-    window.addEventListener('popstate',handleBackButton);
-    if(!history.state||!history.state.pocketSprout){history.replaceState({pocketSprout:true,depth:0},'')}
-    pushHistoryState();
-    requestAnimationFrame(() => {
-        requestAnimationFrame(positionMoonbeam);
-    });
-    window.addEventListener('resize', () => requestAnimationFrame(positionMoonbeam));
-}
-function pushHistoryState(){const depth=(history.state?.depth||0)+1;history.pushState({pocketSprout:true,depth:depth},'')}
-function positionMoonbeam(){
-    const moon = document.getElementById('moonElement');
-    const beam = document.getElementById('moonlightBeam');
-    const potGroup = document.getElementById('potGroup');
-    if(!moon || !beam || !potGroup) return;
-    const moonRect = moon.getBoundingClientRect();
-    const moonCenterX = moonRect.left + moonRect.width / 2;
-    const moonCenterY = moonRect.top + moonRect.height / 2;
-    const potRect = potGroup.getBoundingClientRect();
-    const potCenterX = potRect.left + potRect.width / 2;
-    const potCenterY = potRect.top + potRect.height / 2;
-    const dx = potCenterX - moonCenterX;
-    const dy = potCenterY - moonCenterY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    const angleRad = Math.atan2(dx, dy);
-    const angleDeg = angleRad * (180 / Math.PI);
-    const beamWidth = 180;
-    beam.style.left = (moonCenterX - beamWidth / 2) + 'px';
-    beam.style.top = moonCenterY + 'px';
-    beam.style.height = (distance + 80) + 'px';
-    beam.style.transform = `rotate(${-angleDeg}deg)`;
-}
+function debugSim6hHappy(){state.water=80;state.sun=80;state.love=80;state.lastSave=Date.now()-6*3600*1000;processOfflineProgress();debugLog('Sim 6h Happy')}
+function debugSim6hThirst(){state.water=15;state.sun=60;state.love=50;state.lastSave=Date.now()-6*3600*1000;processOfflineProgress();debugLog('Sim 6h Thirst')}
+function debugSim16hCrisis(){state.water=5;state.sun=5;state.love=5;state.lastSave=Date.now()-16*3600*1000;processOfflineProgress();debugLog('Sim 16h Crisis')}
+function init(){cacheElements();loadState();if(!state.dna)state.dna=generateDNA();initPatterns();setupWorld();setupWeather();renderPlant('plantGroup',state.dna,state.stage);renderPotPreview();updateTimeOfDay();updateMoonPhase();updateSeason();updateUI();if(state.isRainOn)applyTheme();processOfflineProgress();startGameLoop();setupEventListeners();setInterval(()=>{updateTimeOfDay();updateMoonPhase()},60000);audio.init();if(document.visibilityState==='visible'){if(state.isRainOn)audio.startRainSound();if(state.isMusicPlaying)audio.playBackgroundMusic()}}
+function cacheElements(){['skyLayer','starsContainer','moonElement','moonlightBeam','seasonalContainer','rainContainer','rainbowContainer','statusArea','genBadge','plantNameDisplay','plantMoodDisplay','seasonIndicator','evolutionBar','menuOverlay','fireflyOverlay','potOverlay','helpOverlay','traitOverlay','harvestOverlay','deathOverlay','archiveOverlay','resetOverlay','welcomeToast','toastBody','traitGlossaryList','plantHero','plantGraphics','potGroup','plantGroup','vitals','ringWater','ringSun','ringLove','nameInput','menuGen','menuAge','menuStage','menuHealth','menuProgressBar','menuScars','menuScarList','menuInherited','menuInheritedList','greenhouseList','btnHarvest','btnSing','btnFertilize','btnMusic','btnReset','btnRain','btnSun','btnMenu','fireflyFamilyGrid','familyDetailPanel','detailOrb','detailFamilyName','detailFamilyPower','detailFireflyCount','releaseBtn','guardianProgressText','potColorGrid','potPatternGrid','patternColorGrid','potPreviewGroup','harvestPlantGroup','inheritedTraitDisplay','archivePlantGroup','archivePotGroup','archiveTitle','archiveStats','debugPanel','debugLog','debugState','whisperStack'].forEach(id=>els[id]=document.getElementById(id))}
+function setupEventListeners(){document.addEventListener("visibilitychange",handleVisibility);window.addEventListener("pagehide",saveState);window.addEventListener("beforeunload",()=>saveState());const pot=document.getElementById('potGroup');if(pot){pot.addEventListener('mousedown',()=>handlePress(true));pot.addEventListener('mouseup',()=>handlePress(false));pot.addEventListener('mouseleave',()=>handlePress(false));pot.addEventListener('touchstart',e=>{e.preventDefault();handlePress(true)},{passive:false});pot.addEventListener('touchend',e=>{e.preventDefault();handlePress(false)})}setInterval(()=>{checkSingCooldown();checkFertilizeCooldown()},1000);checkSingCooldown();checkFertilizeCooldown();window.addEventListener('popstate',handleBackButton);if(!history.state||!history.state.pocketSprout)history.replaceState({pocketSprout:true,depth:0},'');pushHistoryState();requestAnimationFrame(()=>requestAnimationFrame(positionMoonbeam));window.addEventListener('resize',()=>requestAnimationFrame(positionMoonbeam))}
+function pushHistoryState(){history.pushState({pocketSprout:true,depth:(history.state?.depth||0)+1},'')}
+function positionMoonbeam(){const moon=document.getElementById('moonElement'),beam=document.getElementById('moonlightBeam'),potGroup=document.getElementById('potGroup');if(!moon||!beam||!potGroup)return;const moonRect=moon.getBoundingClientRect(),potRect=potGroup.getBoundingClientRect();const moonCX=moonRect.left+moonRect.width/2,moonCY=moonRect.top+moonRect.height/2,potCX=potRect.left+potRect.width/2,potCY=potRect.top+potRect.height/2;const dx=potCX-moonCX,dy=potCY-moonCY,dist=Math.sqrt(dx*dx+dy*dy),ang=Math.atan2(dx,dy)*(180/Math.PI);beam.style.left=(moonCX-90)+'px';beam.style.top=moonCY+'px';beam.style.height=(dist+80)+'px';beam.style.transform=`rotate(${-ang}deg)`}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
