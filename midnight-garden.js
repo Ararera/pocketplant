@@ -134,6 +134,11 @@ function enterMidnightGarden() {
     // Add body class
     document.body.classList.add('midnight-garden-active');
     
+    // Pause rain sound if playing
+    if (typeof audio !== 'undefined' && audio.stopRainSound) {
+        audio.stopRainSound();
+    }
+    
     // Fade to black
     transition.classList.add('active');
     
@@ -209,6 +214,11 @@ function exitMidnightGarden() {
             // Refresh main game UI
             if (typeof render === 'function') render();
             if (typeof updateUI === 'function') updateUI();
+            
+            // Resume rain sound if rain is on
+            if (typeof state !== 'undefined' && state.isRainOn && typeof audio !== 'undefined' && audio.startRainSound) {
+                audio.startRainSound();
+            }
             
         }, 300);
         
