@@ -1,5 +1,3 @@
----
----
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,4 +15,5 @@
     <script src="script2.js"></script>
     <script>if('serviceWorker'in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').then(r=>{console.log('SW registered',r.scope)}).catch(e=>{console.log('SW failed',e)})})}</script>
 </body>
+
 </html>
