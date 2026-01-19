@@ -139,6 +139,11 @@ function enterMidnightGarden() {
         audio.stopRainSound();
     }
     
+    // Pause background music if playing
+    if (typeof audio !== 'undefined' && audio.stopBackgroundMusic) {
+        audio.stopBackgroundMusic();
+    }
+    
     // Fade to black
     transition.classList.add('active');
     
@@ -218,6 +223,11 @@ function exitMidnightGarden() {
             // Resume rain sound if rain is on
             if (typeof state !== 'undefined' && state.isRainOn && typeof audio !== 'undefined' && audio.startRainSound) {
                 audio.startRainSound();
+            }
+            
+            // Resume background music if it was on
+            if (typeof state !== 'undefined' && state.isMusicPlaying && typeof audio !== 'undefined' && audio.playBackgroundMusic) {
+                audio.playBackgroundMusic();
             }
             
         }, 300);
