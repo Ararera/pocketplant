@@ -1,0 +1,66 @@
+<!-- Midnight Garden Entry Arrow -->
+<button class="midnight-garden-entry" id="midnightGardenEntry" onclick="enterMidnightGarden()" aria-label="Enter Midnight Garden">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14M12 5l7 7-7 7"/>
+    </svg>
+</button>
+
+<!-- Transition Overlay -->
+<div class="midnight-transition" id="midnightTransition"></div>
+
+<!-- Midnight Garden Scene -->
+<div class="midnight-garden-overlay" id="midnightGardenOverlay">
+    <!-- Back Button -->
+    <button class="midnight-garden-back" id="midnightGardenBack" onclick="exitMidnightGarden()" aria-label="Return to Plant">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+    </button>
+
+    <!-- Garden Sky -->
+    <div class="garden-sky" id="gardenSky">
+        <div class="garden-stars" id="gardenStars"></div>
+        <div class="garden-moon" id="gardenMoon" onclick="triggerWindGust()"></div>
+    </div>
+
+    <!-- Ambient Fireflies Container -->
+    <div class="garden-fireflies" id="gardenFireflies"></div>
+
+    <!-- Forest Background -->
+    <div class="garden-forest" id="gardenForest">
+        <div class="forest-layer forest-back"></div>
+        <div class="forest-layer forest-mid"></div>
+        <div class="forest-layer forest-front"></div>
+    </div>
+
+    <!-- Garden Ground & Fence -->
+    <div class="garden-ground" id="gardenGround">
+        <div class="garden-fence">
+            <div class="fence-post"></div>
+            <div class="fence-post"></div>
+            <div class="fence-post"></div>
+            <div class="fence-post"></div>
+            <div class="fence-post"></div>
+            <div class="fence-rail fence-rail-top"></div>
+            <div class="fence-rail fence-rail-bottom"></div>
+        </div>
+    </div>
+
+    <!-- Plant Display Area -->
+    <div class="garden-plants-container" id="gardenPlantsContainer">
+        <div class="garden-plants-scroll" id="gardenPlantsScroll"></div>
+    </div>
+
+    <!-- Garden Info -->
+    <div class="garden-info" id="gardenInfo">
+        <div class="garden-title">Midnight Garden</div>
+        <div class="garden-subtitle" id="gardenSubtitle">0 ancestors resting</div>
+    </div>
+
+    <!-- Soundscape Indicator -->
+    <div class="soundscape-indicator" id="soundscapeIndicator">
+        <div class="soundscape-waves">
+            <span></span><span></span><span></span><span></span><span></span>
+        </div>
+    </div>
+</div>
