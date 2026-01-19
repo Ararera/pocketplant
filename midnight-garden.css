@@ -1,0 +1,629 @@
+/* ============================================
+   MIDNIGHT GARDEN - CSS
+   ============================================ */
+
+/* Entry Arrow Button */
+.midnight-garden-entry {
+    position: fixed;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    background: rgba(18, 18, 24, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 99;
+    transition: all 0.3s ease;
+    opacity: 0.6;
+}
+
+.midnight-garden-entry:hover,
+.midnight-garden-entry:active {
+    opacity: 1;
+    background: rgba(30, 30, 40, 0.95);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-50%) scale(1.05);
+}
+
+.midnight-garden-entry svg {
+    width: 20px;
+    height: 20px;
+    color: rgba(255, 255, 255, 0.6);
+    transition: color 0.3s ease;
+}
+
+.midnight-garden-entry:hover svg {
+    color: rgba(254, 249, 195, 0.9);
+}
+
+/* Transition Overlay */
+.midnight-transition {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    z-index: 500;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.8s ease;
+}
+
+.midnight-transition.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Main Garden Overlay */
+.midnight-garden-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 400;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+    overflow: hidden;
+    background: linear-gradient(to bottom, 
+        #050510 0%, 
+        #0a0a18 20%, 
+        #0c0c1a 40%,
+        #0e0e1c 60%,
+        #101020 80%,
+        #121224 100%
+    );
+}
+
+.midnight-garden-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Back Button */
+.midnight-garden-back {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    background: rgba(18, 18, 24, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 410;
+    transition: all 0.3s ease;
+    opacity: 0.6;
+}
+
+.midnight-garden-back:hover,
+.midnight-garden-back:active {
+    opacity: 1;
+    background: rgba(30, 30, 40, 0.95);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.midnight-garden-back svg {
+    width: 20px;
+    height: 20px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Garden Sky */
+.garden-sky {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 60%;
+    pointer-events: none;
+}
+
+/* Garden Stars */
+.garden-stars {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.garden-star {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    background: white;
+    border-radius: 50%;
+    animation: gardenTwinkle var(--dur, 4s) ease-in-out infinite var(--delay, 0s);
+}
+
+@keyframes gardenTwinkle {
+    0%, 100% { opacity: 0.3; transform: scale(0.8); }
+    50% { opacity: var(--brightness, 0.9); transform: scale(1.2); }
+}
+
+/* Garden Moon - Centered */
+.garden-moon {
+    position: absolute;
+    top: 12%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #fef9c3, #fde68a, #d4a574);
+    box-shadow: 
+        0 0 60px rgba(254, 249, 195, 0.5),
+        0 0 120px rgba(254, 249, 195, 0.3),
+        0 0 200px rgba(254, 249, 195, 0.15);
+    opacity: 0;
+    transition: opacity 1.5s ease, transform 1s ease;
+    overflow: hidden;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.garden-moon:active {
+    transform: translateX(-50%) scale(0.95);
+}
+
+.garden-moon::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: #050510;
+    transform: translateX(var(--moon-phase, 0%));
+    transition: transform 1s ease;
+}
+
+.midnight-garden-overlay.open .garden-moon {
+    opacity: 1;
+}
+
+/* Garden Fireflies Container */
+.garden-fireflies {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 405;
+}
+
+/* Ambient Fireflies */
+.garden-firefly {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    pointer-events: auto;
+    cursor: pointer;
+    opacity: 0;
+    animation: 
+        gardenFireflyGlow var(--glow-dur, 3s) ease-in-out infinite,
+        gardenFireflyFade var(--life, 30s) ease-in-out forwards;
+    transition: transform 0.2s ease;
+}
+
+.garden-firefly:active {
+    transform: scale(1.5);
+}
+
+@keyframes gardenFireflyGlow {
+    0%, 100% { 
+        box-shadow: 0 0 8px 2px var(--ff-color), 0 0 20px 4px var(--ff-color);
+    }
+    50% { 
+        box-shadow: 0 0 15px 5px var(--ff-color), 0 0 35px 10px var(--ff-color);
+    }
+}
+
+@keyframes gardenFireflyFade {
+    0% { opacity: 0; transform: scale(0.5); }
+    8% { opacity: 1; transform: scale(1); }
+    85% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.7); }
+}
+
+/* Forest Background Layers */
+.garden-forest {
+    position: absolute;
+    bottom: 18%;
+    left: 0;
+    width: 100%;
+    height: 45%;
+    pointer-events: none;
+}
+
+.forest-layer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-repeat: repeat-x;
+    background-position: bottom center;
+}
+
+/* Back Forest Layer - Darkest, furthest */
+.forest-back {
+    height: 100%;
+    background-image: 
+        /* Tree silhouettes */
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 150'%3E%3Cpath d='M20 150 L20 100 Q25 80 30 90 L30 150' fill='%23080812'/%3E%3Cpath d='M15 100 Q20 60 25 70 Q30 50 35 70 Q40 60 45 100 Z' fill='%23080812'/%3E%3Cpath d='M60 150 L60 80 Q70 50 80 85 L80 150' fill='%23080812'/%3E%3Cpath d='M55 85 Q65 40 75 55 Q85 30 95 60 Q100 45 105 85 Z' fill='%23080812'/%3E%3Cpath d='M120 150 L120 110 Q125 90 130 105 L130 150' fill='%23080812'/%3E%3Cpath d='M115 110 Q125 70 135 85 Q140 65 150 110 Z' fill='%23080812'/%3E%3Cpath d='M170 150 L170 90 Q180 60 190 95 L190 150' fill='%23080812'/%3E%3Cpath d='M165 95 Q175 50 185 65 Q195 45 200 95 Z' fill='%23080812'/%3E%3C/svg%3E");
+    background-size: 200px 150px;
+    opacity: 0.7;
+}
+
+/* Mid Forest Layer */
+.forest-mid {
+    height: 75%;
+    background-image: 
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 120'%3E%3Cpath d='M10 120 L10 70 Q20 40 30 75 L30 120' fill='%230a0a16'/%3E%3Cpath d='M5 75 Q15 35 25 50 Q35 25 45 55 Q50 40 55 75 Z' fill='%230a0a16'/%3E%3Cpath d='M70 120 L70 60 Q85 30 100 65 L100 120' fill='%230a0a16'/%3E%3Cpath d='M65 65 Q80 25 95 40 Q110 20 120 65 Z' fill='%230a0a16'/%3E%3Cpath d='M140 120 L140 80 Q150 55 160 85 L160 120' fill='%230a0a16'/%3E%3Cpath d='M135 85 Q150 50 165 65 Q175 50 180 85 Z' fill='%230a0a16'/%3E%3C/svg%3E");
+    background-size: 180px 120px;
+    opacity: 0.85;
+}
+
+/* Front Forest Layer - Closest */
+.forest-front {
+    height: 50%;
+    background-image: 
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 80'%3E%3Cpath d='M0 80 L5 50 Q15 30 25 55 L30 80' fill='%230c0c1a'/%3E%3Cpath d='M50 80 L55 45 Q70 20 85 50 L90 80' fill='%230c0c1a'/%3E%3Cpath d='M110 80 L115 55 Q130 35 145 60 L150 80' fill='%230c0c1a'/%3E%3C/svg%3E");
+    background-size: 160px 80px;
+    opacity: 1;
+}
+
+/* Garden Ground */
+.garden-ground {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 20%;
+    background: linear-gradient(to bottom,
+        #0c0c1a 0%,
+        #0a0a14 30%,
+        #08080f 100%
+    );
+}
+
+/* Fence */
+.garden-fence {
+    position: absolute;
+    top: -20px;
+    left: 5%;
+    width: 90%;
+    height: 50px;
+}
+
+.fence-post {
+    position: absolute;
+    bottom: 0;
+    width: 8px;
+    height: 45px;
+    background: linear-gradient(to right, #2a1810, #3d2518, #2a1810);
+    border-radius: 2px 2px 0 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.fence-post::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 12px;
+    height: 8px;
+    background: linear-gradient(to bottom, #3d2518, #2a1810);
+    border-radius: 3px 3px 0 0;
+}
+
+.fence-post:nth-child(1) { left: 0%; }
+.fence-post:nth-child(2) { left: 25%; }
+.fence-post:nth-child(3) { left: 50%; }
+.fence-post:nth-child(4) { left: 75%; }
+.fence-post:nth-child(5) { left: calc(100% - 8px); }
+
+.fence-rail {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 6px;
+    background: linear-gradient(to bottom, #3d2518, #2a1810);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.fence-rail-top { top: 8px; }
+.fence-rail-bottom { top: 24px; }
+
+/* Plants Container */
+.garden-plants-container {
+    position: absolute;
+    bottom: 8%;
+    left: 0;
+    width: 100%;
+    height: 45%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    z-index: 403;
+}
+
+.garden-plants-container::-webkit-scrollbar {
+    display: none;
+}
+
+.garden-plants-scroll {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 15px;
+    min-width: 100%;
+    height: 100%;
+    padding: 0 20px 10px;
+}
+
+/* Individual Garden Plant */
+.garden-plant {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    opacity: 1;
+    animation: gardenPlantAppear 0.8s ease-out forwards;
+    animation-delay: var(--appear-delay, 0s);
+    cursor: pointer;
+    transition: transform 0.3s ease;
+    transform-origin: bottom center;
+}
+
+.garden-plant:hover,
+.garden-plant:active {
+    transform: scale(1.05) translateY(-5px);
+}
+
+/* Remove hover effect when wind is active */
+.garden-plant.wind-sway:hover,
+.garden-plant.wind-sway:active {
+    transform: none;
+}
+
+@keyframes gardenPlantAppear {
+    0% { 
+        opacity: 0; 
+        transform: translateY(20px) scale(0.8);
+    }
+    100% { 
+        opacity: 1; 
+        transform: translateY(0) scale(1);
+    }
+}
+
+.garden-plant-svg {
+    width: 80px;
+    height: 120px;
+    filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.5));
+}
+
+.garden-plant-name {
+    margin-top: 8px;
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.6);
+    text-align: center;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.garden-plant-gen {
+    font-size: 0.55rem;
+    color: rgba(255, 255, 255, 0.35);
+    margin-top: 2px;
+}
+
+/* Empty Garden State */
+.garden-empty {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: rgba(255, 255, 255, 0.4);
+    z-index: 404;
+}
+
+.garden-empty-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.garden-empty-text {
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+/* Garden Info Panel - Hidden for now */
+.garden-info {
+    display: none;
+}
+
+.garden-title {
+    font-size: 1.1rem;
+    font-weight: 300;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: rgba(254, 249, 195, 0.8);
+    text-shadow: 0 0 30px rgba(254, 249, 195, 0.4);
+    margin-bottom: 5px;
+}
+
+.garden-subtitle {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.4);
+    font-style: italic;
+}
+
+/* Soundscape Indicator */
+.soundscape-indicator {
+    position: absolute;
+    bottom: calc(env(safe-area-inset-bottom, 20px) + 20px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 410;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+.soundscape-indicator.active {
+    opacity: 1;
+}
+
+.soundscape-waves {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    height: 20px;
+}
+
+.soundscape-waves span {
+    width: 3px;
+    height: 8px;
+    background: rgba(254, 249, 195, 0.5);
+    border-radius: 2px;
+    animation: soundWave 1.2s ease-in-out infinite;
+}
+
+.soundscape-waves span:nth-child(1) { animation-delay: 0s; }
+.soundscape-waves span:nth-child(2) { animation-delay: 0.1s; }
+.soundscape-waves span:nth-child(3) { animation-delay: 0.2s; }
+.soundscape-waves span:nth-child(4) { animation-delay: 0.3s; }
+.soundscape-waves span:nth-child(5) { animation-delay: 0.4s; }
+
+@keyframes soundWave {
+    0%, 100% { 
+        height: 8px; 
+        opacity: 0.4;
+    }
+    50% { 
+        height: 18px; 
+        opacity: 0.9;
+    }
+}
+
+/* Hide entry button when garden is open */
+.midnight-garden-overlay.open ~ .midnight-garden-entry,
+body.midnight-garden-active .midnight-garden-entry {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Hide main game elements when in garden */
+body.midnight-garden-active .status-panel,
+body.midnight-garden-active .dock-container,
+body.midnight-garden-active .stage-container,
+body.midnight-garden-active .sky-layer,
+body.midnight-garden-active .moonlight-beam,
+body.midnight-garden-active .seasonal-container,
+body.midnight-garden-active .rain-container,
+body.midnight-garden-active .rainbow,
+body.midnight-garden-active .firefly {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Plant detail tooltip in garden */
+.garden-plant-tooltip {
+    position: fixed;
+    background: rgba(18, 18, 24, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 12px 16px;
+    z-index: 450;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    max-width: 200px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.garden-plant-tooltip.visible {
+    opacity: 1;
+}
+
+.garden-plant-tooltip-name {
+    font-size: 0.95rem;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: white;
+}
+
+.garden-plant-tooltip-stat {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin: 3px 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 380px) {
+    .garden-plant-svg {
+        width: 65px;
+        height: 100px;
+    }
+    
+    .garden-plants-scroll {
+        gap: 10px;
+    }
+    
+    .garden-title {
+        font-size: 1rem;
+        letter-spacing: 2px;
+    }
+}
+
+/* Pause animations when not visible */
+.midnight-garden-overlay:not(.open) * {
+    animation-play-state: paused !important;
+}
+
+/* Wind effect on plants */
+.garden-plant.wind-sway {
+    animation: windSway 3s ease-in-out forwards;
+}
+
+@keyframes windSway {
+    0% { transform: rotate(0deg) translateX(0); }
+    15% { transform: rotate(-4deg) translateX(-3px); }
+    30% { transform: rotate(3deg) translateX(4px); }
+    45% { transform: rotate(-3deg) translateX(-2px); }
+    60% { transform: rotate(2deg) translateX(2px); }
+    75% { transform: rotate(-1deg) translateX(-1px); }
+    90% { transform: rotate(0.5deg) translateX(0); }
+    100% { transform: rotate(0deg) translateX(0); }
+}
+
+/* Ensure wind sway doesn't conflict with other styles */
+.garden-plant.wind-sway .garden-plant-svg,
+.garden-plant.wind-sway .garden-plant-name,
+.garden-plant.wind-sway .garden-plant-gen {
+    opacity: 1 !important;
+    visibility: visible !important;
+}

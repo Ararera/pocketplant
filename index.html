@@ -4,6 +4,7 @@
 <html lang="en">
 <head>
     {% include head.html %}
+    <link rel="stylesheet" href="midnight-garden.css">
 </head>
 <body>
     {% include environment.html %}
@@ -12,9 +13,11 @@
     {% include overlays.html %}
     {% include stage.html %}
     {% include dock.html %}
+    {% include midnight-garden.html %}
 
     <script src="script1.js"></script>
     <script src="script2.js"></script>
+    <script src="midnight-garden.js"></script>
     <script>if('serviceWorker'in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').then(r=>{console.log('SW registered',r.scope)}).catch(e=>{console.log('SW failed',e)})})}</script>
 </body>
 </html>
