@@ -627,3 +627,109 @@ body.midnight-garden-active .firefly {
     opacity: 1 !important;
     visibility: visible !important;
 }
+
+/* ============================================
+   MIDNIGHT GARDEN - v1.2 Improvements
+   ============================================ */
+
+/* Better Firefly Touch Targets */
+.garden-firefly {
+    width: 20px;
+    height: 20px;
+    margin: -7px;  /* Center the visual 6px dot within 20px hit area */
+}
+
+.garden-firefly::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ff-color);
+    box-shadow: 0 0 8px 2px var(--ff-color), 0 0 20px 4px var(--ff-color);
+}
+
+/* Garden Info now visible */
+.garden-info {
+    display: block !important;
+    opacity: 0;
+    animation: gardenInfoFade 1s ease-out 1s forwards;
+}
+
+@keyframes gardenInfoFade {
+    to { opacity: 1; }
+}
+
+/* Entry button with label for discoverability */
+.midnight-garden-entry {
+    overflow: visible;
+}
+
+.midnight-garden-entry.pulse-hint {
+    animation: entryPulse 2s ease-in-out 3;
+}
+
+@keyframes entryPulse {
+    0%, 100% { 
+        transform: translateY(-50%) scale(1);
+        box-shadow: 0 0 0 0 rgba(254,249,195,0.3);
+    }
+    50% { 
+        transform: translateY(-50%) scale(1.1);
+        box-shadow: 0 0 20px 5px rgba(254,249,195,0.2);
+    }
+}
+
+/* Moon hint styling */
+.garden-moon {
+    position: relative;
+}
+
+.garden-moon .moon-hint {
+    position: absolute;
+    bottom: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.6rem;
+    color: rgba(254,249,195,0.6);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0;
+    animation: moonHintAppear 2s ease-in-out 3s;
+    animation-fill-mode: forwards;
+}
+
+@keyframes moonHintAppear {
+    0% { opacity: 0; }
+    20% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* Garden firefly hint */
+.garden-firefly-hint {
+    position: absolute;
+    bottom: calc(env(safe-area-inset-bottom, 20px) + 55px);
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.4);
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 420;
+}
+
+.garden-firefly-hint.visible {
+    animation: fireflyHintShow 6s ease-in-out forwards;
+}
+
+@keyframes fireflyHintShow {
+    0% { opacity: 0; }
+    10% { opacity: 1; }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
+}

@@ -279,14 +279,16 @@ function renderGardenPlants() {
         `;
         container.appendChild(emptyDiv);
         
+        // Hide subtitle when empty - the empty state message is sufficient
         if (subtitle) {
-            subtitle.textContent = 'awaiting ancestors';
+            subtitle.style.display = 'none';
         }
         return;
     }
     
-    // Update subtitle
+    // Update subtitle - show it when there are plants
     if (subtitle) {
+        subtitle.style.display = '';
         const count = history.length;
         subtitle.textContent = `${count} ancestor${count !== 1 ? 's' : ''} resting`;
     }
