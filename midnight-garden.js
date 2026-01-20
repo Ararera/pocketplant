@@ -23,8 +23,19 @@ let gardenState = {
     // Current mood
     currentMood: 'contemplative', // contemplative, mysterious, tender
     moodTransitionTimer: null,
+	plantBreathTimer: null,
     entryTime: null,
-    maxFireflies: 20
+    maxFireflies: 20,
+
+    // Firefly -> Moon interaction
+    moonFlightActive: false,
+    moonStreakKey: null,
+    moonStreakCount: 0,
+    moonTintTimer: null,
+    moonHitTimer: null,
+    moonHitFadeTimer: null,
+    _moonBaseBoxShadow: null,
+    _moonBaseBackground: null
 };
 
 // Musical notes for firefly chords (frequencies in Hz)
@@ -599,13 +610,31 @@ function spawnGardenFirefly(familyIndex, container) {
     
     ff.dataset.family = familyIndex;
     
-    // Tap handler - play chord
+    // Tap handler - play chord + fly to moon (one at a time)
+    let lifeTimer = null;
     const handleTap = (e) => {
         e.preventDefault();
         e.stopPropagation();
+
+        if (!gardenState.isOpen) return;
+        if (gardenState.moonFlightActive) return; // hard lock to prevent rapid tapping
+
+        // stop its wandering animation and lifespan cleanup
+        if (animationId) cancelAnimationFrame(animationId);
+        if (lifeTimer) clearTimeout(lifeTimer);
+
+        // play audio + mark activity
         playFireflyChord(familyIndex);
+        if (typeof markGardenActivity === 'function') markGardenActivity();
+
+        // fly the actual tapped firefly to the moon (then it is removed)
+        // remove listeners so it can't be re-triggered
+        ff.removeEventListener('click', handleTap);
+        ff.removeEventListener('touchend', handleTap);
+
+        flyFireflyToMoon(ff, familyIndex, color);
     };
-    
+
     ff.addEventListener('click', handleTap);
     ff.addEventListener('touchend', handleTap, { passive: false });
     
@@ -696,12 +725,13 @@ function spawnGardenFirefly(familyIndex, container) {
         element: ff,
         family: familyIndex,
         spawnTime: Date.now(),
-        animationId: animationId
+        animationId: animationId,
+        lifeTimer: null
     };
     gardenState.fireflies.push(fireflyData);
     
     // Remove after life cycle (graceful fade is handled by CSS animation)
-    setTimeout(() => {
+    fireflyData.lifeTimer = setTimeout(() => {
         if (animationId) {
             cancelAnimationFrame(animationId);
         }
@@ -722,10 +752,13 @@ function stopGardenFireflies() {
         gardenState.fireflySpawnInterval = null;
     }
     
-    // Cancel all animation frames
+    // Cancel all animation frames + lifetimers
     gardenState.fireflies.forEach(ff => {
         if (ff.animationId) {
             cancelAnimationFrame(ff.animationId);
+        }
+        if (ff.lifeTimer) {
+            clearTimeout(ff.lifeTimer);
         }
     });
     
@@ -769,6 +802,282 @@ function initGardenAudio() {
 /**
  * Play a firefly chord when tapped - with family-specific timbre
  */
+
+
+// ============================================
+// FIREFLY -> MOON FLIGHT (visual interaction)
+// ============================================
+
+function _parseColorToRgb(col) {
+    if (!col) return { r: 254, g: 249, b: 195 };
+    col = String(col).trim();
+
+    // #RRGGBB or #RGB
+    if (col[0] === '#') {
+        const h = col.slice(1);
+        if (h.length === 3) {
+            return {
+                r: parseInt(h[0] + h[0], 16),
+                g: parseInt(h[1] + h[1], 16),
+                b: parseInt(h[2] + h[2], 16)
+            };
+        }
+        if (h.length >= 6) {
+            return {
+                r: parseInt(h.slice(0, 2), 16),
+                g: parseInt(h.slice(2, 4), 16),
+                b: parseInt(h.slice(4, 6), 16)
+            };
+        }
+        return { r: 255, g: 255, b: 255 };
+    }
+
+    // rgb()/rgba()
+    let m = col.match(/^rgba?\(([^)]+)\)$/i);
+    if (m) {
+        const parts = m[1].split(',').map(s => s.trim());
+        const r = Math.round(parseFloat(parts[0] || '255'));
+        const g = Math.round(parseFloat(parts[1] || '255'));
+        const b = Math.round(parseFloat(parts[2] || '255'));
+        return { r, g, b };
+    }
+
+    // hsl()/hsla()
+    m = col.match(/^hsla?\(([^)]+)\)$/i);
+    if (m) {
+        const parts = m[1].split(',').map(s => s.trim());
+        const h = parseFloat(parts[0] || '0');
+        const s = (parseFloat((parts[1] || '0').replace('%', '')) || 0) / 100;
+        const l = (parseFloat((parts[2] || '0').replace('%', '')) || 0) / 100;
+
+        const c = (1 - Math.abs(2 * l - 1)) * s;
+        const hh = ((h % 360) + 360) % 360;
+        const x = c * (1 - Math.abs(((hh / 60) % 2) - 1));
+        const m0 = l - c / 2;
+
+        let r1 = 0, g1 = 0, b1 = 0;
+        if (hh < 60) { r1 = c; g1 = x; b1 = 0; }
+        else if (hh < 120) { r1 = x; g1 = c; b1 = 0; }
+        else if (hh < 180) { r1 = 0; g1 = c; b1 = x; }
+        else if (hh < 240) { r1 = 0; g1 = x; b1 = c; }
+        else if (hh < 300) { r1 = x; g1 = 0; b1 = c; }
+        else { r1 = c; g1 = 0; b1 = x; }
+
+        return {
+            r: Math.round((r1 + m0) * 255),
+            g: Math.round((g1 + m0) * 255),
+            b: Math.round((b1 + m0) * 255)
+        };
+    }
+
+    // fallback: try computed color
+    const tmp = document.createElement('div');
+    tmp.style.color = col;
+    document.body.appendChild(tmp);
+    const cs = getComputedStyle(tmp).color;
+    document.body.removeChild(tmp);
+    const mm = cs.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+    if (mm) return { r: parseInt(mm[1], 10), g: parseInt(mm[2], 10), b: parseInt(mm[3], 10) };
+
+    return { r: 254, g: 249, b: 195 };
+}
+
+function _rgbToCss(rgb, a) {
+    const alpha = (typeof a === 'number') ? a : 1;
+    return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+}
+
+function _mixRgb(a, b, t) {
+    return {
+        r: Math.round(a.r * (1 - t) + b.r * t),
+        g: Math.round(a.g * (1 - t) + b.g * t),
+        b: Math.round(a.b * (1 - t) + b.b * t)
+    };
+}
+
+function _ensureMoonBaseStyles() {
+    const moon = gardenState.elements?.moon || document.getElementById('gardenMoon');
+    if (!moon) return null;
+    if (!gardenState._moonBaseBoxShadow || !gardenState._moonBaseBackground) {
+        const cs = getComputedStyle(moon);
+        gardenState._moonBaseBoxShadow = cs.boxShadow;
+        gardenState._moonBaseBackground = cs.backgroundImage || cs.background;
+    }
+    return moon;
+}
+
+function _applyMoonHitGlow(colorCss) {
+    const moon = _ensureMoonBaseStyles();
+    if (!moon) return;
+
+    if (gardenState.moonHitTimer) clearTimeout(gardenState.moonHitTimer);
+    if (gardenState.moonHitFadeTimer) clearTimeout(gardenState.moonHitFadeTimer);
+
+    moon.style.transition = 'box-shadow 1.8s ease';
+    moon.style.boxShadow = gardenState._moonBaseBoxShadow;
+
+    // Force a frame so the browser will animate the next change
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            moon.style.boxShadow = `
+                0 0 70px ${colorCss},
+                0 0 140px ${colorCss},
+                0 0 240px rgba(0,0,0,0)
+            `;
+
+            // Hold briefly, then fade back
+            gardenState.moonHitTimer = setTimeout(() => {
+                moon.style.boxShadow = gardenState._moonBaseBoxShadow;
+            }, 650);
+        });
+    });
+}
+
+function _applyMoonFullTint(colorCss, durationMs) {
+    const moon = _ensureMoonBaseStyles();
+    if (!moon) return;
+
+    if (gardenState.moonTintTimer) clearTimeout(gardenState.moonTintTimer);
+
+    const base = { r: 254, g: 249, b: 195 };
+    const rgb = _parseColorToRgb(colorCss);
+    const soft = _mixRgb(base, rgb, 0.55);
+    const deep = _mixRgb(base, rgb, 0.70);
+
+    // Do not animate by swapping the moon's gradient background directly.
+    // Instead, drive the existing ::before tint overlay (CSS vars + opacity transition).
+    const tintGradient =
+        `radial-gradient(circle at 30% 30%, ${_rgbToCss(soft, 0.95)}, ${_rgbToCss(deep, 0.95)}, ${_rgbToCss(deep, 0.80)})`;
+
+    moon.style.setProperty('--moon-tint-color', tintGradient);
+
+    // Soft halo while tinted (this transitions smoothly because box-shadow is animatable).
+    moon.style.boxShadow = `
+        0 0 60px rgba(254, 249, 195, 0.5),
+        0 0 120px rgba(254, 249, 195, 0.3),
+        0 0 200px rgba(254, 249, 195, 0.15),
+        0 0 85px ${_rgbToCss(soft, 0.45)},
+        0 0 170px ${_rgbToCss(soft, 0.28)}
+    `;
+
+    // Fade in
+    requestAnimationFrame(() => {
+        moon.style.setProperty('--moon-tint-opacity', '1');
+    });
+
+    const hold = (typeof durationMs === 'number') ? durationMs : 7000;
+    gardenState.moonTintTimer = setTimeout(() => {
+        // Fade out, then restore original glow.
+        moon.style.setProperty('--moon-tint-opacity', '0');
+        moon.style.boxShadow = gardenState._moonBaseBoxShadow;
+    }, hold);
+}
+
+function _updateMoonStreak(key, colorCss) {
+    if (gardenState.moonStreakKey === key) {
+        gardenState.moonStreakCount += 1;
+    } else {
+        gardenState.moonStreakKey = key;
+        gardenState.moonStreakCount = 1;
+    }
+
+    if (gardenState.moonStreakCount >= 3) {
+        gardenState.moonStreakCount = 0;
+        gardenState.moonStreakKey = null;
+        _applyMoonFullTint(colorCss, 7000);
+    }
+}
+
+function flyFireflyToMoon(fireflyEl, familyIndex, colorCss) {
+    if (!fireflyEl || gardenState.moonFlightActive) return false;
+
+    const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
+    const moon = gardenState.elements?.moon || document.getElementById('gardenMoon');
+    if (!overlay || !moon) return false;
+
+    gardenState.moonFlightActive = true;
+
+    // Stop this firefly's ambient drift + lifespan removal so it doesn't get removed mid-flight.
+    const tracked = gardenState.fireflies.find(f => f.element === fireflyEl);
+    if (tracked) {
+        if (tracked.animationId) {
+            try { cancelAnimationFrame(tracked.animationId); } catch (e) {}
+        }
+        if (tracked.lifeTimer) {
+            clearTimeout(tracked.lifeTimer);
+        }
+        gardenState.fireflies = gardenState.fireflies.filter(f => f.element !== fireflyEl);
+    }
+
+    const startRect = fireflyEl.getBoundingClientRect();
+    const overlayRect = overlay.getBoundingClientRect();
+    const moonRect = moon.getBoundingClientRect();
+
+    const startX = (startRect.left - overlayRect.left) + startRect.width / 2;
+    const startY = (startRect.top - overlayRect.top) + startRect.height / 2;
+    const endX = (moonRect.left - overlayRect.left) + moonRect.width / 2;
+    const endY = (moonRect.top - overlayRect.top) + moonRect.height / 2;
+
+    // Create a dedicated flight node (not subject to .garden-firefly life-fade / pseudo-element animations).
+    const flight = document.createElement('div');
+    flight.className = 'moon-flight-firefly';
+    flight.style.setProperty('--ff-color', colorCss);
+    flight.style.left = `${startX}px`;
+    flight.style.top = `${startY}px`;
+    overlay.appendChild(flight);
+
+    // Hide + remove the original firefly immediately so it can't interfere.
+    try {
+        fireflyEl.style.pointerEvents = 'none';
+        fireflyEl.style.opacity = '0';
+    } catch (e) {}
+    if (fireflyEl.parentNode) fireflyEl.parentNode.removeChild(fireflyEl);
+
+    const dur = 1600; // smooth + readable
+    const startT = performance.now();
+    const sx = startX, sy = startY;
+    const dx = endX - startX;
+    const dy = endY - startY;
+
+    const ease = (t) => t * t * (3 - 2 * t); // smoothstep
+
+    const step = (now) => {
+        const t = Math.min(1, (now - startT) / dur);
+        const tt = ease(t);
+
+        // gentle arc upward
+        const arc = Math.sin(Math.PI * tt) * -45;
+        const x = sx + dx * tt;
+        const y = sy + dy * tt + arc;
+
+        // fade/shrink near end
+        const fade = (t < 0.75) ? 1 : (1 - (t - 0.75) / 0.25);
+        const scale = 1 - 0.35 * tt;
+
+        flight.style.transform = `translate(-50%, -50%) translate3d(${x - sx}px, ${y - sy}px, 0) scale(${scale})`;
+        flight.style.opacity = String(Math.max(0, fade));
+
+        if (t < 1) {
+            requestAnimationFrame(step);
+        } else {
+            // hit!
+            _applyMoonHitGlow(colorCss);
+            _updateMoonStreak(String(familyIndex), colorCss);
+
+            if (flight.parentNode) flight.parentNode.removeChild(flight);
+
+            // unlock after a beat
+            setTimeout(() => {
+                gardenState.moonFlightActive = false;
+            }, 260);
+        }
+    };
+
+    requestAnimationFrame(step);
+    return true;
+}
+
+
 function playFireflyChord(familyIndex) {
     initGardenAudio();
     if (!gardenState.audioContext) return;
@@ -1131,6 +1440,88 @@ function playFenceCreak() {
 // ============================================
 
 /**
+ * Plant breaths: occasional soft resonances instead of constant drones.
+ * This prevents a single monotonous background tone while keeping the "alive" feeling.
+ */
+function startPlantBreaths() {
+    if (gardenState.plantBreathTimer) return;
+    scheduleNextPlantBreath(true);
+}
+
+function stopPlantBreaths() {
+    if (gardenState.plantBreathTimer) {
+        clearTimeout(gardenState.plantBreathTimer);
+        gardenState.plantBreathTimer = null;
+    }
+}
+
+function scheduleNextPlantBreath(isFirst = false) {
+    stopPlantBreaths();
+    if (!gardenState.isOpen) return;
+
+    // First breath comes a bit later; afterwards it becomes irregular.
+    const delay = isFirst
+        ? (9000 + Math.random() * 7000)
+        : (12000 + Math.random() * 20000);
+
+    gardenState.plantBreathTimer = setTimeout(() => {
+        if (!gardenState.isOpen) return;
+        playPlantBreath();
+        scheduleNextPlantBreath(false);
+    }, delay);
+}
+
+function playPlantBreath() {
+    initGardenAudio();
+    if (!gardenState.audioContext) return;
+
+    const ctx = gardenState.audioContext;
+    const now = ctx.currentTime;
+
+    const history = (typeof state !== 'undefined' && state.history) ? state.history : [];
+    if (!history || history.length === 0) return;
+
+    // Pick a plant and derive harmonics from its hue.
+    const plant = history[Math.floor(Math.random() * Math.min(history.length, 12))];
+    const hue = plant?.dna?.flowerH ?? plant?.dna?.colorH ?? 0;
+    const harmonics = getHarmonicsForHue(hue);
+    const base = harmonics[Math.floor(Math.random() * harmonics.length)];
+
+    // Add a gentle octave choice to avoid repetition.
+    const octave = Math.random() < 0.25 ? 0.5 : (Math.random() < 0.35 ? 2 : 1);
+    const freq = base * octave;
+
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, now);
+
+    // Very subtle movement (not a constant LFO drone).
+    const det = (Math.random() * 6) - 3;
+    osc.detune.setValueAtTime(det, now);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(900 + Math.random() * 900, now);
+    filter.Q.setValueAtTime(0.7, now);
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, now);
+
+    // Slow inhale/exhale envelope.
+    const peak = 0.035;
+    gain.gain.linearRampToValueAtTime(peak, now + 1.6);
+    gain.gain.linearRampToValueAtTime(peak * 0.6, now + 3.2);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 7.0);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(gardenState.plantGain || gardenState.gainNode);
+
+    osc.start(now);
+    osc.stop(now + 7.2);
+}
+
+/**
  * Start plant harmonic drones based on ancestors
  */
 function startPlantHarmonics() {
@@ -1344,8 +1735,8 @@ function startAmbientSoundscape() {
     // Layer A: Spatial Ambience
     startSpatialAmbience();
     
-    // Layer C: Plant Harmonics
-    startPlantHarmonics();
+	// Layer C: Plant "breaths" (no constant drones)
+	startPlantBreaths();
     
     // Start mood cycling
     startMoodCycling();
@@ -1367,7 +1758,8 @@ function stopAmbientSoundscape() {
     
     // Stop all layers
     stopSpatialAmbience();
-    stopPlantHarmonics();
+	stopPlantBreaths();
+	stopPlantHarmonics(); // legacy safety: ensure any old drones are stopped
     stopMoodCycling();
     stopWindSystem();
     
