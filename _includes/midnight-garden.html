@@ -1,8 +1,10 @@
-<!-- Midnight Garden Entry Arrow -->
+<!-- Midnight Garden Entry Arrow - Now with tooltip on first view -->
 <button class="midnight-garden-entry" id="midnightGardenEntry" onclick="enterMidnightGarden()" aria-label="Enter Midnight Garden">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M5 12h14M12 5l7 7-7 7"/>
     </svg>
+    <!-- Tooltip label that shows initially -->
+    <span class="entry-label" id="gardenEntryLabel">Garden</span>
 </button>
 
 <!-- Transition Overlay -->
@@ -20,7 +22,10 @@
     <!-- Garden Sky -->
     <div class="garden-sky" id="gardenSky">
         <div class="garden-stars" id="gardenStars"></div>
-        <div class="garden-moon" id="gardenMoon" onclick="triggerWindGust()"></div>
+        <div class="garden-moon" id="gardenMoon" onclick="triggerWindGust()" title="Tap for wind">
+            <!-- Moon hint on first visit -->
+            <span class="moon-hint" id="moonHint">tap</span>
+        </div>
     </div>
 
     <!-- Ambient Fireflies Container -->
@@ -51,16 +56,21 @@
         <div class="garden-plants-scroll" id="gardenPlantsScroll"></div>
     </div>
 
-    <!-- Garden Info -->
+    <!-- Garden Info - Now visible -->
     <div class="garden-info" id="gardenInfo">
         <div class="garden-title">Midnight Garden</div>
         <div class="garden-subtitle" id="gardenSubtitle">0 ancestors resting</div>
     </div>
 
-    <!-- Soundscape Indicator -->
-    <div class="soundscape-indicator" id="soundscapeIndicator">
+    <!-- Soundscape Indicator with tooltip -->
+    <div class="soundscape-indicator" id="soundscapeIndicator" title="Audio active">
         <div class="soundscape-waves">
             <span></span><span></span><span></span><span></span><span></span>
         </div>
+    </div>
+    
+    <!-- Firefly hint for garden -->
+    <div class="garden-firefly-hint" id="gardenFireflyHint">
+        <span>Tap fireflies to hear their sounds</span>
     </div>
 </div>
