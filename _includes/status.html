@@ -5,7 +5,7 @@
     <div class="toast-body" id="toastBody"></div>
 </div>
 
-<!-- Status Panel - Improved with trend indicators -->
+<!-- Status Panel - Compact version -->
 <div class="status-panel" id="statusArea">
     <div class="panel-header">
         <div class="gen-badge" id="genBadge" onclick="handleDebugTap()" title="Generation">GEN 1</div>
@@ -14,7 +14,14 @@
     
     <div class="plant-info">
         <div class="plant-name" id="plantNameDisplay">Sprout</div>
-        <div class="plant-mood" id="plantMoodDisplay">awakening...</div>
+        <div class="plant-mood-row">
+            <span class="plant-mood" id="plantMoodDisplay">awakening...</span>
+            <!-- Urgency Warning - Compact inline indicator -->
+            <span class="urgency-warning" id="urgencyWarning">
+                <span class="urgency-icon">⚠️</span>
+                <span class="urgency-text" id="urgencyText">Needs care</span>
+            </span>
+        </div>
     </div>
     
     <!-- Growth Progress with Stage Label -->
@@ -26,12 +33,6 @@
         <div class="evolution-bar-track">
             <div class="evolution-bar" id="evolutionBar"></div>
         </div>
-    </div>
-    
-    <!-- Urgency Warning - NEW (pulses when plant in crisis) -->
-    <div class="urgency-warning" id="urgencyWarning">
-        <span class="urgency-icon">⚠️</span>
-        <span class="urgency-text" id="urgencyText">Needs attention!</span>
     </div>
 </div>
 
