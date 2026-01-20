@@ -22,11 +22,23 @@
     <!-- Garden Sky -->
     <div class="garden-sky" id="gardenSky">
         <div class="garden-stars" id="gardenStars"></div>
+        <!-- Soft, slow-moving aurora ribbons (pure CSS) -->
+        <div class="garden-aurora" aria-hidden="true"></div>
         <div class="garden-moon" id="gardenMoon" onclick="triggerWindGust()" title="Tap for wind">
             <!-- Moon hint on first visit -->
             <span class="moon-hint" id="moonHint">tap</span>
         </div>
     </div>
+
+    <!-- Low fog and drifting motes sit between sky and forest -->
+    <div class="garden-fog" aria-hidden="true">
+        <div class="fog-layer fog-1"></div>
+        <div class="fog-layer fog-2"></div>
+        <div class="fog-layer fog-3"></div>
+    </div>
+
+    <!-- Floating motes / dust (visual only) -->
+    <div class="garden-motes" id="gardenMotes" aria-hidden="true"></div>
 
     <!-- Ambient Fireflies Container -->
     <div class="garden-fireflies" id="gardenFireflies"></div>
@@ -56,21 +68,19 @@
         <div class="garden-plants-scroll" id="gardenPlantsScroll"></div>
     </div>
 
-    <!-- Garden Info - Now visible -->
-    <div class="garden-info" id="gardenInfo">
-        <div class="garden-title">Midnight Garden</div>
-        <div class="garden-subtitle" id="gardenSubtitle">0 ancestors resting</div>
-    </div>
-
-    <!-- Soundscape Indicator with tooltip -->
+    <!-- Soundscape Indicator (subtle volume hint) -->
     <div class="soundscape-indicator" id="soundscapeIndicator" title="Audio active">
-        <div class="soundscape-waves">
-            <span></span><span></span><span></span><span></span><span></span>
+        <div class="soundscape-bar" aria-hidden="true">
+            <div class="soundscape-bar-fill"></div>
         </div>
+        <div class="soundscape-caption" aria-hidden="true">turn up the volume</div>
     </div>
     
     <!-- Firefly hint for garden -->
     <div class="garden-firefly-hint" id="gardenFireflyHint">
         <span>Tap fireflies to hear their sounds</span>
     </div>
+
+    <!-- Subtle vignette to frame the scene -->
+    <div class="garden-vignette" aria-hidden="true"></div>
 </div>
