@@ -315,6 +315,9 @@ const HINTS = {
     },
     plant_struggling: {
         content: '⚠️ Your plant is struggling! Check its vitality rings by holding the pot.'
+    },
+    ascension_ready: {
+        content: '🌸 Your plant is ready to ascend! Open the menu to harvest and begin a new cycle.'
     }
 };
 
@@ -367,7 +370,7 @@ function renderFireflyLogImproved() {
             <div class="family-orb" style="background:${col}"></div>
             <div class="family-name">${f.name}</div>
             <div class="family-count">${cnt}</div>
-            <div class="family-power">${hasGuardian ? '👑' : f.power}</div>
+            <div class="family-power">${hasGuardian ? '👑 ' + f.power : f.power}</div>
             <div class="family-mini-progress" style="width:${progress}%;background:${col}"></div>
         `;
         
@@ -487,6 +490,8 @@ function enhancedRender() {
     
     updateUrgencyIndicators();
     updateGenBadgeText();
+    updateAscensionGlow();
+    updateBuffVisuals();
     
     // Update mood with diagnostic version
     const plantMoodDisplay = document.getElementById('plantMoodDisplay');
@@ -501,6 +506,57 @@ function enhancedRender() {
     const stageLabel = document.getElementById('stageLabel');
     if (stageLabel && typeof STAGES !== 'undefined' && typeof state !== 'undefined') {
         stageLabel.textContent = STAGES[state.stage - 1] || 'Seed';
+    }
+}
+
+// ============================================
+// ASCENSION GLOW & HINT
+// ============================================
+
+function updateAscensionGlow() {
+    const plantHero = document.getElementById('plantHero');
+    if (!plantHero || typeof state === 'undefined') return;
+    
+    const isReady = state.stage >= 5 && !state.isDead;
+    plantHero.classList.toggle('ascension-ready', isReady);
+    
+    // Show hint if ready and not shown before
+    if (isReady && (!state.hintsShown || !state.hintsShown.includes('ascension_ready'))) {
+        showHint('ascension_ready');
+    }
+}
+
+// ============================================
+// BUFF VISUAL FEEDBACK
+// ============================================
+
+function updateBuffVisuals() {
+    const plantHero = document.getElementById('plantHero');
+    if (!plantHero || typeof state === 'undefined') return;
+    
+    // Check for active buffs with color
+    const activeBuff = state.buffs && state.buffs.find(b => b.remaining > 0);
+    
+    if (activeBuff) {
+        plantHero.classList.add('buff-active');
+        // Use stored color from buff if available, otherwise use type-based color
+        if (activeBuff.color) {
+            plantHero.style.setProperty('--buff-color', activeBuff.color.replace(')', ', 0.35)').replace('hsl(', 'hsla('));
+        } else {
+            plantHero.classList.add('buff-' + activeBuff.type);
+        }
+    } else if (state.activeGuardians && state.activeGuardians.length > 0 && typeof FIREFLY_FAMILIES !== 'undefined') {
+        // Guardian is active
+        plantHero.classList.add('buff-active');
+        const firstGuardian = FIREFLY_FAMILIES[state.activeGuardians[0]];
+        if (firstGuardian) {
+            const col = typeof getFireflyColor === 'function' ? getFireflyColor(state.activeGuardians[0]) : `hsl(${firstGuardian.hue}, 70%, 60%)`;
+            plantHero.style.setProperty('--buff-color', col.replace(')', ', 0.35)').replace('hsl(', 'hsla('));
+        }
+    } else {
+        // No active buffs or guardians
+        plantHero.classList.remove('buff-active', 'buff-water', 'buff-sun', 'buff-love', 'buff-growth', 'buff-health', 'buff-slow', 'buff-luck', 'buff-random');
+        plantHero.style.removeProperty('--buff-color');
     }
 }
 
