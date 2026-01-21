@@ -165,6 +165,9 @@ function enterMidnightGarden() {
         
         // Render the garden plants
         renderGardenPlants();
+
+        // Sync Essence jar UI
+        if (typeof updateEssenceJarUI === 'function') updateEssenceJarUI();
         
         // Start ambient fireflies
         startGardenFireflies();
@@ -625,6 +628,7 @@ function spawnGardenFirefly(familyIndex, container) {
 
         // play audio + mark activity
         playFireflyChord(familyIndex);
+        if (typeof unlockDiscovery === 'function') unlockDiscovery('garden_chord');
         if (typeof markGardenActivity === 'function') markGardenActivity();
 
         // fly the actual tapped firefly to the moon (then it is removed)
@@ -985,6 +989,9 @@ function _updateMoonStreak(key, colorCss) {
         gardenState.moonStreakCount = 0;
         gardenState.moonStreakKey = null;
         _applyMoonFullTint(colorCss, 7000);
+        // Essence: a small harvest whenever the moon fully tints.
+        addEssence(100, colorCss);
+        startEssenceRain(colorCss);
     }
 }
 
@@ -1923,3 +1930,124 @@ window.exitMidnightGarden = exitMidnightGarden;
 window.triggerWindGust = triggerWindGust;
 window.setGardenMood = setGardenMood;
 window.gardenState = gardenState;
+
+
+// ============================================
+// ESSENCE (Midnight Garden currency)
+// ============================================
+
+const ESSENCE_MAX = 10000;
+const ESSENCE_GAIN_PER_MOON = 100;
+const ESSENCE_SCAR_COST = 1000;
+
+function getEssence() {
+    if (typeof state === 'undefined') return 0;
+    if (typeof state.essence !== 'number') state.essence = 0;
+    return state.essence;
+}
+
+function updateEssenceJarUI() {
+    const amtEl = document.getElementById('essenceAmt');
+    const fillEl = document.getElementById('essenceJarFill');
+    const jar = document.getElementById('essenceJar');
+    if (!amtEl || !fillEl || !jar) return;
+
+    const v = Math.max(0, Math.min(ESSENCE_MAX, getEssence()));
+    amtEl.textContent = String(Math.floor(v));
+    const pct = (v / ESSENCE_MAX) * 100;
+    fillEl.style.height = pct + '%';
+
+    // Subtle disable when empty
+    jar.style.opacity = v > 0 ? '1' : '0.85';
+}
+
+function addEssence(amount, colorCss) {
+    if (typeof state === 'undefined') return;
+    if (typeof state.essence !== 'number') state.essence = 0;
+
+    const before = state.essence;
+    const next = Math.max(0, Math.min(ESSENCE_MAX, before + (amount || 0)));
+    state.essence = next;
+
+    updateEssenceJarUI();
+
+    const jar = document.getElementById('essenceJar');
+    if (jar) {
+        jar.classList.remove('pulse');
+        // force reflow
+        void jar.offsetHeight;
+        jar.classList.add('pulse');
+    }
+
+    // A small whisper when you actually gain something (avoid spam when capped)
+    if (next > before && typeof spawnFloatingText === 'function') {
+        spawnFloatingText(`+${next - before} Essence`, colorCss || 'rgba(254,249,195,0.9)', 'good');
+    }
+
+    if (typeof saveState === 'function') saveState();
+}
+
+function startEssenceRain(colorCss) {
+    const overlay = document.getElementById('midnightGardenOverlay');
+    if (!overlay) return;
+
+    // Drop a short burst of colored "essence" dust
+    const bursts = 26;
+    for (let i = 0; i < bursts; i++) {
+        const drop = document.createElement('div');
+        drop.className = 'essence-drop';
+        drop.style.setProperty('--drop-color', colorCss || 'rgba(254,249,195,0.85)');
+        drop.style.left = (55 + Math.random() * 40) + '%';
+        drop.style.top = (20 + Math.random() * 10) + '%';
+        drop.style.setProperty('--fall', (1.3 + Math.random() * 1.2) + 's');
+        drop.style.filter = `hue-rotate(${(Math.random() * 14 - 7).toFixed(1)}deg)`;
+        overlay.appendChild(drop);
+
+        setTimeout(() => { drop.remove(); }, 2500);
+    }
+}
+
+function spendEssence() {
+    // Only meaningful in the garden
+    if (!gardenState || !gardenState.isOpen) return;
+
+    const have = getEssence();
+    if (have < ESSENCE_SCAR_COST) {
+        if (typeof spawnFloatingText === 'function') spawnFloatingText(`Need ${ESSENCE_SCAR_COST} Essence`, null, 'warn');
+        return;
+    }
+
+    state.essence = have - ESSENCE_SCAR_COST;
+
+    const hasScars = Array.isArray(state.scars) && state.scars.length > 0;
+
+    if (hasScars) {
+        const success = Math.random() < 0.5;
+        if (success) {
+            const idx = Math.floor(Math.random() * state.scars.length);
+            const removed = state.scars.splice(idx, 1)[0];
+
+            if (typeof spawnFloatingText === 'function') spawnFloatingText('🫙 Scar lifted.', 'rgba(254,249,195,0.95)', 'good');
+
+            // Re-render plant visuals if available
+            if (typeof renderPlant === 'function') {
+                try { renderPlant('plantGroup', state.dna, state.stage); } catch(e) {}
+            }
+            if (typeof updateMenuStats === 'function') updateMenuStats();
+            if (typeof updateUI === 'function') updateUI();
+        } else {
+            if (typeof spawnFloatingText === 'function') spawnFloatingText('🫙 The scar holds.', 'rgba(254,249,195,0.75)', 'warn');
+        }
+    } else {
+        // No scars: convert Essence into growth, using the same math as singing.
+        let needed = (typeof STAGE_THRESHOLDS !== 'undefined') ? (STAGE_THRESHOLDS[state.stage] || 1000) : 1000;
+        if (typeof STAGE_THRESHOLDS !== 'undefined' && state.stage < 4) needed = STAGE_THRESHOLDS[state.stage + 1] - STAGE_THRESHOLDS[state.stage];
+        const boost = needed * 0.1;
+        state.growth += boost;
+        if (typeof spawnFloatingText === 'function') spawnFloatingText(`+${Math.floor(boost)} Growth`, '#4ade80', 'good');
+        if (typeof updateUI === 'function') updateUI();
+    }
+
+    updateEssenceJarUI();
+    if (typeof saveState === 'function') saveState();
+}

@@ -789,3 +789,17 @@ body.time-afternoon .sun-rays-container.active .sun-ray {
         transparent 100%
     );
 }
+
+
+/* --- Compositing stability (reduce flicker) --- */
+.environment-scene,.environment-scene *,.sky-layer,.stars-container,.moon,#moonElement,.moonlight-beam,#nightFog,#nightMotes,#rainClouds{
+  transform:translateZ(0);
+  backface-visibility:hidden;
+}
+.environment-scene,.sky-layer{
+  contain:layout paint;
+  isolation:isolate;
+}
+.cloud-layer,.cloud-wispy,.cloud-fluffy,.cloud-haze,.rain-clouds,.night-fog,.night-motes{
+  will-change:transform,opacity;
+}

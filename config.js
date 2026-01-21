@@ -26,7 +26,8 @@ const FIREFLY_FAMILIES = [
     { name: 'Pearl', hue: 0, sat: 15, power: 'mystery', desc: 'Random powerful effects', effect: 'random' }
 ];
 
-const GUARDIAN_THRESHOLD = 10;
+const GUARDIAN_THRESHOLD = 50;
+const GUARDIAN_INVOKE_COST = 25;
 const SEASONS = [
     { name: 'Spring', icon: '🌸', growth: 1.1 },
     { name: 'Summer', icon: '☀️', growth: 1.2 },

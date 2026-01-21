@@ -58,11 +58,32 @@ function ensureStateDefaults() {
     if (!Array.isArray(state.noticeLog)) state.noticeLog = [];
     if (typeof state.nameSuggestion !== 'string') state.nameSuggestion = '';
     if (typeof state.lastWhisperText !== 'string') state.lastWhisperText = '';
+
+    // Back-compat: older saves won't have the one-time Essence gift flag on ancestors.
+    if (Array.isArray(state.history)) {
+        for (const h of state.history) {
+            if (h && typeof h === 'object' && typeof h.essenceFirstTapClaimed !== 'boolean') {
+                h.essenceFirstTapClaimed = false;
+            }
+        }
+    }
 }
 function loadState() { try { const s = localStorage.getItem('pocketSprout'); if (s) state = { ...state, ...JSON.parse(s) }; ensureStateDefaults(); } catch (e) { } }
 
 function resetGame(preserveHistory = true) {
-    if (preserveHistory && state.name !== 'Sprout' && !state.isDead) state.history.push({ name: state.name, gen: state.generation, days: state.day, dna: { ...state.dna }, stage: state.stage, scars: [...state.scars], potColor: state.potColor, potPattern: state.potPattern });
+    if (preserveHistory && state.name !== 'Sprout' && !state.isDead) {
+        state.history.push({
+            name: state.name,
+            gen: state.generation,
+            days: state.day,
+            dna: { ...state.dna },
+            stage: state.stage,
+            scars: [...state.scars],
+            potColor: state.potColor,
+            potPattern: state.potPattern,
+            essenceFirstTapClaimed: false
+        });
+    }
     const hist = preserveHistory ? state.history : [], tf = preserveHistory ? state.totalFireflies : 0, ff = preserveHistory ? state.fireflies : {}, it = preserveHistory ? state.inheritedTraits : [], gen = preserveHistory ? state.generation + 1 : 1;
     state = {
         water: 50, sun: 50, love: 50, growth: 0, stage: 1, isSunLampOn: false, isRainOn: false, day: 1, dayProgress: 0, generation: gen, name: "Sprout", nameSuggestion: '', season: state.season || 0, dna: generateDNA(), potColor: POT_COLORS[0], potPattern: 'patNone', potPatternColor: 'rgba(255,255,255,0.5)', timeAtZero: 0, isDead: false, history: hist, lastSave: Date.now(), growthMultiplier: 1, singCooldownUntil: 0, fertilizeCooldownUntil: 0, fireflies: ff, totalFireflies: tf, activeGuardians: [], buffs: [], scars: [], crisisCount: 0, inheritedTraits: it, lastDream: null, isMusicPlaying: false, neglect: { waterLowMs: 0, sunLowMs: 0, loveLowMs: 0, crisisMs: 0, partialDormant: false }, lastWhisperAt: 0, noticeLog: preserveHistory ? state.noticeLog : [], lastWhisperText: ''

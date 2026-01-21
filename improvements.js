@@ -34,16 +34,22 @@ const DISCOVERIES = [
     { id: 'first_sun', name: 'Let There Be Light', desc: 'Gave your plant sunlight', icon: '☀️' },
     { id: 'first_love', name: 'Tender Touch', desc: 'Showed affection to your plant', icon: '❤️' },
     { id: 'first_firefly', name: 'Firefly Catcher', desc: 'Collected your first firefly', icon: '🦋' },
-    { id: 'first_guardian', name: 'Guardian Summoned', desc: 'Unlocked a Guardian (10 of one family)', icon: '👑' },
+    { id: 'first_guardian', name: 'Guardian Summoned', desc: 'Unlocked a Guardian (50 of one family)', icon: '👑' },
     { id: 'first_ascension', name: 'Circle of Life', desc: 'Ascended your first plant', icon: '🌸' },
     { id: 'visited_garden', name: 'Midnight Wanderer', desc: 'Visited the Midnight Garden', icon: '🌙' },
+    { id: 'garden_chord', name: 'Moon Chord', desc: 'Played a chord in the Midnight Garden', icon: '🎹' },
+    { id: 'made_rainbow', name: 'Prismatic', desc: 'Created a rainbow (sun + rain)', icon: '🌈' },
+    { id: 'named_plant', name: 'True Name', desc: 'Gave your plant a real name', icon: '🏷️' },
     { id: 'survived_winter', name: 'Winter Survivor', desc: 'Kept a plant alive through winter', icon: '❄️' },
+    { id: 'reached_bloom', name: 'Blooming', desc: 'Reached the Bloom growth stage', icon: '🌼' },
     { id: 'full_bloom', name: 'Full Flourish', desc: 'Reached the Flourish growth stage', icon: '🌺' },
     { id: 'five_generations', name: 'Dynasty', desc: 'Reached generation 5', icon: '🧬' },
     { id: 'pot_customized', name: 'Personal Touch', desc: 'Customized your pot design', icon: '🎨' },
+    { id: 'first_fertilize', name: 'Nourished', desc: 'Used fertilizer', icon: '🧪' },
     { id: 'all_families', name: 'Firefly Collector', desc: 'Collected at least one of each firefly family', icon: '✨' },
     { id: 'sang_to_plant', name: 'Plant Whisperer', desc: 'Sang to your plant', icon: '🎵' },
-    { id: 'invoke_power', name: 'Essence Caller', desc: 'Invoked a firefly\'s power', icon: '⚡' }
+    { id: 'invoke_power', name: 'Essence Caller', desc: 'Used Essence in the Midnight Garden', icon: '⚡' },
+    { id: 'scar_healed', name: 'Unburdened', desc: 'Lifted a scar using Essence', icon: '🫙' }
 ];
 
 function unlockDiscovery(discoveryId) {
@@ -358,13 +364,14 @@ function renderFireflyLogImproved() {
     FIREFLY_FAMILIES.forEach((f, i) => {
         const cnt = state.fireflies[i] || 0;
         const col = typeof getFireflyColor === 'function' ? getFireflyColor(i) : `hsl(${f.hue}, 70%, 60%)`;
-        const hasGuardian = cnt >= (typeof GUARDIAN_THRESHOLD !== 'undefined' ? GUARDIAN_THRESHOLD : 10);
+        const threshold = (typeof GUARDIAN_THRESHOLD !== 'undefined') ? GUARDIAN_THRESHOLD : 50;
+        const hasGuardian = cnt >= threshold;
         
         const card = document.createElement('div');
         card.className = 'family-card' + (selectedFamily === i ? ' selected' : '');
         card.style.setProperty('--family-color', col);
         
-        const progress = Math.min(100, (cnt / 10) * 100);
+        const progress = Math.min(100, (cnt / threshold) * 100);
         
         card.innerHTML = `
             <div class="family-orb" style="background:${col}"></div>
@@ -398,7 +405,7 @@ function renderFamilyDetail() {
     const f = FIREFLY_FAMILIES[selectedFamily];
     const cnt = state.fireflies[selectedFamily] || 0;
     const col = typeof getFireflyColor === 'function' ? getFireflyColor(selectedFamily) : `hsl(${f.hue}, 70%, 60%)`;
-    const threshold = typeof GUARDIAN_THRESHOLD !== 'undefined' ? GUARDIAN_THRESHOLD : 10;
+    const threshold = typeof GUARDIAN_THRESHOLD !== 'undefined' ? GUARDIAN_THRESHOLD : 50;
     
     det.style.setProperty('--family-color', col);
     
@@ -422,7 +429,7 @@ function renderFamilyDetail() {
         barFill.style.width = progress + '%';
         
         if (cnt >= threshold) {
-            barLabel.textContent = '👑 Guardian Unlocked!';
+            barLabel.textContent = '👑 Guardian is present (Invoking costs 25)';
         } else {
             barLabel.textContent = `${cnt}/${threshold} to Guardian`;
         }

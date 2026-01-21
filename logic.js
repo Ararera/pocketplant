@@ -84,6 +84,12 @@ function simulateStep(dtSeconds, mode = 'online') {
         if (next > state.stage) {
             state.stage = next;
             changes.evolved = true;
+            try {
+                if (typeof unlockDiscovery === 'function') {
+                    if (state.stage >= 5) unlockDiscovery('reached_bloom');
+                    if (state.stage >= 6) unlockDiscovery('full_bloom');
+                }
+            } catch (_) {}
             if (!isOffline && els.plantHero) {
                 els.plantHero.classList.add('evolving');
                 setTimeout(() => els.plantHero.classList.remove('evolving'), 2000);
@@ -162,48 +168,174 @@ function checkCrisisAndDeath(offline = false) {
 }
 
 function generateDNA(parent = null) {
-    const wild = Math.random() > 0.75, baseH = wild ? Math.random() * 360 : 80 + Math.random() * 80;
+    // Keep the overall "plant identity" cohesive, but allow meaningful variety.
+    const wild = Math.random() > 0.75;
+    const baseH = wild ? Math.random() * 360 : 80 + Math.random() * 80; // mostly green family
+    const lerpHue = (a, b, t) => {
+        // shortest-path hue interpolation
+        const d = ((((b - a) % 360) + 540) % 360) - 180;
+        return (a + d * t + 360) % 360;
+    };
+    const randChoice = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const pickHueAvoid = (avoidMin, avoidMax) => {
+        // Returns hue in [0,360) that avoids [avoidMin, avoidMax] inclusive.
+        // If avoid wraps (shouldn't here), handle anyway.
+        let h = Math.random() * 360;
+        for (let i = 0; i < 12; i++) {
+            const inBand = avoidMin <= avoidMax ? (h >= avoidMin && h <= avoidMax) : (h >= avoidMin || h <= avoidMax);
+            if (!inBand) return h;
+            h = Math.random() * 360;
+        }
+        // worst case fallback: hop outside the band deterministically
+        const span = (avoidMax - avoidMin + 360) % 360;
+        return (avoidMax + 10 + Math.random() * (360 - span - 20)) % 360;
+    };
+
+    // --- Core palette (stem + leaves) ---
+    const coreH = parent ? lerpHue(parent.colorH, baseH, 0.30) : baseH;
+    const coreS = clamp((parent ? lerp(parent.colorS, 50 + Math.random() * 35, 0.25) : (45 + Math.random() * 35)), 25, 85);
+    const coreL = clamp((parent ? lerp(parent.colorL, 30 + Math.random() * 25, 0.25) : (35 + Math.random() * 20)), 18, 70);
+
+    // --- Flower palette: explicitly avoid green hues (real flowers are rarely truly green) ---
+    // Avoid a broad "green" band so we don't get chartreuse / lime flowers.
+    const flowerH0 = pickHueAvoid(75, 165);
+    const flowerH = parent ? lerpHue(parent.flowerH ?? flowerH0, flowerH0, 0.55) : flowerH0;
+
+    // --- Shapes & textures ---
+    const LEAF_SHAPES = [
+        'round', 'oval', 'lanceolate', 'pointed', 'teardrop',
+        'heart', 'spade', 'oak', 'lobed', 'maple',
+        'fern', 'needle', 'eucalyptus', 'banana'
+    ];
+    const LEAF_EDGES = ['smooth', 'serrated', 'lobed'];
+    const LEAF_TEXTURES = ['plain', 'veined', 'speckled', 'variegated'];
+
+    // Keep stems believable: mostly smooth/ridged/speckled with occasional nodes/thorns.
+    const STEM_TEXTURES = ['smooth', 'ridged', 'speckled', 'striped'];
+    const STEM_SURFACES = ['none', 'nodes', 'thorns', 'hairs'];
+
+    // Flower archetypes that still read as "real"
+    const FLOWER_TYPES = [
+        { id: 'simple', w: 42 },
+        { id: 'daisy',  w: 22 },
+        { id: 'tulip',  w: 14 },
+        { id: 'bell',   w: 12 },
+        { id: 'rose',   w: 8  },
+        { id: 'orchid', w: 2  } // rare
+    ];
+    const pickWeighted = (items) => {
+        const total = items.reduce((s, x) => s + x.w, 0);
+        let r = Math.random() * total;
+        for (const it of items) { r -= it.w; if (r <= 0) return it.id; }
+        return items[0].id;
+    };
+
+    const flowerType = pickWeighted(FLOWER_TYPES);
+
+    // Petal counts constrained per archetype (keeps it from looking alien)
+    const petalCountByType = (t) => {
+        if (t === 'tulip') return 6;
+        if (t === 'bell') return 5;
+        if (t === 'orchid') return 5; // 3 sepals + 2 petals vibe (stylized)
+        if (t === 'rose') return 10 + Math.floor(Math.random() * 10); // layered
+        if (t === 'daisy') return 12 + Math.floor(Math.random() * 14); // ray petals
+        // simple
+        return 4 + Math.floor(Math.random() * 5);
+    };
+
+    const petalCount0 = petalCountByType(flowerType);
+
+    // Petal shapes limited to a few families; the archetype provides the main silhouette.
+    const petalShape0 = randChoice(['round', 'pointed', 'wavy']);
+
     const dna = {
-        colorH: parent ? lerp(parent.colorH, baseH, 0.3) : baseH,
-        colorS: 45 + Math.random() * 35, colorL: 35 + Math.random() * 20,
-        flowerH: Math.random() * 360, flowerS: 60 + Math.random() * 30, flowerL: 55 + Math.random() * 20,
-        stemCurve: parent ? parent.stemCurve * 0.3 + (Math.random() - 0.5) * 40 : (Math.random() - 0.5) * 30,
-        stemHeight: 70 + Math.random() * 30,
-        leafCount: Math.floor(3 + Math.random() * 3), leafNodes: Math.floor(3 + Math.random() * 3),
-        leafSize: 0.8 + Math.random() * 0.4, leafScale: 0.9 + Math.random() * 0.3,
-        leafAngle: 35 + Math.random() * 30,
-        leafShape: ['round', 'pointed', 'heart', 'oak', 'teardrop', 'fern', 'maple', 'needle'][Math.floor(Math.random() * 8)],
+        // Core (stem/leaf) color family
+        colorH: coreH,
+        colorS: coreS,
+        colorL: coreL,
+
+        // Flower color family (non-green)
+        flowerH: flowerH,
+        flowerS: clamp(60 + Math.random() * 30, 35, 95),
+        flowerL: clamp(50 + Math.random() * 25, 30, 85),
+
+        // Stem geometry
+        stemCurve: parent ? parent.stemCurve * 0.3 + (Math.random() - 0.5) * 50 : (Math.random() - 0.5) * 35,
+        stemHeight: clamp((parent ? lerp(parent.stemHeight, 72 + Math.random() * 38, 0.35) : (70 + Math.random() * 35)), 55, 120),
+        stemWidth: clamp((parent ? lerp(parent.stemWidth ?? 3.5, 3.0 + Math.random() * 2.6, 0.35) : (3.0 + Math.random() * 2.6)), 2.6, 6.2),
+        stemHueOffset: (Math.random() * 14 - 7), // subtle, keeps plant cohesive
+        stemTexture: randChoice(STEM_TEXTURES),
+        stemSurface: (Math.random() < 0.25 ? randChoice(STEM_SURFACES) : 'none'),
+        stemStripeStrength: Math.random() < 0.25 ? (0.15 + Math.random() * 0.25) : 0,
+        stemSpeckleStrength: Math.random() < 0.25 ? (0.10 + Math.random() * 0.25) : 0,
+
+        // Leaves
+        leafCount: Math.floor(3 + Math.random() * 4),
+        leafNodes: Math.floor(3 + Math.random() * 4),
+        leafSize: 0.75 + Math.random() * 0.55,
+        leafScale: 0.85 + Math.random() * 0.35,
+        leafAngle: 30 + Math.random() * 40,
+        leafShape: randChoice(LEAF_SHAPES),
+        leafEdge: randChoice(LEAF_EDGES),
+        leafTexture: randChoice(LEAF_TEXTURES),
+        leafHueOffset: (Math.random() * 18 - 9),
+        leafSatOffset: (Math.random() * 14 - 7),
+        leafLightOffset: (Math.random() * 14 - 7),
+        leafVeinStrength: 0.15 + Math.random() * 0.25,
+        leafVariegation: Math.random() < 0.22 ? (0.12 + Math.random() * 0.22) : 0,
+        leafSpeckleStrength: Math.random() < 0.20 ? (0.10 + Math.random() * 0.25) : 0,
+
+        // Structure
         leanDirection: Math.random() > 0.5 ? 1 : -1,
-        branchSpread: 20 + Math.random() * 15,
-        flowerCount: Math.floor(1 + Math.random() * 3), petalCount: Math.floor(4 + Math.random() * 5),
-        petalShape: ['round', 'pointed', 'wavy'][Math.floor(Math.random() * 3)],
+        branchSpread: 18 + Math.random() * 18,
+
+        // Flowers
+        flowerType: flowerType,
+        flowerCount: Math.floor(1 + Math.random() * 3),
+        petalCount: petalCount0,
+        petalShape: petalShape0,
+        flowerCenterHueOffset: (Math.random() * 60 - 30),
+        flowerCenterLight: 50 + Math.random() * 20,
+
+        // Gameplay traits
         resilience: parent?.resilience || (0.8 + Math.random() * 0.4),
         bloomSpeed: parent?.bloomSpeed || (0.9 + Math.random() * 0.2),
         fireflyChance: parent?.fireflyChance || 0.05
     };
+
     dna.seed = parent && parent.seed ? (parent.seed + Math.floor(Math.random() * 99991)) : Math.floor(Math.random() * 1e9);
-    
-    const _leafShapePool = ['round', 'pointed', 'heart', 'oak', 'teardrop', 'fern', 'maple', 'needle'];
-    if (Math.random() < 0.35) {
-        const n = 2 + Math.floor(Math.random() * 2);
+
+    // Allow multiple leaf shapes per plant (more natural variety), but keep it cohesive.
+    if (Math.random() < 0.55) {
+        const n = 2 + Math.floor(Math.random() * 3); // 2-4 shapes
         const set = new Set([dna.leafShape]);
-        while (set.size < n) set.add(_leafShapePool[Math.floor(Math.random() * _leafShapePool.length)]);
+        while (set.size < n) set.add(LEAF_SHAPES[Math.floor(Math.random() * LEAF_SHAPES.length)]);
         dna.leafShapes = [...set];
-    } else dna.leafShapes = [dna.leafShape];
-    
-    dna.leafSizeVar = 0.18 + Math.random() * 0.22;
+    } else {
+        dna.leafShapes = [dna.leafShape];
+    }
+
+    dna.leafSizeVar = 0.22 + Math.random() * 0.26;
+
+    // Inherited trait modifiers
     state.inheritedTraits.forEach(tid => {
         const t = INHERITABLE_TRAITS.find(x => x.id === tid);
         if (t) {
             if (tid === 'resilience') dna.resilience = Math.min(2, (dna.resilience || 1) + 0.2);
             if (tid === 'bloomSpeed') dna.bloomSpeed = Math.min(1.5, (dna.bloomSpeed || 1) + 0.1);
-            if (tid === 'leafiness') dna.leafNodes = Math.min(6, (dna.leafNodes || 4) + 1);
-            if (tid === 'colorVibrancy') dna.colorS = Math.min(80, (dna.colorS || 50) + 10);
+            if (tid === 'leafiness') dna.leafNodes = Math.min(7, (dna.leafNodes || 4) + 1);
+            if (tid === 'colorVibrancy') dna.colorS = Math.min(85, (dna.colorS || 50) + 10);
             if (tid === 'flowerPower') dna.flowerCount = Math.min(4, (dna.flowerCount || 1) + 1);
             if (tid === 'fireflyAffinity') dna.fireflyChance = Math.min(0.15, (dna.fireflyChance || 0.05) + 0.03);
         }
     });
+
+    // Final computed colors (used by renderer)
     dna.flowerColor = `hsl(${dna.flowerH},${dna.flowerS}%,${dna.flowerL}%)`;
+    const ch = (dna.flowerH + dna.flowerCenterHueOffset + 360) % 360;
+    dna.flowerCenterColor = `hsl(${ch},${Math.max(35, dna.flowerS - 25)}%,${dna.flowerCenterLight}%)`;
+
     return dna;
 }
 

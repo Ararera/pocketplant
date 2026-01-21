@@ -84,7 +84,101 @@ const audio = {
         o.connect(f); f.connect(g); g.connect(ctx.destination);
         o.start(t); o.stop(t + 2.3);
     },
-    playBackgroundMusic() {
+    
+    _getSeasonIndex() {
+        try {
+            if (typeof state !== 'undefined' && Number.isFinite(state.season)) return state.season | 0;
+        } catch (_) {}
+        return 0;
+    },
+    _ensureDropletFX() {
+        if (!this.ctx) return;
+        if (this.dropletBus) return;
+        const ctx = this.ctx;
+
+        // A tiny "room" for piano droplets: delay + lowpass feedback.
+        this.dropletBus = ctx.createGain();
+        this.dropletBus.gain.value = 1.0;
+
+        this.dropletDelay = ctx.createDelay(1.2);
+        this.dropletDelay.delayTime.value = 0.18;
+
+        this.dropletFeedback = ctx.createGain();
+        this.dropletFeedback.gain.value = 0.35;
+
+        this.dropletLP = ctx.createBiquadFilter();
+        this.dropletLP.type = 'lowpass';
+        this.dropletLP.frequency.value = 1400;
+        this.dropletLP.Q.value = 0.7;
+
+        // bus -> (dry) bgFilter, and bus -> delay loop -> bgFilter
+        this.dropletBus.connect(this.bgFilter);
+
+        this.dropletBus.connect(this.dropletDelay);
+        this.dropletDelay.connect(this.dropletLP);
+        this.dropletLP.connect(this.dropletFeedback);
+        this.dropletFeedback.connect(this.dropletDelay);
+        this.dropletLP.connect(this.bgFilter);
+    },
+    _playPianoDropletAt(t, midi, amp, brightness = 1.0) {
+        const ctx = this.ctx;
+        if (!ctx) return;
+        this._ensureDropletFX();
+
+        const freq = this._midiToFreq(midi);
+
+        // Two partials: fundamental + a soft upper partial.
+        const o1 = ctx.createOscillator();
+        const o2 = ctx.createOscillator();
+        o1.type = 'triangle';
+        o2.type = 'sine';
+
+        o1.frequency.setValueAtTime(freq, t);
+        o2.frequency.setValueAtTime(freq * 2, t);
+
+        // Slight, stable detune so it doesn't sound like a pure test tone.
+        const det = (Math.random() - 0.5) * 6;
+        o1.detune.setValueAtTime(det, t);
+        o2.detune.setValueAtTime(-det * 0.6, t);
+
+        const f = ctx.createBiquadFilter();
+        f.type = 'lowpass';
+        f.frequency.setValueAtTime(1800 * brightness, t);
+        f.Q.setValueAtTime(0.9, t);
+
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(amp, t + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 2.8);
+
+        // A tiny transient click -> 'felt hammer' (very low level).
+        const click = ctx.createBufferSource();
+        const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.02), ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length) * 0.35;
+        click.buffer = buf;
+
+        const cg = ctx.createGain();
+        cg.gain.setValueAtTime(0.0001, t);
+        cg.gain.linearRampToValueAtTime(amp * 0.25, t + 0.005);
+        cg.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+
+        o1.connect(f); o2.connect(f);
+        f.connect(g);
+        g.connect(this.dropletBus);
+
+        click.connect(cg);
+        cg.connect(this.dropletBus);
+
+        o1.start(t);
+        o2.start(t);
+        click.start(t);
+
+        o1.stop(t + 3.0);
+        o2.stop(t + 3.0);
+        click.stop(t + 0.06);
+    },
+playBackgroundMusic() {
         if (!this.ctx) this.init();
         if (this.ctx.state === 'suspended') this.ctx.resume();
         if (this.isMusicPlaying) return;
@@ -105,6 +199,68 @@ const audio = {
         }
         const LOOP_SECONDS = 360, CHORDS = [[48, 55, 62, 64], [45, 52, 59, 62], [41, 48, 55, 60], [43, 50, 57, 62], [38, 45, 52, 55, 60], [48, 55, 60, 64], [45, 52, 57, 62], [41, 48, 53, 60], [43, 50, 55, 62], [48, 55, 62, 64]];
         const STEP = 14, STEPS = Math.floor(LOOP_SECONDS / STEP);
+
+        const SEASON_MELODIES = {
+            // Slow, simple piano phrases (less "pingy", more melodic). Notes are MIDI numbers.
+            // Each phrase slot describes what to play inside a STEP; null = rest.
+            // 0: Spring, 1: Summer, 2: Autumn, 3: Winter
+            0: { // Spring: C major, gentle stepwise motion
+                phrase: [
+                    { bass: 48, notes: [64] },   // C2 + E4
+                    { notes: [62] },             // D4
+                    { notes: [60] },             // C4
+                    { notes: [62] },             // D4
+                    { bass: 50, notes: [64] },   // D2 + E4
+                    { notes: [67] },             // G4
+                    { notes: [64] },             // E4
+                    { notes: [62] }              // D4
+                ],
+                amp: 0.020, bright: 0.92
+            },
+            1: { // Summer: a touch brighter, still restrained
+                phrase: [
+                    { bass: 50, notes: [67] },   // D2 + G4
+                    { notes: [69] },             // A4
+                    { notes: [67] },             // G4
+                    { notes: [64] },             // E4
+                    { bass: 48, notes: [62] },   // C2 + D4
+                    { notes: [64] },             // E4
+                    { notes: [67] },             // G4
+                    { notes: [69] }              // A4
+                ],
+                amp: 0.022, bright: 1.02
+            },
+            2: { // Autumn: warmer, a little lower in register (A minor flavor)
+                phrase: [
+                    { bass: 45, notes: [60] },   // A1 + C4
+                    { notes: [62] },             // D4
+                    { notes: [64] },             // E4
+                    { notes: [62] },             // D4
+                    { bass: 43, notes: [59] },   // G1 + B3
+                    { notes: [60] },             // C4
+                    { notes: [62] },             // D4
+                    { notes: [59] }              // B3
+                ],
+                amp: 0.018, bright: 0.86
+            },
+            3: { // Winter: sparse, minor-leaning, more air between notes
+                phrase: [
+                    { bass: 38, notes: [62] },   // D1 + D4
+                    null,
+                    { notes: [65] },             // F4
+                    null,
+                    { bass: 41, notes: [60] },   // F1 + C4
+                    null,
+                    { notes: [58] },             // Bb3
+                    { notes: [60] }              // C4
+                ],
+                amp: 0.016, bright: 0.78
+            }
+        };
+        const pickSeasonMelody = () => {
+            const si = this._getSeasonIndex();
+            return SEASON_MELODIES[si] || SEASON_MELODIES[0];
+        };
         const makeEvents = (seed) => {
             const rand = this._mulberry32(seed), ev = [];
             for (let i = 0; i < STEPS; i++) {
@@ -113,7 +269,52 @@ const audio = {
                 if (rand() < 0.35) stack = [...stack.slice(1), stack[0] + 12];
                 if (rand() < 0.12) stack = stack.concat([stack[stack.length - 1] + 7]);
                 ev.push({ t: tt, type: 'chord', midi: stack });
-                if (rand() < 0.12) {
+
+                // Slow seasonal piano phrase (structured, with rests).
+                const melody = pickSeasonMelody();
+                const slot = melody.phrase[i % melody.phrase.length];
+                if (slot) {
+                    const baseAmp = melody.amp;
+                    const bright = melody.bright;
+
+                    // Place notes slightly off-grid for a more human feel.
+                    const o1 = 2.0 + rand() * 0.6;
+                    const o2 = 8.2 + rand() * 0.7;
+
+                    // Optional "left hand" bass note (very soft).
+                    if (Number.isFinite(slot.bass)) {
+                        ev.push({
+                            t: tt + 0.8 + rand() * 0.4,
+                            type: 'melody',
+                            midi: [slot.bass],
+                            amp: baseAmp * 0.55,
+                            bright: Math.max(0.6, bright - 0.25)
+                        });
+                    }
+
+                    // Main note(s).
+                    const notes = slot.notes || [];
+                    if (notes.length) {
+                        // Optional grace note (upper/lower neighbor), very soft and quick.
+                        if (rand() < 0.18) {
+                            const g = notes[0] + (rand() < 0.5 ? 2 : -2);
+                            ev.push({
+                                t: tt + o1 - (0.18 + rand() * 0.08),
+                                type: 'melody',
+                                midi: [g],
+                                amp: baseAmp * 0.35,
+                                bright: Math.max(0.65, bright - 0.15)
+                            });
+                        }
+                        ev.push({ t: tt + o1, type: 'melody', midi: [notes[0]], amp: baseAmp, bright });
+                        if (notes.length > 1) {
+                            ev.push({ t: tt + o2, type: 'melody', midi: [notes[1]], amp: baseAmp * 0.9, bright });
+                        }
+                    }
+                }
+
+                // Rare bell sparkles (keep these extra sparse so melody stays special).
+                if (rand() < 0.10) {
                     const off = 2.5 + rand() * 7, bellPool = [72, 74, 76, 79, 81];
                     ev.push({ t: tt + off, type: 'bell', midi: [bellPool[Math.floor(rand() * bellPool.length)]] });
                 }
@@ -145,7 +346,9 @@ const audio = {
                 const when = startAt + e.t, delayMs = Math.max(0, (when - this.ctx.currentTime) * 1000);
                 const id = setTimeout(() => {
                     if (!this.isMusicPlaying) return;
-                    try { if (e.type === 'chord') playAmbientPad(when, e.midi); else playAmbientBell(when, e.midi[0]); } catch (_) { }
+                    try { if (e.type === 'chord') playAmbientPad(when, e.midi);
+                        else if (e.type === 'melody') this._playPianoDropletAt(when, e.midi[0], e.amp || 0.018, e.bright || 1.0);
+                        else playAmbientBell(when, e.midi[0]); } catch (_) { }
                 }, delayMs);
                 this.bgTimers.push(id);
             }

@@ -52,6 +52,7 @@ function interact(type, e) {
             return;
         }
         state.isRainOn = !state.isRainOn;
+        if (state.isRainOn && typeof unlockDiscovery === 'function') unlockDiscovery('first_water');
         spawnFloatingText(state.isRainOn ? "☁️ Rain ON" : "☁️ Rain OFF", "var(--accent-water)");
         applyTheme();
     } else if (type === 'sun') {
@@ -65,15 +66,18 @@ function interact(type, e) {
         }
         if (isDaytime()) {
             state.isSunLampOn = !state.isSunLampOn;
+            if (state.isSunLampOn && typeof unlockDiscovery === 'function') unlockDiscovery('first_sun');
             spawnFloatingText(state.isSunLampOn ? "☀️ ON" : "🌑 OFF", "var(--accent-sun)");
         } else {
             if (isNewMoon()) { spawnFloatingText("New Moon - No light", "#888"); return; }
             state.isSunLampOn = !state.isSunLampOn;
+            if (state.isSunLampOn && typeof unlockDiscovery === 'function') unlockDiscovery('first_sun');
             spawnFloatingText(state.isSunLampOn ? "🌙 Moonlight ON" : "🌙 OFF", "#fef9c3");
             const beam = document.getElementById('moonlightBeam');
             if (beam) beam.classList.toggle('active', state.isSunLampOn);
         }
         audio.sun(); applyTheme();
+        if (state.isRainOn && state.isSunLampOn && typeof unlockDiscovery === 'function') unlockDiscovery('made_rainbow');
     } else if (type === 'love') {
         // Check if love is on cooldown
         if (Date.now() < state.loveRestUntil) {
@@ -214,7 +218,7 @@ function handlePress(down) {
 }
 
 function getFireflyColor(i) { const f = FIREFLY_FAMILIES[i]; return `hsl(${f.hue},${f.sat || 70}%,60%)`; }
-function hasGuardian(familyIndex) { return (state.fireflies[familyIndex] || 0) >= GUARDIAN_THRESHOLD; }
+function hasGuardian(familyIndex) { return ((state.fireflies && (state.fireflies[familyIndex] || state.fireflies[String(familyIndex)])) || 0) >= GUARDIAN_THRESHOLD; }
 
 function attemptSpawnFirefly() {
     if (els.menuOverlay && els.menuOverlay.classList.contains('open')) return;
@@ -230,11 +234,10 @@ function spawnVisualFirefly(fam, isGuardian) {
     ff.dataset.family = fam;
     ff.style.setProperty('--firefly-color', col);
     ff.style.background = col;
-    ff.style.boxShadow = `0 0 ${isGuardian ? 20 : 8}px ${col}`;
     ff.style.left = (10 + Math.random() * 80) + '%';
     ff.style.top = (15 + Math.random() * 50) + '%';
-    ff.style.opacity = '0';
-    requestAnimationFrame(() => { ff.style.transition = 'opacity 0.8s ease-out'; ff.style.opacity = '1'; });
+    // Fade-in via CSS class to avoid animation/transition fights on mobile GPUs
+    requestAnimationFrame(() => { ff.classList.add('visible'); });
     const handleTap = (e) => {
         e.preventDefault(); e.stopPropagation();
         if (isGuardian) activateGuardian(fam, ff); else collectFirefly(fam, ff);
@@ -244,15 +247,31 @@ function spawnVisualFirefly(fam, isGuardian) {
     const life = 11000;
     setTimeout(() => {
         if (ff.parentNode && !ff.classList.contains('guardian-active')) {
-            ff.style.transition = 'opacity 1s ease-out';
-            ff.style.opacity = '0';
-            setTimeout(() => ff.remove(), 1000);
+            ff.classList.add('fadeout');
+            setTimeout(() => ff.remove(), 1300);
         }
     }, life);
 }
 
-function openPotDesigner() { els.menuOverlay.classList.remove('open'); els.potOverlay.classList.add('open'); renderPotDesigner(); }
-function closePotDesigner() { els.potOverlay.classList.remove('open'); els.menuOverlay.classList.add('open'); saveState(); }
+let _potDesignerSnapshot = null;
+
+function openPotDesigner() {
+    _potDesignerSnapshot = { potColor: state.potColor, potPattern: state.potPattern, potPatternColor: state.potPatternColor };
+    els.menuOverlay.classList.remove('open');
+    els.potOverlay.classList.add('open');
+    renderPotDesigner();
+}
+function closePotDesigner() {
+    els.potOverlay.classList.remove('open');
+    els.menuOverlay.classList.add('open');
+    try {
+        if (_potDesignerSnapshot) {
+            const changed = (_potDesignerSnapshot.potColor !== state.potColor) || (_potDesignerSnapshot.potPattern !== state.potPattern) || (_potDesignerSnapshot.potPatternColor !== state.potPatternColor);
+            if (changed && typeof unlockDiscovery === 'function') unlockDiscovery('pot_customized');
+        }
+    } catch (_) {}
+    saveState();
+}
 
 function renderPotDesigner() {
     const cg = document.getElementById('potColorGrid');
@@ -346,11 +365,18 @@ function harvestPlant() {
 function closeHarvestModal() { els.harvestOverlay.classList.remove('open'); els.menuOverlay.classList.add('open'); }
 
 function confirmHarvest() {
+    const _wasWinter = (state.season === 3);
+
     state.history.push({ name: state.name, gen: state.generation, days: state.day, dna: { ...state.dna }, stage: state.stage, scars: [...state.scars], potColor: state.potColor, potPattern: state.potPattern });
     const tid = document.getElementById('inheritedTraitDisplay').dataset.traitId;
     if (!state.inheritedTraits.includes(tid)) state.inheritedTraits.push(tid);
     const oldName = state.name;
-    state.generation++; state.day = 1; state.dayProgress = 0; state.stage = 1; state.growth = 0;
+    state.generation++; state.day = 1;
+    if (typeof unlockDiscovery === 'function') {
+        unlockDiscovery('first_ascension');
+        if (_wasWinter) unlockDiscovery('survived_winter');
+        if (state.generation >= 5) unlockDiscovery('five_generations');
+    } state.dayProgress = 0; state.stage = 1; state.growth = 0;
     state.water = 50; state.sun = 50; state.love = 50; state.scars = []; state.timeAtZero = 0;
     state.neglect = { waterLowMs: 0, sunLowMs: 0, loveLowMs: 0, crisisMs: 0, partialDormant: false };
     state.name = 'Sprout'; state.nameSuggestion = ''; state.season = (state.season + 1) % 4; state.dna = generateDNA(state.dna);
@@ -399,11 +425,14 @@ function ensureNamePrompt(force) {
         if (force) { spawnFloatingText('Tap the menu to name your plant!', null, 'warn'); }
     }
 }
-function updateName(n) { const t = (n || '').trim(); if (!t || t.toLowerCase() === 'sprout') state.name = getNameSuggestion(); else state.name = t; updateUI(); saveState(); }
+function updateName(n) { const t = (n || '').trim(); if (!t || t.toLowerCase() === 'sprout') state.name = getNameSuggestion(); else state.name = t;
+    if (state.name && state.name.toLowerCase() !== 'sprout' && typeof unlockDiscovery === 'function') unlockDiscovery('named_plant');
+    updateUI(); saveState(); }
 
 function singToPlant() {
     if (Date.now() < state.singCooldownUntil) return;
-    state.singCooldownUntil = Date.now() + CONFIG.singCooldown; checkSingCooldown();
+    state.singCooldownUntil = Date.now() + CONFIG.singCooldown;
+    if (typeof unlockDiscovery === 'function') unlockDiscovery('sang_to_plant'); checkSingCooldown();
     toggleMenu(); spawnFloatingText("🎵 Singing...", "#748ffc");
     let needed = STAGE_THRESHOLDS[state.stage] || 1000;
     if (state.stage < 4) needed = STAGE_THRESHOLDS[state.stage + 1] - STAGE_THRESHOLDS[state.stage];
@@ -415,7 +444,8 @@ function singToPlant() {
 
 function fertilizePlant() {
     if (Date.now() < state.fertilizeCooldownUntil) return;
-    state.fertilizeCooldownUntil = Date.now() + CONFIG.fertilizeCooldown; checkFertilizeCooldown();
+    state.fertilizeCooldownUntil = Date.now() + CONFIG.fertilizeCooldown;
+    if (typeof unlockDiscovery === 'function') unlockDiscovery('first_fertilize'); checkFertilizeCooldown();
     toggleMenu(); spawnFloatingText("🌿 Fertilized!", "#795548");
     state.growthMultiplier = 2; setTimeout(() => { state.growthMultiplier = 1; }, 60000); state.growth += 50;
 }
@@ -513,7 +543,7 @@ function renderFireflyLog() {
         const card = document.createElement('div');
         card.className = 'family-card' + (selectedFamily === i ? ' selected' : '');
         card.style.setProperty('--family-color', col);
-        card.innerHTML = '<div class="family-orb" style="background:' + col + '"></div><div class="family-name">' + f.name + '</div><div class="family-count">' + cnt + '</div><div class="family-power">' + (cnt >= GUARDIAN_THRESHOLD ? '👑' : f.power) + '</div>';
+        card.innerHTML = '<div class="family-orb" style="background:' + col + '"></div><div class="family-name">' + f.name + '</div><div class="family-count">' + cnt + '</div><div class="family-power">' + (hasGuardian(i) ? '👑' : f.power) + '</div>';
         card.onclick = () => { selectedFamily = i; renderFireflyLog(); };
         grid.appendChild(card);
     });
@@ -526,7 +556,8 @@ function renderFireflyLog() {
         els.detailFireflyCount.textContent = 'You have ' + cnt + ' fireflies';
         const btn = els.releaseBtn; btn.disabled = cnt < 1; btn.textContent = cnt >= 1 ? 'Release One' : 'No fireflies';
         const gt = els.guardianProgressText;
-        gt.textContent = cnt >= GUARDIAN_THRESHOLD ? 'Guardian ready! Tap it in the sky to activate.' : 'Collect ' + (GUARDIAN_THRESHOLD - cnt) + ' more for a Guardian.';
+        const unlocked = hasGuardian(i);
+        gt.textContent = unlocked ? `Guardian unlocked. Tap a Guardian in the sky to invoke it (costs ${GUARDIAN_INVOKE_COST} fireflies).` : `Collect ${Math.max(0, GUARDIAN_THRESHOLD - cnt)} more for a Guardian.`;
     } else if (det) det.style.display = 'none';
 }
 
@@ -567,8 +598,22 @@ function applyBuffVisualFeedback(color) {
 function collectFirefly(fam, el) {
     el.style.transition = 'opacity 0.25s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 260); audio.chime();
     if (!state.fireflies[fam]) state.fireflies[fam] = 0;
+    const _hadGuardian = (typeof hasGuardian === 'function') ? hasGuardian(fam) : (state.fireflies[fam] >= GUARDIAN_THRESHOLD);
     if (state.fireflies[fam] < CONFIG.maxFireflyPerFamily) {
-        state.fireflies[fam]++; state.totalFireflies++; spawnFloatingText('+' + FIREFLY_FAMILIES[fam].name + '!', getFireflyColor(fam), 'good');
+        state.fireflies[fam]++; state.totalFireflies++;
+        if (typeof unlockDiscovery === 'function') unlockDiscovery('first_firefly');
+        // One of each family?
+        try {
+            const families = FIREFLY_FAMILIES.length || 0;
+            let haveAll = families > 0;
+            for (let i = 0; i < families; i++) {
+                const k = String(i);
+                if (!state.fireflies || !state.fireflies[k] || state.fireflies[k] <= 0) { haveAll = false; break; }
+            }
+            if (haveAll) unlockDiscovery('all_families');
+        } catch (_) {}
+ spawnFloatingText('+' + FIREFLY_FAMILIES[fam].name + '!', getFireflyColor(fam), 'good');
+        if (((typeof hasGuardian === 'function') ? hasGuardian(fam) : (state.fireflies[fam] >= GUARDIAN_THRESHOLD)) && !_hadGuardian && typeof unlockDiscovery === 'function') unlockDiscovery('first_guardian');
         if (state.fireflies[fam] % GUARDIAN_THRESHOLD === 0) spawnFloatingText('🏆 Guardian ready.', getFireflyColor(fam), 'good');
     } else spawnFloatingText('Max collected.', null, 'warn');
     state.growth += 2; saveState();
@@ -576,6 +621,15 @@ function collectFirefly(fam, el) {
 
 function activateGuardian(fam, el) {
     if (activeBigFireflies.includes(fam)) return;
+    const have = (state.fireflies && state.fireflies[fam]) ? state.fireflies[fam] : 0;
+    if (have < (typeof GUARDIAN_INVOKE_COST !== 'undefined' ? GUARDIAN_INVOKE_COST : 25)) {
+        const need = (typeof GUARDIAN_INVOKE_COST !== 'undefined' ? GUARDIAN_INVOKE_COST : 25);
+        spawnFloatingText(`Need ${need} fireflies to invoke a Guardian.`, getFireflyColor(fam), 'warn');
+        return;
+    }
+    const cost = (typeof GUARDIAN_INVOKE_COST !== 'undefined' ? GUARDIAN_INVOKE_COST : 25);
+    state.fireflies[fam] = have - cost;
+    state.totalFireflies = Math.max(0, (state.totalFireflies || 0) - cost);
     activeBigFireflies.push(fam); if (!state.activeGuardians.includes(fam)) state.activeGuardians.push(fam);
     const col = getFireflyColor(fam); spawnFloatingText(FIREFLY_FAMILIES[fam].name + ' Guardian active.', col, 'good');
     if (typeof audio !== 'undefined' && audio.ctx) {
