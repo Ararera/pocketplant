@@ -96,6 +96,9 @@ const CONFIG = {
     debugTapThreshold: 20,
     singCooldown: 300000,
     fertilizeCooldown: 180000,
+    rainRestCooldown: 300000,
+    sunRestCooldown: 480000,
+    loveRestCooldown: 180000,
     maxFireflyPerFamily: 50,
     offlineChunkSize: 60
 };
@@ -118,6 +121,7 @@ let state = {
     timeAtZero: 0, isDead: false, history: [],
     lastSave: Date.now(), growthMultiplier: 1,
     singCooldownUntil: 0, fertilizeCooldownUntil: 0,
+    rainRestUntil: 0, sunRestUntil: 0, loveRestUntil: 0,
     fireflies: {}, totalFireflies: 0, activeGuardians: [],
     buffs: [], scars: [], crisisCount: 0, inheritedTraits: [],
     lastDream: null, isMusicPlaying: false,

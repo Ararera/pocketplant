@@ -142,6 +142,7 @@ function render() {
     if (els.plantGraphics) els.plantGraphics.style.transform = `scale(${scale})`;
     if (els.menuOverlay && els.menuOverlay.classList.contains('open')) updateMenuStats();
     updateSeason();
+    if (typeof checkRestCooldowns === 'function') checkRestCooldowns();
 }
 
 function getMood() {

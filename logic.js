@@ -39,12 +39,29 @@ function simulateStep(dtSeconds, mode = 'online') {
     state.love = Math.max(0, state.love - (CONFIG.decayRate.love / res) * slowGuardian * decayMult.love * dtSeconds);
 
     const recoveryFactor = isOffline ? 0.6 : 1;
+    const waterWasBelow100 = state.water < 100;
+    const sunWasBelow100 = state.sun < 100;
+    
     if (state.isRainOn && state.water < 100) {
         state.water = Math.min(100, state.water + CONFIG.recoveryRate.water * dtSeconds * recoveryFactor * getHealMod(state.water));
+        // Check if water just hit 100 via rain
+        if (!isOffline && waterWasBelow100 && state.water >= 100) {
+            state.rainRestUntil = Date.now() + CONFIG.rainRestCooldown;
+            state.isRainOn = false;
+            spawnFloatingText("💧 Fully hydrated! Resting...", "var(--accent-water)", "good");
+            applyTheme();
+        }
     }
     if (state.isSunLampOn && state.sun < 100) {
         const rate = isDaytime() ? CONFIG.recoveryRate.sunDay : CONFIG.recoveryRate.sunNight;
         state.sun = Math.min(100, state.sun + rate * dtSeconds * recoveryFactor * getHealMod(state.sun));
+        // Check if sun just hit 100 via lamp
+        if (!isOffline && sunWasBelow100 && state.sun >= 100) {
+            state.sunRestUntil = Date.now() + CONFIG.sunRestCooldown;
+            state.isSunLampOn = false;
+            spawnFloatingText("☀️ Fully energized! Resting...", "var(--accent-sun)", "good");
+            applyTheme();
+        }
     }
 
     const neglectChanges = updateNeglectTimers(dtSeconds * 1000, isOffline);

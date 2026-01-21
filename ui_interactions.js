@@ -43,10 +43,26 @@ function interact(type, e) {
     if (state.isDead) return;
     if (e) e.stopPropagation();
     if (type === 'rain') {
+        // Check if rain is on cooldown (can always turn OFF, but not ON)
+        if (!state.isRainOn && Date.now() < state.rainRestUntil) {
+            const remaining = Math.ceil((state.rainRestUntil - Date.now()) / 1000);
+            const mins = Math.floor(remaining / 60);
+            const secs = remaining % 60;
+            spawnFloatingText(`Plant resting... ${mins}:${secs.toString().padStart(2, '0')}`, "var(--accent-water)", "warn");
+            return;
+        }
         state.isRainOn = !state.isRainOn;
         spawnFloatingText(state.isRainOn ? "☁️ Rain ON" : "☁️ Rain OFF", "var(--accent-water)");
         applyTheme();
     } else if (type === 'sun') {
+        // Check if sun is on cooldown (can always turn OFF, but not ON)
+        if (!state.isSunLampOn && Date.now() < state.sunRestUntil) {
+            const remaining = Math.ceil((state.sunRestUntil - Date.now()) / 1000);
+            const mins = Math.floor(remaining / 60);
+            const secs = remaining % 60;
+            spawnFloatingText(`Plant resting... ${mins}:${secs.toString().padStart(2, '0')}`, "var(--accent-sun)", "warn");
+            return;
+        }
         if (isDaytime()) {
             state.isSunLampOn = !state.isSunLampOn;
             spawnFloatingText(state.isSunLampOn ? "☀️ ON" : "🌑 OFF", "var(--accent-sun)");
@@ -59,7 +75,16 @@ function interact(type, e) {
         }
         audio.sun(); applyTheme();
     } else if (type === 'love') {
+        // Check if love is on cooldown
+        if (Date.now() < state.loveRestUntil) {
+            const remaining = Math.ceil((state.loveRestUntil - Date.now()) / 1000);
+            const mins = Math.floor(remaining / 60);
+            const secs = remaining % 60;
+            spawnFloatingText(`Plant resting... ${mins}:${secs.toString().padStart(2, '0')}`, "var(--accent-love)", "warn");
+            return;
+        }
         if (state.love >= 100) { spawnFloatingText("Fully Loved!", "var(--accent-love)"); return; }
+        const loveWasBelow100 = state.love < 100;
         const gained = applyHeal('love', 15);
         spawnFloatingText('❤', 'var(--accent-love)', gained < 8 ? 'warn' : 'good');
         audio.love();
@@ -67,6 +92,11 @@ function interact(type, e) {
         void els.plantHero.offsetWidth;
         els.plantHero.classList.add('plant-bloop');
         setTimeout(() => els.plantHero.classList.remove('plant-bloop'), 500);
+        // Check if love just hit 100
+        if (loveWasBelow100 && state.love >= 100) {
+            state.loveRestUntil = Date.now() + CONFIG.loveRestCooldown;
+            spawnFloatingText("💕 Fully loved! Resting...", "var(--accent-love)", "good");
+        }
     }
     render();
 }
@@ -403,6 +433,51 @@ function checkFertilizeCooldown() {
     if (els.btnFertilize) {
         if (r > 0) { els.btnFertilize.disabled = true; els.btnFertilize.textContent = `🌿 Fertilize (${Math.ceil(r / 60000)}m)`; }
         else { els.btnFertilize.disabled = false; els.btnFertilize.textContent = '🌿 Fertilize'; }
+    }
+}
+
+function checkRestCooldowns() {
+    const rainCooldown = document.getElementById('rainCooldown');
+    const sunCooldown = document.getElementById('sunCooldown');
+    const btnRain = document.getElementById('btnRain');
+    const btnSun = document.getElementById('btnSun');
+    const now = Date.now();
+    
+    // Rain cooldown
+    if (rainCooldown && btnRain) {
+        const rainRemaining = state.rainRestUntil - now;
+        if (rainRemaining > 0) {
+            const mins = Math.floor(rainRemaining / 60000);
+            const secs = Math.floor((rainRemaining % 60000) / 1000);
+            rainCooldown.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+            rainCooldown.classList.add('active');
+            btnRain.classList.add('on-cooldown');
+        } else {
+            rainCooldown.classList.remove('active');
+            btnRain.classList.remove('on-cooldown');
+            if (state.rainRestUntil > 0) state.rainRestUntil = 0;
+        }
+    }
+    
+    // Sun cooldown
+    if (sunCooldown && btnSun) {
+        const sunRemaining = state.sunRestUntil - now;
+        if (sunRemaining > 0) {
+            const mins = Math.floor(sunRemaining / 60000);
+            const secs = Math.floor((sunRemaining % 60000) / 1000);
+            sunCooldown.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+            sunCooldown.classList.add('active');
+            btnSun.classList.add('on-cooldown');
+        } else {
+            sunCooldown.classList.remove('active');
+            btnSun.classList.remove('on-cooldown');
+            if (state.sunRestUntil > 0) state.sunRestUntil = 0;
+        }
+    }
+    
+    // Love cooldown (no visual indicator, just clear when expired)
+    if (state.loveRestUntil > 0 && now >= state.loveRestUntil) {
+        state.loveRestUntil = 0;
     }
 }
 
