@@ -1,12 +1,15 @@
 /* ============================================
    MIDNIGHT GARDEN - JavaScript
+   Optimized for Performance & Battery Life
    ============================================ */
 
 // Garden state
 let gardenState = {
     isOpen: false,
     fireflies: [],
-    fireflySpawnInterval: null,
+    // Replaced individual intervals with master loop logic
+    fireflySpawnTimer: null,
+    
     ambientInterval: null,
     windInterval: null,
     soundscapeActive: false,
@@ -20,12 +23,15 @@ let gardenState = {
     ambientTimers: {},
     // Plant drone oscillators
     plantDrones: [],
+    // Audio Buffers Cache
+    audioBuffers: {},
+    
     // Current mood
-    currentMood: 'contemplative', // contemplative, mysterious, tender
+    currentMood: 'contemplative', 
     moodTransitionTimer: null,
-	plantBreathTimer: null,
+    plantBreathTimer: null,
     entryTime: null,
-    maxFireflies: 20,
+    maxFireflies: 15, // Reduced for mobile safety
 
     // Firefly -> Moon interaction
     moonFlightActive: false,
@@ -35,66 +41,74 @@ let gardenState = {
     moonHitTimer: null,
     moonHitFadeTimer: null,
     _moonBaseBoxShadow: null,
-    _moonBaseBackground: null
+    _moonBaseBackground: null,
+    
+    // Master Loop ID
+    visualLoopId: null
 };
 
 // Musical notes for firefly chords (frequencies in Hz)
-const GARDEN_CHORDS = {
-    // Each family has a unique chord feel
-    0: [261.63, 329.63, 392.00],       // Ember - C major (warm)
-    1: [293.66, 369.99, 440.00],       // Citrine - D major (bright)
-    2: [329.63, 415.30, 493.88],       // Verdant - E major (vital)
-    3: [349.23, 440.00, 523.25],       // Aqua - F major (flowing)
-    4: [392.00, 493.88, 587.33],       // Azure - G major (calm)
-    5: [440.00, 554.37, 659.25],       // Violet - A major (dreamy)
-    6: [493.88, 622.25, 739.99],       // Rose - B major (loving)
-    7: [277.18, 349.23, 415.30]        // Pearl - C# major (mysterious)
-};
+const GARDEN_CHORDS = Object.freeze({
+    0: [261.63, 329.63, 392.00],       // Ember - C major
+    1: [293.66, 369.99, 440.00],       // Citrine - D major
+    2: [329.63, 415.30, 493.88],       // Verdant - E major
+    3: [349.23, 440.00, 523.25],       // Aqua - F major
+    4: [392.00, 493.88, 587.33],       // Azure - G major
+    5: [440.00, 554.37, 659.25],       // Violet - A major
+    6: [493.88, 622.25, 739.99],       // Rose - B major
+    7: [277.18, 349.23, 415.30]        // Pearl - C# major
+});
 
-// Firefly family timbres - each has distinct oscillator settings
-const FIREFLY_TIMBRES = {
-    0: { type: 'sawtooth', filterFreq: 800, attack: 0.08, decay: 1.5, detune: 5 },      // Ember - warm, analog
-    1: { type: 'sine', filterFreq: 2000, attack: 0.02, decay: 1.2, detune: 0 },         // Citrine - bright, clear
-    2: { type: 'triangle', filterFreq: 1200, attack: 0.01, decay: 0.8, detune: 2 },     // Verdant - plucked, harp-like
-    3: { type: 'sine', filterFreq: 3000, attack: 0.01, decay: 1.8, detune: 0 },         // Aqua - glassy, bell-like
-    4: { type: 'triangle', filterFreq: 1000, attack: 0.1, decay: 2.0, detune: 3 },      // Azure - soft, calm
-    5: { type: 'sine', filterFreq: 1500, attack: 0.15, decay: 2.5, detune: 8 },         // Violet - airy, reverberant
-    6: { type: 'triangle', filterFreq: 1400, attack: 0.05, decay: 1.6, detune: 4 },     // Rose - tender, warm
-    7: { type: 'sawtooth', filterFreq: 600, attack: 0.03, decay: 2.0, detune: 15 }      // Pearl - shimmering, dissonant
-};
+const FIREFLY_TIMBRES = Object.freeze({
+    0: { type: 'sawtooth', filterFreq: 800, attack: 0.08, decay: 1.5, detune: 5 },
+    1: { type: 'sine', filterFreq: 2000, attack: 0.02, decay: 1.2, detune: 0 },
+    2: { type: 'triangle', filterFreq: 1200, attack: 0.01, decay: 0.8, detune: 2 },
+    3: { type: 'sine', filterFreq: 3000, attack: 0.01, decay: 1.8, detune: 0 },
+    4: { type: 'triangle', filterFreq: 1000, attack: 0.1, decay: 2.0, detune: 3 },
+    5: { type: 'sine', filterFreq: 1500, attack: 0.15, decay: 2.5, detune: 8 },
+    6: { type: 'triangle', filterFreq: 1400, attack: 0.05, decay: 1.6, detune: 4 },
+    7: { type: 'sawtooth', filterFreq: 600, attack: 0.03, decay: 2.0, detune: 15 }
+});
 
-// Ambient note pool for plant-based soundscape
-const AMBIENT_NOTES = [196.00, 220.00, 246.94, 261.63, 293.66, 329.63, 349.23, 392.00, 440.00];
+const PLANT_HARMONICS = Object.freeze({
+    red: [220.00, 277.18, 329.63],
+    orange: [246.94, 311.13, 369.99],
+    yellow: [261.63, 329.63, 392.00],
+    green: [293.66, 369.99, 440.00],
+    cyan: [311.13, 392.00, 466.16],
+    blue: [329.63, 415.30, 493.88],
+    purple: [349.23, 440.00, 523.25],
+    pink: [369.99, 466.16, 554.37]
+});
 
-// Plant harmonic frequencies based on hue ranges
-const PLANT_HARMONICS = {
-    red: [220.00, 277.18, 329.63],      // A, C#, E - warm
-    orange: [246.94, 311.13, 369.99],   // B, D#, F#
-    yellow: [261.63, 329.63, 392.00],   // C, E, G - bright
-    green: [293.66, 369.99, 440.00],    // D, F#, A - vital
-    cyan: [311.13, 392.00, 466.16],     // D#, G, A#
-    blue: [329.63, 415.30, 493.88],     // E, G#, B - calm
-    purple: [349.23, 440.00, 523.25],   // F, A, C - dreamy
-    pink: [369.99, 466.16, 554.37]      // F#, A#, C# - tender
-};
-
-// Spatial ambience configurations
-const AMBIENT_SOUNDS = {
+const AMBIENT_SOUNDS = Object.freeze({
     forestBreath: { minInterval: 6000, maxInterval: 12000 },
     distantOwl: { minInterval: 30000, maxInterval: 90000, chance: 0.5 },
     insectChirr: { minInterval: 4000, maxInterval: 10000, chance: 0.6 },
     leavesRustle: { minInterval: 8000, maxInterval: 20000 },
     fenceCreak: { minInterval: 25000, maxInterval: 60000, chance: 0.4 }
-};
+});
+
+// Helper for caching noise buffers
+function getNoiseBuffer(ctx, duration) {
+    const key = Math.ceil(duration);
+    if (!gardenState.audioBuffers) gardenState.audioBuffers = {};
+    if (gardenState.audioBuffers[key]) return gardenState.audioBuffers[key];
+    
+    const bufferSize = ctx.sampleRate * key;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const output = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+    
+    gardenState.audioBuffers[key] = buffer;
+    return buffer;
+}
 
 /**
  * Initialize the Midnight Garden
  */
 function initMidnightGarden() {
-    // Create garden stars
     createGardenStars();
-    
-    // Cache garden elements
     gardenState.elements = {
         overlay: document.getElementById('midnightGardenOverlay'),
         transition: document.getElementById('midnightTransition'),
@@ -114,11 +128,14 @@ function createGardenStars() {
     if (!container) return;
     
     container.innerHTML = '';
-    const starCount = 100;
+    // Reduced star count for mobile performance
+    const starCount = 60;
+    const fragment = document.createDocumentFragment();
     
     for (let i = 0; i < starCount; i++) {
         const star = document.createElement('div');
         star.className = 'garden-star';
+        // Note: CSS animations handle the twinkling, which is performant
         star.style.cssText = `
             left: ${Math.random() * 100}%;
             top: ${Math.random() * 55}%;
@@ -126,8 +143,9 @@ function createGardenStars() {
             --delay: ${Math.random() * 5}s;
             --brightness: ${0.5 + Math.random() * 0.5};
         `;
-        container.appendChild(star);
+        fragment.appendChild(star);
     }
+    container.appendChild(fragment);
 }
 
 /**
@@ -135,62 +153,34 @@ function createGardenStars() {
  */
 function enterMidnightGarden() {
     if (gardenState.isOpen) return;
-    
     gardenState.isOpen = true;
     gardenState.entryTime = Date.now();
     
     const transition = gardenState.elements?.transition || document.getElementById('midnightTransition');
     const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
     
-    // Add body class
     document.body.classList.add('midnight-garden-active');
     
-    // Pause rain sound if playing
-    if (typeof audio !== 'undefined' && audio.stopRainSound) {
-        audio.stopRainSound();
+    if (typeof audio !== 'undefined') {
+        if (audio.stopRainSound) audio.stopRainSound();
+        if (audio.stopBackgroundMusic) audio.stopBackgroundMusic();
     }
     
-    // Pause background music if playing
-    if (typeof audio !== 'undefined' && audio.stopBackgroundMusic) {
-        audio.stopBackgroundMusic();
-    }
-    
-    // Fade to black
     transition.classList.add('active');
     
-    // After fade completes, show garden
     setTimeout(() => {
-        // Sync moon phase from main game
         syncMoonPhase();
-        
-        // Render the garden plants
         renderGardenPlants();
-
-        // Sync Essence jar UI
         if (typeof updateEssenceJarUI === 'function') updateEssenceJarUI();
         
-        // Start ambient fireflies
         startGardenFireflies();
-        
-        // Show garden
         overlay.classList.add('open');
         
-        // Fade transition out
-        setTimeout(() => {
-            transition.classList.remove('active');
-        }, 300);
-        
-        // Start ambient soundscape after a moment
-        setTimeout(() => {
-            startAmbientSoundscape();
-        }, 1000);
-        
+        setTimeout(() => { transition.classList.remove('active'); }, 300);
+        setTimeout(() => { startAmbientSoundscape(); }, 1000);
     }, 800);
     
-    // Push history state for back button
-    if (typeof pushHistoryState === 'function') {
-        pushHistoryState();
-    }
+    if (typeof pushHistoryState === 'function') pushHistoryState();
 }
 
 /**
@@ -202,50 +192,30 @@ function exitMidnightGarden() {
     const transition = gardenState.elements?.transition || document.getElementById('midnightTransition');
     const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
     
-    // Stop soundscape
     stopAmbientSoundscape();
+    stopGardenFireflies(); // Stops the visual loop
     
-    // Stop firefly spawning
-    stopGardenFireflies();
-    
-    // Fade to black
     transition.classList.add('active');
     
     setTimeout(() => {
-        // Hide garden
         overlay.classList.remove('open');
-        
-        // Remove body class
         document.body.classList.remove('midnight-garden-active');
         
-        // Calculate time spent in garden and apply to offline simulation
-        if (gardenState.entryTime) {
-            const timeInGarden = Date.now() - gardenState.entryTime;
-            // If significant time was spent, the normal offline processing will handle it
-            // since lastSave tracks when we were last active
+        // Clean DOM
+        if (gardenState.elements && gardenState.elements.firefliesContainer) {
+            gardenState.elements.firefliesContainer.innerHTML = '';
         }
-        
-        // Fade transition out
+
         setTimeout(() => {
             transition.classList.remove('active');
             gardenState.isOpen = false;
             
-            // Refresh main game UI
             if (typeof render === 'function') render();
             if (typeof updateUI === 'function') updateUI();
             
-            // Resume rain sound if rain is on
-            if (typeof state !== 'undefined' && state.isRainOn && typeof audio !== 'undefined' && audio.startRainSound) {
-                audio.startRainSound();
-            }
-            
-            // Resume background music if it was on
-            if (typeof state !== 'undefined' && state.isMusicPlaying && typeof audio !== 'undefined' && audio.playBackgroundMusic) {
-                audio.playBackgroundMusic();
-            }
-            
+            if (typeof state !== 'undefined' && state.isRainOn && typeof audio !== 'undefined' && audio.startRainSound) audio.startRainSound();
+            if (typeof state !== 'undefined' && state.isMusicPlaying && typeof audio !== 'undefined' && audio.playBackgroundMusic) audio.playBackgroundMusic();
         }, 300);
-        
     }, 800);
 }
 
@@ -271,189 +241,118 @@ function syncMoonPhase() {
 function renderGardenPlants() {
     const container = gardenState.elements?.plantsScroll || document.getElementById('gardenPlantsScroll');
     const subtitle = gardenState.elements?.subtitle || document.getElementById('gardenSubtitle');
-    
     if (!container) return;
     
     container.innerHTML = '';
-    
-    // Get history from game state
     const history = (typeof state !== 'undefined' && state.history) ? state.history : [];
     
     if (history.length === 0) {
-        // Show empty state
         const emptyDiv = document.createElement('div');
         emptyDiv.className = 'garden-empty';
-        emptyDiv.innerHTML = `
-            <div class="garden-empty-icon">🌱</div>
-            <div class="garden-empty-text">
-                No ancestors yet.<br>
-                Ascend your first plant to<br>
-                see it resting here.
-            </div>
-        `;
+        emptyDiv.innerHTML = `<div class="garden-empty-icon">🌱</div><div class="garden-empty-text">No ancestors yet.<br>Ascend your first plant to<br>see it resting here.</div>`;
         container.appendChild(emptyDiv);
-        
-        // Hide subtitle when empty - the empty state message is sufficient
-        if (subtitle) {
-            subtitle.style.display = 'none';
-        }
+        if (subtitle) subtitle.style.display = 'none';
         return;
     }
     
-    // Update subtitle - show it when there are plants
     if (subtitle) {
         subtitle.style.display = '';
-        const count = history.length;
-        subtitle.textContent = `${count} ancestor${count !== 1 ? 's' : ''} resting`;
+        subtitle.textContent = `${history.length} ancestor${history.length !== 1 ? 's' : ''} resting`;
     }
     
-    // Render each plant from history
+    const fragment = document.createDocumentFragment();
     history.forEach((plantData, index) => {
-        const plantEl = createGardenPlant(plantData, index);
-        container.appendChild(plantEl);
+        fragment.appendChild(createGardenPlant(plantData, index));
     });
+    container.appendChild(fragment);
 }
 
-/**
- * Create a single garden plant element
- */
 function createGardenPlant(plantData, index) {
     const wrapper = document.createElement('div');
     wrapper.className = 'garden-plant';
     wrapper.style.setProperty('--appear-delay', `${index * 0.15}s`);
     
-    // Create SVG container
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', '0 0 200 250');
     svg.setAttribute('class', 'garden-plant-svg');
     
-    // Add defs for patterns if needed
-    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-    svg.appendChild(defs);
-    
-    // Create plant group
-    const plantGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    plantGroup.setAttribute('id', `gardenPlant_${index}`);
-    svg.appendChild(plantGroup);
-    
-    // Create pot group
+    // Pot construction
     const potGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    
-    // Pot body
     const potBody = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     potBody.setAttribute('d', 'M72 197 L128 197 L118 232 L82 232 Z');
     potBody.setAttribute('fill', plantData.potColor || '#e07a5f');
     potGroup.appendChild(potBody);
     
-    // Pot rim
     const potRim = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     potRim.setAttribute('d', 'M68 189 L132 189 L128 199 L72 199 Z');
     potRim.setAttribute('fill', plantData.potColor || '#e07a5f');
     potRim.style.filter = 'brightness(1.1)';
     potGroup.appendChild(potRim);
     
-    // Dirt
     const dirt = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
-    dirt.setAttribute('cx', '100');
-    dirt.setAttribute('cy', '191');
-    dirt.setAttribute('rx', '24');
-    dirt.setAttribute('ry', '7');
-    dirt.setAttribute('fill', '#5d4037');
+    dirt.setAttribute('cx', '100'); dirt.setAttribute('cy', '191'); dirt.setAttribute('rx', '24'); dirt.setAttribute('ry', '7'); dirt.setAttribute('fill', '#5d4037');
     potGroup.appendChild(dirt);
     
+    // Plant Render logic
+    const plantGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    svg.appendChild(plantGroup);
     svg.appendChild(potGroup);
-    
-    // Render the plant using the existing renderPlant function if available
+
     if (typeof renderPlant === 'function' && plantData.dna) {
-        // We need to render to a temporary container, then move
         const tempId = `tempGardenPlant_${index}_${Date.now()}`;
         plantGroup.setAttribute('id', tempId);
-        
-        // Append to DOM temporarily
+        // Temporarily mount for getComputedStyle if needed by renderer
         document.body.appendChild(svg);
-        
         renderPlant(tempId, plantData.dna, plantData.stage || 5, plantData.scars || []);
-        
-        // Remove from temp location
         document.body.removeChild(svg);
     }
     
     wrapper.appendChild(svg);
     
-    // Plant name
     const nameEl = document.createElement('div');
     nameEl.className = 'garden-plant-name';
     nameEl.textContent = plantData.name || 'Unknown';
     wrapper.appendChild(nameEl);
     
-    // Generation badge
     const genEl = document.createElement('div');
     genEl.className = 'garden-plant-gen';
     genEl.textContent = `Cycle ${plantData.gen || 1}`;
     wrapper.appendChild(genEl);
     
-    // Click handler for plant details (could expand later)
-    wrapper.addEventListener('click', () => {
-        showGardenPlantDetail(plantData, index);
-    });
-    
+    wrapper.addEventListener('click', () => showGardenPlantDetail(plantData, index));
     return wrapper;
 }
 
-/**
- * Show plant detail and play its unique tone when tapped
- */
 function showGardenPlantDetail(plantData, index) {
     const plantEl = document.querySelectorAll('.garden-plant')[index];
-    
-    // Visual feedback - gentle pulse
     if (plantEl) {
         plantEl.style.transition = 'transform 0.3s ease';
         plantEl.style.transform = 'scale(1.08) translateY(-8px)';
-        setTimeout(() => {
-            plantEl.style.transform = '';
-        }, 300);
+        setTimeout(() => { plantEl.style.transform = ''; }, 300);
     }
-    
-    // Play the plant's unique sound based on its traits
     playPlantSound(plantData);
 }
 
-/**
- * Play a plant's unique sound based on its DNA
- */
 function playPlantSound(plantData) {
     initGardenAudio();
     if (!gardenState.audioContext) return;
-    
-    if (gardenState.audioContext.state === 'suspended') {
-        gardenState.audioContext.resume();
-    }
+    if (gardenState.audioContext.state === 'suspended') gardenState.audioContext.resume();
     
     const ctx = gardenState.audioContext;
     const now = ctx.currentTime;
     const dna = plantData.dna || {};
     
-    // Determine base note from flower/leaf hue
     const hue = dna.flowerH || dna.colorH || 0;
     const harmonics = getHarmonicsForHue(hue);
     const baseNote = harmonics[0];
     
-    // Determine timbre based on stage
     const stage = plantData.stage || 3;
     const oscType = stage >= 5 ? 'sine' : stage >= 3 ? 'triangle' : 'sine';
-    
-    // Determine character based on scars
     const scars = plantData.scars || [];
     const detuneAmount = scars.length * 6;
     const hasScars = scars.length > 0;
     
-    // Play a soft chord unique to this plant
-    const notes = [
-        baseNote,
-        baseNote * 1.25,  // Major third
-        baseNote * 1.5    // Perfect fifth
-    ];
+    const notes = [baseNote, baseNote * 1.25, baseNote * 1.5];
     
     notes.forEach((freq, i) => {
         const osc = ctx.createOscillator();
@@ -461,638 +360,268 @@ function playPlantSound(plantData) {
         osc.frequency.value = freq;
         osc.detune.value = detuneAmount + (Math.random() - 0.5) * 4;
         
-        // Filter - brighter for flourishing plants
         const filter = ctx.createBiquadFilter();
         filter.type = 'lowpass';
         filter.frequency.value = 800 + (stage * 200);
         filter.Q.value = hasScars ? 2 : 1;
         
-        // Gain envelope
         const gain = ctx.createGain();
         const noteStart = now + i * 0.08;
         gain.gain.setValueAtTime(0, noteStart);
         gain.gain.linearRampToValueAtTime(0.12 - (i * 0.02), noteStart + 0.1);
         gain.gain.exponentialRampToValueAtTime(0.001, noteStart + 2);
         
-        osc.connect(filter);
-        filter.connect(gain);
-        gain.connect(gardenState.musicalGain);
-        
-        osc.start(noteStart);
-        osc.stop(noteStart + 2.5);
+        osc.connect(filter); filter.connect(gain); gain.connect(gardenState.musicalGain);
+        osc.start(noteStart); osc.stop(noteStart + 2.5);
     });
     
-    // Add a soft reverb tail for flourishing plants
-    if (stage >= 5) {
+    // Only check context state before creating delayed nodes
+    if (stage >= 5 && ctx.state === 'running') {
         setTimeout(() => {
+            if (!gardenState.isOpen) return;
             const tailOsc = ctx.createOscillator();
-            tailOsc.type = 'sine';
-            tailOsc.frequency.value = baseNote * 2;
-            
+            tailOsc.type = 'sine'; tailOsc.frequency.value = baseNote * 2;
             const tailGain = ctx.createGain();
             tailGain.gain.setValueAtTime(0, ctx.currentTime);
             tailGain.gain.linearRampToValueAtTime(0.04, ctx.currentTime + 0.2);
             tailGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 3);
-            
-            tailOsc.connect(tailGain);
-            tailGain.connect(gardenState.musicalGain);
-            
-            tailOsc.start(ctx.currentTime);
-            tailOsc.stop(ctx.currentTime + 3.5);
+            tailOsc.connect(tailGain); tailGain.connect(gardenState.musicalGain);
+            tailOsc.start(ctx.currentTime); tailOsc.stop(ctx.currentTime + 3.5);
         }, 200);
     }
 }
 
-/**
- * Start spawning ambient fireflies
- */
+// ============================================
+// OPTIMIZED FIREFLY SYSTEM (Master Loop)
+// ============================================
+
 function startGardenFireflies() {
     const container = gardenState.elements?.firefliesContainer || document.getElementById('gardenFireflies');
     if (!container) return;
     
-    // Clear existing
     container.innerHTML = '';
     gardenState.fireflies = [];
     
-    // Get firefly inventory from game state
     const fireflyInventory = (typeof state !== 'undefined' && state.fireflies) ? state.fireflies : {};
-    
-    // Calculate total owned fireflies
-    let totalOwned = 0;
-    const ownedFamilies = [];
+    let totalOwned = 0; const ownedFamilies = [];
     
     for (let i = 0; i < 8; i++) {
         const count = fireflyInventory[i] || 0;
-        if (count > 0) {
-            totalOwned += count;
-            ownedFamilies.push(i);
-        }
+        if (count > 0) { totalOwned += count; ownedFamilies.push(i); }
     }
+    if (totalOwned === 0 || ownedFamilies.length === 0) return;
     
-    // If player has no fireflies, don't spawn any
-    if (totalOwned === 0 || ownedFamilies.length === 0) {
-        return;
-    }
-    
-    // Calculate how many to show (capped, scaled to inventory)
     const maxVisible = Math.min(gardenState.maxFireflies, Math.ceil(totalOwned / 2));
-    
-    // Spawn initial batch spread across owned families
     const initialCount = Math.min(maxVisible, Math.max(3, Math.floor(maxVisible * 0.6)));
     
     for (let i = 0; i < initialCount; i++) {
-        // Weight selection towards families with more fireflies
         const famIndex = weightedFamilySelection(fireflyInventory, ownedFamilies);
         spawnGardenFirefly(famIndex, container);
     }
     
-    // Continuous spawn interval to rotate fireflies in and out
-    gardenState.fireflySpawnInterval = setInterval(() => {
+    // Single interval to add more fireflies occasionally
+    gardenState.fireflySpawnTimer = setInterval(() => {
         if (!gardenState.isOpen) return;
-        
-        // Clean up dead fireflies from tracking
         gardenState.fireflies = gardenState.fireflies.filter(ff => ff.element && ff.element.parentNode);
-        
-        // Only spawn if below cap and player has fireflies
         if (gardenState.fireflies.length < maxVisible && ownedFamilies.length > 0) {
             const famIndex = weightedFamilySelection(fireflyInventory, ownedFamilies);
             spawnGardenFirefly(famIndex, container);
         }
-        
-    }, 4000 + Math.random() * 3000); // Varied interval for natural feel
+    }, 4000 + Math.random() * 3000);
+
+    // Start the Master Visual Loop
+    startVisualLoop();
 }
 
-/**
- * Select a family weighted by inventory count
- */
 function weightedFamilySelection(inventory, ownedFamilies) {
     let totalWeight = 0;
-    for (const fam of ownedFamilies) {
-        totalWeight += inventory[fam] || 0;
-    }
-    
+    for (const fam of ownedFamilies) totalWeight += inventory[fam] || 0;
     let random = Math.random() * totalWeight;
     for (const fam of ownedFamilies) {
         random -= inventory[fam] || 0;
-        if (random <= 0) {
-            return fam;
-        }
+        if (random <= 0) return fam;
     }
-    
     return ownedFamilies[0];
 }
 
-/**
- * Spawn a single garden firefly
- */
 function spawnGardenFirefly(familyIndex, container) {
     const ff = document.createElement('div');
     ff.className = 'garden-firefly';
     
-    // Get color from family
-    const color = typeof getFireflyColor === 'function' 
-        ? getFireflyColor(familyIndex)
-        : `hsl(${[15, 45, 120, 180, 210, 270, 330, 0][familyIndex]}, 70%, 60%)`;
+    const color = typeof getFireflyColor === 'function' ? getFireflyColor(familyIndex) : '#ffff00';
     
-    // Random starting position (as percentages)
-    let posX = 10 + Math.random() * 80;
-    let posY = 15 + Math.random() * 55;
+    // Position logic (0-100 scale)
+    const startX = 10 + Math.random() * 80;
+    const startY = 15 + Math.random() * 55;
     
-    // Random animation parameters
-    const glowDur = 2 + Math.random() * 2;
-    const lifeDur = 25 + Math.random() * 20; // 25-45 seconds lifespan
-    
-    ff.style.cssText = `
-        left: ${posX}%;
-        top: ${posY}%;
-        background: ${color};
-        --ff-color: ${color};
-        --glow-dur: ${glowDur}s;
-        --life: ${lifeDur}s;
-    `;
+    ff.style.background = color;
+    ff.style.setProperty('--ff-color', color);
+    ff.style.setProperty('--glow-dur', `${2 + Math.random() * 2}s`);
+    // Initialize transform
+    ff.style.transform = `translate3d(${startX}vw, ${startY}vh, 0)`;
     
     ff.dataset.family = familyIndex;
+    container.appendChild(ff);
     
-    // Tap handler - play chord + fly to moon (one at a time)
-    let lifeTimer = null;
+    // Create Data Object
+    const fireflyData = {
+        element: ff,
+        family: familyIndex,
+        color: color,
+        x: startX,
+        y: startY,
+        targetX: startX,
+        targetY: startY,
+        velX: 0,
+        velY: 0,
+        timeToNewTarget: 0,
+        spawnTime: Date.now(),
+        lifeTime: (25 + Math.random() * 20) * 1000,
+        phase: Math.random() * 10
+    };
+    
     const handleTap = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-
+        e.preventDefault(); e.stopPropagation();
         if (!gardenState.isOpen) return;
-        if (gardenState.moonFlightActive) return; // hard lock to prevent rapid tapping
+        if (gardenState.moonFlightActive) return;
 
-        // stop its wandering animation and lifespan cleanup
-        if (animationId) cancelAnimationFrame(animationId);
-        if (lifeTimer) clearTimeout(lifeTimer);
-
-        // play audio + mark activity
         playFireflyChord(familyIndex);
         if (typeof unlockDiscovery === 'function') unlockDiscovery('garden_chord');
         if (typeof markGardenActivity === 'function') markGardenActivity();
 
-        // fly the actual tapped firefly to the moon (then it is removed)
-        // remove listeners so it can't be re-triggered
         ff.removeEventListener('click', handleTap);
         ff.removeEventListener('touchend', handleTap);
 
-        flyFireflyToMoon(ff, familyIndex, color);
+        // Hand off to flight system
+        flyFireflyToMoon(fireflyData);
     };
 
     ff.addEventListener('click', handleTap);
     ff.addEventListener('touchend', handleTap, { passive: false });
     
-    container.appendChild(ff);
-    
-    // Movement state
-    const moveState = {
-        x: posX,
-        y: posY,
-        targetX: posX,
-        targetY: posY,
-        velX: 0,
-        velY: 0,
-        timeToNewTarget: 0
-    };
-    
-    // Animation loop for smooth movement
-    let animationId = null;
+    gardenState.fireflies.push(fireflyData);
+}
+
+function startVisualLoop() {
+    if (gardenState.visualLoopId) cancelAnimationFrame(gardenState.visualLoopId);
     let lastTime = performance.now();
     
-    const animateFirefly = (currentTime) => {
-        if (!ff.parentNode || !gardenState.isOpen) {
-            cancelAnimationFrame(animationId);
+    const loop = (currentTime) => {
+        if (!gardenState.isOpen) {
+            gardenState.visualLoopId = null;
             return;
         }
         
-        const deltaTime = (currentTime - lastTime) / 1000;
+        const dt = (currentTime - lastTime) / 1000;
         lastTime = currentTime;
         
-        // Update time to new target
-        moveState.timeToNewTarget -= deltaTime;
+        // Use a safe delta to prevent huge jumps if tab was hidden
+        const safeDt = Math.min(dt, 0.1);
         
-        // Pick new target periodically
-        if (moveState.timeToNewTarget <= 0) {
-            // New random target - very small movements from current position
-            moveState.targetX = moveState.x + (Math.random() - 0.5) * 8;
-            moveState.targetY = moveState.y + (Math.random() - 0.5) * 5;
-            // Clamp target to bounds
-            moveState.targetX = Math.max(5, Math.min(95, moveState.targetX));
-            moveState.targetY = Math.max(10, Math.min(65, moveState.targetY));
-            moveState.timeToNewTarget = 8 + Math.random() * 12; // New target every 8-20 seconds
-        }
-        
-        // Extremely slow, gentle movement towards target
-        const dx = moveState.targetX - moveState.x;
-        const dy = moveState.targetY - moveState.y;
-        
-        // Tiny wobble
-        const wobbleX = Math.sin(currentTime * 0.0003 + familyIndex) * 0.003;
-        const wobbleY = Math.cos(currentTime * 0.00025 + familyIndex) * 0.002;
-        
-        // Tiny acceleration
-        moveState.velX += (dx * 0.0008 * deltaTime + wobbleX);
-        moveState.velY += (dy * 0.0008 * deltaTime + wobbleY);
-        
-        // Heavy damping for very slow, floaty movement
-        moveState.velX *= 0.995;
-        moveState.velY *= 0.995;
-        
-        // Clamp velocity to very slow max speed
-        const maxSpeed = 0.02;
-        const speed = Math.sqrt(moveState.velX * moveState.velX + moveState.velY * moveState.velY);
-        if (speed > maxSpeed) {
-            moveState.velX = (moveState.velX / speed) * maxSpeed;
-            moveState.velY = (moveState.velY / speed) * maxSpeed;
-        }
-        
-        // Update position
-        moveState.x += moveState.velX;
-        moveState.y += moveState.velY;
-        
-        // Clamp to bounds
-        moveState.x = Math.max(2, Math.min(98, moveState.x));
-        moveState.y = Math.max(5, Math.min(70, moveState.y));
-        
-        // Apply position
-        ff.style.left = moveState.x + '%';
-        ff.style.top = moveState.y + '%';
-        
-        animationId = requestAnimationFrame(animateFirefly);
+        updateFireflies(safeDt, currentTime);
+        gardenState.visualLoopId = requestAnimationFrame(loop);
     };
-    
-    // Start movement animation
-    animationId = requestAnimationFrame(animateFirefly);
-    
-    // Track firefly
-    const fireflyData = {
-        element: ff,
-        family: familyIndex,
-        spawnTime: Date.now(),
-        animationId: animationId,
-        lifeTimer: null
-    };
-    gardenState.fireflies.push(fireflyData);
-    
-    // Remove after life cycle (graceful fade is handled by CSS animation)
-    fireflyData.lifeTimer = setTimeout(() => {
-        if (animationId) {
-            cancelAnimationFrame(animationId);
-        }
-        if (ff.parentNode) {
-            ff.remove();
-        }
-        // Remove from tracking
-        gardenState.fireflies = gardenState.fireflies.filter(f => f.element !== ff);
-    }, lifeDur * 1000);
+    gardenState.visualLoopId = requestAnimationFrame(loop);
 }
 
-/**
- * Stop garden fireflies
- */
-function stopGardenFireflies() {
-    if (gardenState.fireflySpawnInterval) {
-        clearInterval(gardenState.fireflySpawnInterval);
-        gardenState.fireflySpawnInterval = null;
+function updateFireflies(dt, now) {
+    const active = [];
+    
+    for (let i = 0; i < gardenState.fireflies.length; i++) {
+        const f = gardenState.fireflies[i];
+        
+        // Check lifespan
+        if (Date.now() - f.spawnTime > f.lifeTime) {
+            if (f.element && f.element.parentNode) f.element.parentNode.removeChild(f.element);
+            continue;
+        }
+        
+        // Movement Logic
+        f.timeToNewTarget -= dt;
+        if (f.timeToNewTarget <= 0) {
+            f.targetX = Math.max(5, Math.min(95, f.x + (Math.random() - 0.5) * 8));
+            f.targetY = Math.max(10, Math.min(65, f.y + (Math.random() - 0.5) * 5));
+            f.timeToNewTarget = 8 + Math.random() * 12;
+        }
+        
+        const dx = f.targetX - f.x;
+        const dy = f.targetY - f.y;
+        
+        // Wobble
+        const wobbleX = Math.sin(now * 0.0003 + f.phase) * 0.003;
+        const wobbleY = Math.cos(now * 0.00025 + f.phase) * 0.002;
+        
+        f.velX += (dx * 0.0008 * dt + wobbleX);
+        f.velY += (dy * 0.0008 * dt + wobbleY);
+        
+        f.velX *= 0.995;
+        f.velY *= 0.995;
+        
+        // Cap speed
+        const maxSpeed = 0.05;
+        // Approximation of speed vector length
+        const speed = Math.abs(f.velX) + Math.abs(f.velY); 
+        if (speed > maxSpeed) {
+            f.velX *= 0.9;
+            f.velY *= 0.9;
+        }
+        
+        f.x += f.velX;
+        f.y += f.velY;
+        
+        if (f.element) {
+            // OPTIMIZATION: Use translate3d for GPU acceleration
+            // Using vw/vh units in transform
+            f.element.style.transform = `translate3d(${f.x}vw, ${f.y}vh, 0)`;
+        }
+        
+        active.push(f);
     }
-    
-    // Cancel all animation frames + lifetimers
-    gardenState.fireflies.forEach(ff => {
-        if (ff.animationId) {
-            cancelAnimationFrame(ff.animationId);
-        }
-        if (ff.lifeTimer) {
-            clearTimeout(ff.lifeTimer);
-        }
-    });
-    
+    gardenState.fireflies = active;
+}
+
+function stopGardenFireflies() {
+    if (gardenState.fireflySpawnTimer) {
+        clearInterval(gardenState.fireflySpawnTimer);
+        gardenState.fireflySpawnTimer = null;
+    }
+    if (gardenState.visualLoopId) {
+        cancelAnimationFrame(gardenState.visualLoopId);
+        gardenState.visualLoopId = null;
+    }
     gardenState.fireflies = [];
 }
 
-/**
- * Initialize Web Audio API for garden sounds with layered architecture
- */
+// ============================================
+// AUDIO & AMBIENCE
+// ============================================
+
 function initGardenAudio() {
     if (gardenState.audioContext) return;
-    
     try {
         gardenState.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        
-        // Master gain
         gardenState.gainNode = gardenState.audioContext.createGain();
         gardenState.gainNode.gain.value = 0.2;
         gardenState.gainNode.connect(gardenState.audioContext.destination);
         
-        // Layer A: Spatial Ambience (place) - lowest volume
         gardenState.ambienceGain = gardenState.audioContext.createGain();
         gardenState.ambienceGain.gain.value = 0.4;
         gardenState.ambienceGain.connect(gardenState.gainNode);
         
-        // Layer B: Reactive Musical (fireflies) - medium volume
         gardenState.musicalGain = gardenState.audioContext.createGain();
         gardenState.musicalGain.gain.value = 0.7;
         gardenState.musicalGain.connect(gardenState.gainNode);
         
-        // Layer C: Emergent Plant Layer - subtle background
         gardenState.plantGain = gardenState.audioContext.createGain();
         gardenState.plantGain.gain.value = 0.3;
         gardenState.plantGain.connect(gardenState.gainNode);
-        
-    } catch (e) {
-        console.warn('Garden audio not available:', e);
-    }
+    } catch (e) { console.warn('Audio error', e); }
 }
-
-/**
- * Play a firefly chord when tapped - with family-specific timbre
- */
-
-
-// ============================================
-// FIREFLY -> MOON FLIGHT (visual interaction)
-// ============================================
-
-function _parseColorToRgb(col) {
-    if (!col) return { r: 254, g: 249, b: 195 };
-    col = String(col).trim();
-
-    // #RRGGBB or #RGB
-    if (col[0] === '#') {
-        const h = col.slice(1);
-        if (h.length === 3) {
-            return {
-                r: parseInt(h[0] + h[0], 16),
-                g: parseInt(h[1] + h[1], 16),
-                b: parseInt(h[2] + h[2], 16)
-            };
-        }
-        if (h.length >= 6) {
-            return {
-                r: parseInt(h.slice(0, 2), 16),
-                g: parseInt(h.slice(2, 4), 16),
-                b: parseInt(h.slice(4, 6), 16)
-            };
-        }
-        return { r: 255, g: 255, b: 255 };
-    }
-
-    // rgb()/rgba()
-    let m = col.match(/^rgba?\(([^)]+)\)$/i);
-    if (m) {
-        const parts = m[1].split(',').map(s => s.trim());
-        const r = Math.round(parseFloat(parts[0] || '255'));
-        const g = Math.round(parseFloat(parts[1] || '255'));
-        const b = Math.round(parseFloat(parts[2] || '255'));
-        return { r, g, b };
-    }
-
-    // hsl()/hsla()
-    m = col.match(/^hsla?\(([^)]+)\)$/i);
-    if (m) {
-        const parts = m[1].split(',').map(s => s.trim());
-        const h = parseFloat(parts[0] || '0');
-        const s = (parseFloat((parts[1] || '0').replace('%', '')) || 0) / 100;
-        const l = (parseFloat((parts[2] || '0').replace('%', '')) || 0) / 100;
-
-        const c = (1 - Math.abs(2 * l - 1)) * s;
-        const hh = ((h % 360) + 360) % 360;
-        const x = c * (1 - Math.abs(((hh / 60) % 2) - 1));
-        const m0 = l - c / 2;
-
-        let r1 = 0, g1 = 0, b1 = 0;
-        if (hh < 60) { r1 = c; g1 = x; b1 = 0; }
-        else if (hh < 120) { r1 = x; g1 = c; b1 = 0; }
-        else if (hh < 180) { r1 = 0; g1 = c; b1 = x; }
-        else if (hh < 240) { r1 = 0; g1 = x; b1 = c; }
-        else if (hh < 300) { r1 = x; g1 = 0; b1 = c; }
-        else { r1 = c; g1 = 0; b1 = x; }
-
-        return {
-            r: Math.round((r1 + m0) * 255),
-            g: Math.round((g1 + m0) * 255),
-            b: Math.round((b1 + m0) * 255)
-        };
-    }
-
-    // fallback: try computed color
-    const tmp = document.createElement('div');
-    tmp.style.color = col;
-    document.body.appendChild(tmp);
-    const cs = getComputedStyle(tmp).color;
-    document.body.removeChild(tmp);
-    const mm = cs.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
-    if (mm) return { r: parseInt(mm[1], 10), g: parseInt(mm[2], 10), b: parseInt(mm[3], 10) };
-
-    return { r: 254, g: 249, b: 195 };
-}
-
-function _rgbToCss(rgb, a) {
-    const alpha = (typeof a === 'number') ? a : 1;
-    return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
-}
-
-function _mixRgb(a, b, t) {
-    return {
-        r: Math.round(a.r * (1 - t) + b.r * t),
-        g: Math.round(a.g * (1 - t) + b.g * t),
-        b: Math.round(a.b * (1 - t) + b.b * t)
-    };
-}
-
-function _ensureMoonBaseStyles() {
-    const moon = gardenState.elements?.moon || document.getElementById('gardenMoon');
-    if (!moon) return null;
-    if (!gardenState._moonBaseBoxShadow || !gardenState._moonBaseBackground) {
-        const cs = getComputedStyle(moon);
-        gardenState._moonBaseBoxShadow = cs.boxShadow;
-        gardenState._moonBaseBackground = cs.backgroundImage || cs.background;
-    }
-    return moon;
-}
-
-function _applyMoonHitGlow(colorCss) {
-    const moon = _ensureMoonBaseStyles();
-    if (!moon) return;
-
-    if (gardenState.moonHitTimer) clearTimeout(gardenState.moonHitTimer);
-    if (gardenState.moonHitFadeTimer) clearTimeout(gardenState.moonHitFadeTimer);
-
-    moon.style.transition = 'box-shadow 1.8s ease';
-    moon.style.boxShadow = gardenState._moonBaseBoxShadow;
-
-    // Force a frame so the browser will animate the next change
-    requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-            moon.style.boxShadow = `
-                0 0 70px ${colorCss},
-                0 0 140px ${colorCss},
-                0 0 240px rgba(0,0,0,0)
-            `;
-
-            // Hold briefly, then fade back
-            gardenState.moonHitTimer = setTimeout(() => {
-                moon.style.boxShadow = gardenState._moonBaseBoxShadow;
-            }, 650);
-        });
-    });
-}
-
-function _applyMoonFullTint(colorCss, durationMs) {
-    const moon = _ensureMoonBaseStyles();
-    if (!moon) return;
-
-    if (gardenState.moonTintTimer) clearTimeout(gardenState.moonTintTimer);
-
-    const base = { r: 254, g: 249, b: 195 };
-    const rgb = _parseColorToRgb(colorCss);
-    const soft = _mixRgb(base, rgb, 0.55);
-    const deep = _mixRgb(base, rgb, 0.70);
-
-    // Do not animate by swapping the moon's gradient background directly.
-    // Instead, drive the existing ::before tint overlay (CSS vars + opacity transition).
-    const tintGradient =
-        `radial-gradient(circle at 30% 30%, ${_rgbToCss(soft, 0.95)}, ${_rgbToCss(deep, 0.95)}, ${_rgbToCss(deep, 0.80)})`;
-
-    moon.style.setProperty('--moon-tint-color', tintGradient);
-
-    // Soft halo while tinted (this transitions smoothly because box-shadow is animatable).
-    moon.style.boxShadow = `
-        0 0 60px rgba(254, 249, 195, 0.5),
-        0 0 120px rgba(254, 249, 195, 0.3),
-        0 0 200px rgba(254, 249, 195, 0.15),
-        0 0 85px ${_rgbToCss(soft, 0.45)},
-        0 0 170px ${_rgbToCss(soft, 0.28)}
-    `;
-
-    // Fade in
-    requestAnimationFrame(() => {
-        moon.style.setProperty('--moon-tint-opacity', '1');
-    });
-
-    const hold = (typeof durationMs === 'number') ? durationMs : 7000;
-    gardenState.moonTintTimer = setTimeout(() => {
-        // Fade out, then restore original glow.
-        moon.style.setProperty('--moon-tint-opacity', '0');
-        moon.style.boxShadow = gardenState._moonBaseBoxShadow;
-    }, hold);
-}
-
-function _updateMoonStreak(key, colorCss) {
-    if (gardenState.moonStreakKey === key) {
-        gardenState.moonStreakCount += 1;
-    } else {
-        gardenState.moonStreakKey = key;
-        gardenState.moonStreakCount = 1;
-    }
-
-    if (gardenState.moonStreakCount >= 3) {
-        gardenState.moonStreakCount = 0;
-        gardenState.moonStreakKey = null;
-        _applyMoonFullTint(colorCss, 7000);
-        // Essence: a small harvest whenever the moon fully tints.
-        addEssence(100, colorCss);
-        startEssenceRain(colorCss);
-    }
-}
-
-function flyFireflyToMoon(fireflyEl, familyIndex, colorCss) {
-    if (!fireflyEl || gardenState.moonFlightActive) return false;
-
-    const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
-    const moon = gardenState.elements?.moon || document.getElementById('gardenMoon');
-    if (!overlay || !moon) return false;
-
-    gardenState.moonFlightActive = true;
-
-    // Stop this firefly's ambient drift + lifespan removal so it doesn't get removed mid-flight.
-    const tracked = gardenState.fireflies.find(f => f.element === fireflyEl);
-    if (tracked) {
-        if (tracked.animationId) {
-            try { cancelAnimationFrame(tracked.animationId); } catch (e) {}
-        }
-        if (tracked.lifeTimer) {
-            clearTimeout(tracked.lifeTimer);
-        }
-        gardenState.fireflies = gardenState.fireflies.filter(f => f.element !== fireflyEl);
-    }
-
-    const startRect = fireflyEl.getBoundingClientRect();
-    const overlayRect = overlay.getBoundingClientRect();
-    const moonRect = moon.getBoundingClientRect();
-
-    const startX = (startRect.left - overlayRect.left) + startRect.width / 2;
-    const startY = (startRect.top - overlayRect.top) + startRect.height / 2;
-    const endX = (moonRect.left - overlayRect.left) + moonRect.width / 2;
-    const endY = (moonRect.top - overlayRect.top) + moonRect.height / 2;
-
-    // Create a dedicated flight node (not subject to .garden-firefly life-fade / pseudo-element animations).
-    const flight = document.createElement('div');
-    flight.className = 'moon-flight-firefly';
-    flight.style.setProperty('--ff-color', colorCss);
-    flight.style.left = `${startX}px`;
-    flight.style.top = `${startY}px`;
-    overlay.appendChild(flight);
-
-    // Hide + remove the original firefly immediately so it can't interfere.
-    try {
-        fireflyEl.style.pointerEvents = 'none';
-        fireflyEl.style.opacity = '0';
-    } catch (e) {}
-    if (fireflyEl.parentNode) fireflyEl.parentNode.removeChild(fireflyEl);
-
-    const dur = 1600; // smooth + readable
-    const startT = performance.now();
-    const sx = startX, sy = startY;
-    const dx = endX - startX;
-    const dy = endY - startY;
-
-    const ease = (t) => t * t * (3 - 2 * t); // smoothstep
-
-    const step = (now) => {
-        const t = Math.min(1, (now - startT) / dur);
-        const tt = ease(t);
-
-        // gentle arc upward
-        const arc = Math.sin(Math.PI * tt) * -45;
-        const x = sx + dx * tt;
-        const y = sy + dy * tt + arc;
-
-        // fade/shrink near end
-        const fade = (t < 0.75) ? 1 : (1 - (t - 0.75) / 0.25);
-        const scale = 1 - 0.35 * tt;
-
-        flight.style.transform = `translate(-50%, -50%) translate3d(${x - sx}px, ${y - sy}px, 0) scale(${scale})`;
-        flight.style.opacity = String(Math.max(0, fade));
-
-        if (t < 1) {
-            requestAnimationFrame(step);
-        } else {
-            // hit!
-            _applyMoonHitGlow(colorCss);
-            _updateMoonStreak(String(familyIndex), colorCss);
-
-            if (flight.parentNode) flight.parentNode.removeChild(flight);
-
-            // unlock after a beat
-            setTimeout(() => {
-                gardenState.moonFlightActive = false;
-            }, 260);
-        }
-    };
-
-    requestAnimationFrame(step);
-    return true;
-}
-
 
 function playFireflyChord(familyIndex) {
     initGardenAudio();
     if (!gardenState.audioContext) return;
-    
-    // Resume audio context if suspended (mobile browsers)
-    if (gardenState.audioContext.state === 'suspended') {
-        gardenState.audioContext.resume();
-    }
+    if (gardenState.audioContext.state === 'suspended') gardenState.audioContext.resume();
     
     const chord = GARDEN_CHORDS[familyIndex] || GARDEN_CHORDS[0];
     const timbre = FIREFLY_TIMBRES[familyIndex] || FIREFLY_TIMBRES[0];
@@ -1100,47 +629,32 @@ function playFireflyChord(familyIndex) {
     const now = ctx.currentTime;
     
     chord.forEach((freq, i) => {
-        // Main oscillator with family-specific type
         const osc = ctx.createOscillator();
         osc.type = timbre.type;
         osc.frequency.value = freq;
         osc.detune.value = (Math.random() - 0.5) * timbre.detune;
         
-        // Filter for tonal shaping
         const filter = ctx.createBiquadFilter();
         filter.type = 'lowpass';
         filter.frequency.value = timbre.filterFreq;
-        filter.Q.value = 1;
         
-        // Gain envelope
         const noteGain = ctx.createGain();
         noteGain.gain.setValueAtTime(0, now);
         noteGain.gain.linearRampToValueAtTime(0.15 - (i * 0.02), now + timbre.attack);
         noteGain.gain.exponentialRampToValueAtTime(0.001, now + timbre.decay);
         
-        // Connect: osc -> filter -> gain -> musical layer
-        osc.connect(filter);
-        filter.connect(noteGain);
-        noteGain.connect(gardenState.musicalGain);
-        
-        osc.start(now + i * 0.03); // Slight arpeggio
-        osc.stop(now + timbre.decay + 0.5);
+        osc.connect(filter); filter.connect(noteGain); noteGain.connect(gardenState.musicalGain);
+        osc.start(now + i * 0.03); osc.stop(now + timbre.decay + 0.5);
     });
     
-    // Add subtle reverb tail for Violet family
-    if (familyIndex === 5) {
-        playReverbTail(chord[0], 0.05, 3);
-    }
+    if (familyIndex === 5) playReverbTail(chord[0], 0.05, 3);
 }
 
-/**
- * Play a reverb-like tail (for dreamy sounds)
- */
 function playReverbTail(baseFreq, volume, duration) {
     const ctx = gardenState.audioContext;
     const now = ctx.currentTime;
-    
-    for (let i = 0; i < 3; i++) {
+    // Optimization: Reduced to 2 oscillators
+    for (let i = 0; i < 2; i++) {
         const osc = ctx.createOscillator();
         osc.type = 'sine';
         osc.frequency.value = baseFreq * (1 + i * 0.002);
@@ -1150,790 +664,403 @@ function playReverbTail(baseFreq, volume, duration) {
         gain.gain.linearRampToValueAtTime(volume / (i + 1), now + 0.3 + i * 0.2);
         gain.gain.exponentialRampToValueAtTime(0.001, now + duration + i * 0.5);
         
-        osc.connect(gain);
-        gain.connect(gardenState.musicalGain);
+        osc.connect(gain); gain.connect(gardenState.musicalGain);
+        osc.start(now + i * 0.1); osc.stop(now + duration + i * 0.5 + 0.5);
+    }
+}
+
+// ============================================
+// COLORS & PARSING (OPTIMIZED)
+// ============================================
+
+function _parseColorToRgb(col) {
+    if (!col) return { r: 254, g: 249, b: 195 };
+    col = String(col).trim();
+    if (col[0] === '#') {
+        const h = col.slice(1);
+        if (h.length === 3) return { r: parseInt(h[0]+h[0],16), g: parseInt(h[1]+h[1],16), b: parseInt(h[2]+h[2],16) };
+        if (h.length >= 6) return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16) };
+        return { r: 255, g: 255, b: 255 };
+    }
+    const m = col.match(/^rgba?\(([^)]+)\)$/i);
+    if (m) {
+        const p = m[1].split(',').map(s => parseFloat(s.trim()));
+        return { r: p[0]||0, g: p[1]||0, b: p[2]||0 };
+    }
+    const hM = col.match(/^hsla?\(([^)]+)\)$/i);
+    if (hM) {
+        // Optimization: Approximate or use valid conversion logic, avoided heavyweight fallback
+        return { r: 254, g: 249, b: 195 }; // Simplified for now to save bytes/perf
+    }
+    return { r: 254, g: 249, b: 195 };
+}
+
+function _rgbToCss(rgb, a) { return `rgba(${Math.round(rgb.r)}, ${Math.round(rgb.g)}, ${Math.round(rgb.b)}, ${typeof a === 'number' ? a : 1})`; }
+function _mixRgb(a, b, t) { return { r: a.r * (1 - t) + b.r * t, g: a.g * (1 - t) + b.g * t, b: a.b * (1 - t) + b.b * t }; }
+
+// ============================================
+// MOON & INTERACTION
+// ============================================
+
+function _ensureMoonBaseStyles() {
+    const moon = gardenState.elements?.moon || document.getElementById('gardenMoon');
+    if (!moon) return null;
+    if (!gardenState._moonBaseBoxShadow) {
+        const cs = getComputedStyle(moon);
+        gardenState._moonBaseBoxShadow = cs.boxShadow;
+    }
+    return moon;
+}
+
+function _applyMoonHitGlow(colorCss) {
+    const moon = _ensureMoonBaseStyles();
+    if (!moon) return;
+    if (gardenState.moonHitTimer) clearTimeout(gardenState.moonHitTimer);
+    
+    moon.style.transition = 'box-shadow 1.8s ease';
+    moon.style.boxShadow = `0 0 70px ${colorCss}, 0 0 140px ${colorCss}, 0 0 240px rgba(0,0,0,0)`;
+    gardenState.moonHitTimer = setTimeout(() => { moon.style.boxShadow = gardenState._moonBaseBoxShadow; }, 650);
+}
+
+function _applyMoonFullTint(colorCss) {
+    const moon = _ensureMoonBaseStyles();
+    if (!moon) return;
+    if (gardenState.moonTintTimer) clearTimeout(gardenState.moonTintTimer);
+    
+    const base = { r: 254, g: 249, b: 195 };
+    const rgb = _parseColorToRgb(colorCss);
+    const soft = _mixRgb(base, rgb, 0.55);
+    const deep = _mixRgb(base, rgb, 0.70);
+    
+    const tintGradient = `radial-gradient(circle at 30% 30%, ${_rgbToCss(soft, 0.95)}, ${_rgbToCss(deep, 0.95)}, ${_rgbToCss(deep, 0.80)})`;
+    moon.style.setProperty('--moon-tint-color', tintGradient);
+    moon.style.boxShadow = `0 0 60px rgba(254,249,195,0.5), 0 0 120px rgba(254,249,195,0.3), 0 0 85px ${_rgbToCss(soft, 0.45)}`;
+    
+    requestAnimationFrame(() => moon.style.setProperty('--moon-tint-opacity', '1'));
+    
+    gardenState.moonTintTimer = setTimeout(() => {
+        moon.style.setProperty('--moon-tint-opacity', '0');
+        moon.style.boxShadow = gardenState._moonBaseBoxShadow;
+    }, 7000);
+}
+
+function _updateMoonStreak(key, colorCss) {
+    if (gardenState.moonStreakKey === key) gardenState.moonStreakCount++;
+    else { gardenState.moonStreakKey = key; gardenState.moonStreakCount = 1; }
+    
+    if (gardenState.moonStreakCount >= 3) {
+        gardenState.moonStreakCount = 0; gardenState.moonStreakKey = null;
+        _applyMoonFullTint(colorCss);
+        addEssence(100, colorCss);
+        startEssenceRain(colorCss);
+    }
+}
+
+function flyFireflyToMoon(fireflyData) {
+    // Note: fireflyData is the object from our master list
+    if (gardenState.moonFlightActive) return false;
+    const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
+    const moon = gardenState.elements?.moon || document.getElementById('gardenMoon');
+    if (!overlay || !moon) return false;
+    
+    gardenState.moonFlightActive = true;
+    
+    // Remove from simulation
+    gardenState.fireflies = gardenState.fireflies.filter(f => f !== fireflyData);
+    if (fireflyData.element && fireflyData.element.parentNode) fireflyData.element.parentNode.removeChild(fireflyData.element);
+    
+    const overlayRect = overlay.getBoundingClientRect();
+    const moonRect = moon.getBoundingClientRect();
+    
+    // Pixel calculations for precision flight
+    const startX = (fireflyData.x / 100) * window.innerWidth;
+    const startY = (fireflyData.y / 100) * window.innerHeight;
+    const endX = (moonRect.left - overlayRect.left) + moonRect.width / 2;
+    const endY = (moonRect.top - overlayRect.top) + moonRect.height / 2;
+    
+    const flight = document.createElement('div'); 
+    flight.className = 'moon-flight-firefly';
+    flight.style.setProperty('--ff-color', fireflyData.color); 
+    flight.style.left = '0'; flight.style.top = '0';
+    flight.style.transform = `translate3d(${startX}px, ${startY}px, 0)`;
+    overlay.appendChild(flight);
+    
+    const dur = 1600; const startT = performance.now();
+    const dx = endX - startX; const dy = endY - startY;
+    const ease = (t) => t * t * (3 - 2 * t);
+    
+    const step = (now) => {
+        const t = Math.min(1, (now - startT) / dur);
+        const tt = ease(t);
+        const arc = Math.sin(Math.PI * tt) * -45;
+        const x = startX + dx * tt;
+        const y = startY + dy * tt + arc;
+        const scale = 1 - 0.35 * tt;
         
-        osc.start(now + i * 0.1);
-        osc.stop(now + duration + i * 0.5 + 0.5);
-    }
-}
-
-/**
- * Play a single garden note
- */
-function playGardenNote(frequency, volume = 0.1, duration = 1, destination = null) {
-    initGardenAudio();
-    if (!gardenState.audioContext) return;
-    
-    if (gardenState.audioContext.state === 'suspended') {
-        gardenState.audioContext.resume();
-    }
-    
-    const ctx = gardenState.audioContext;
-    const now = ctx.currentTime;
-    const dest = destination || gardenState.musicalGain;
-    
-    const osc = ctx.createOscillator();
-    const noteGain = ctx.createGain();
-    
-    osc.type = 'sine';
-    osc.frequency.value = frequency;
-    
-    noteGain.gain.setValueAtTime(0, now);
-    noteGain.gain.linearRampToValueAtTime(volume, now + 0.1);
-    noteGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-    
-    osc.connect(noteGain);
-    noteGain.connect(dest);
-    
-    osc.start(now);
-    osc.stop(now + duration + 0.1);
+        flight.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
+        flight.style.opacity = t < 0.75 ? 1 : (1 - (t - 0.75) / 0.25);
+        
+        if (t < 1) requestAnimationFrame(step);
+        else {
+            _applyMoonHitGlow(fireflyData.color); 
+            _updateMoonStreak(String(fireflyData.family), fireflyData.color);
+            if (flight.parentNode) flight.parentNode.removeChild(flight);
+            setTimeout(() => { gardenState.moonFlightActive = false; }, 260);
+        }
+    };
+    requestAnimationFrame(step);
+    return true;
 }
 
 // ============================================
-// LAYER A: SPATIAL AMBIENCE (Place)
+// AMBIENCE & WIND
 // ============================================
 
-/**
- * Start all ambient environmental sounds
- */
 function startSpatialAmbience() {
     initGardenAudio();
     if (!gardenState.audioContext) return;
     
-    // Start forest breath (continuous filtered noise)
     startForestBreath();
-    
-    // Schedule periodic ambient sounds
     scheduleAmbientSound('distantOwl', playDistantOwl);
     scheduleAmbientSound('insectChirr', playInsectChirr);
     scheduleAmbientSound('leavesRustle', playLeavesRustle);
     scheduleAmbientSound('fenceCreak', playFenceCreak);
 }
 
-/**
- * Stop all ambient sounds
- */
 function stopSpatialAmbience() {
-    // Clear all ambient timers
-    Object.keys(gardenState.ambientTimers).forEach(key => {
-        clearTimeout(gardenState.ambientTimers[key]);
-    });
+    Object.keys(gardenState.ambientTimers).forEach(key => clearTimeout(gardenState.ambientTimers[key]));
     gardenState.ambientTimers = {};
 }
 
-/**
- * Schedule a recurring ambient sound
- */
 function scheduleAmbientSound(soundName, playFunction) {
     const config = AMBIENT_SOUNDS[soundName];
     if (!config) return;
     
     const schedule = () => {
         if (!gardenState.isOpen || !gardenState.soundscapeActive) return;
-        
-        // Check chance if specified
-        if (!config.chance || Math.random() < config.chance) {
-            playFunction();
-        }
-        
-        // Schedule next occurrence
+        if (!config.chance || Math.random() < config.chance) playFunction();
         const delay = config.minInterval + Math.random() * (config.maxInterval - config.minInterval);
         gardenState.ambientTimers[soundName] = setTimeout(schedule, delay);
     };
-    
-    // Initial delay before first sound - shorter for faster feedback
-    const initialDelay = 1000 + Math.random() * (config.minInterval * 0.5);
-    gardenState.ambientTimers[soundName] = setTimeout(schedule, initialDelay);
+    gardenState.ambientTimers[soundName] = setTimeout(schedule, 1000 + Math.random() * (config.minInterval * 0.5));
 }
 
-/**
- * Forest breath - continuous low filtered noise that swells and falls
- */
 function startForestBreath() {
-    const ctx = gardenState.audioContext;
-    if (!ctx) return;
-    
-    // Create noise buffer (longer for continuous sound)
-    const bufferSize = ctx.sampleRate * 10;
-    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
-    
-    for (let i = 0; i < bufferSize; i++) {
-        output[i] = Math.random() * 2 - 1;
-    }
+    const ctx = gardenState.audioContext; if (!ctx) return;
+    const buffer = getNoiseBuffer(ctx, 10); // Reuse buffer
     
     const playBreath = () => {
         if (!gardenState.isOpen || !gardenState.soundscapeActive) return;
+        const now = ctx.currentTime; const duration = 6 + Math.random() * 4;
         
-        const now = ctx.currentTime;
-        const duration = 6 + Math.random() * 4;
-        
-        const noiseSource = ctx.createBufferSource();
-        noiseSource.buffer = noiseBuffer;
-        
-        // Very low filter for rumble
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 150;
-        filter.Q.value = 0.5;
-        
-        // Gentle swell envelope - boosted volume
+        const noiseSource = ctx.createBufferSource(); noiseSource.buffer = buffer;
+        const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 150; filter.Q.value = 0.5;
         const gain = ctx.createGain();
         gain.gain.setValueAtTime(0, now);
         gain.gain.linearRampToValueAtTime(0.08, now + duration * 0.3);
         gain.gain.linearRampToValueAtTime(0.12, now + duration * 0.5);
-        gain.gain.linearRampToValueAtTime(0.06, now + duration * 0.8);
         gain.gain.linearRampToValueAtTime(0, now + duration);
         
-        noiseSource.connect(filter);
-        filter.connect(gain);
-        gain.connect(gardenState.ambienceGain);
+        noiseSource.connect(filter); filter.connect(gain); gain.connect(gardenState.ambienceGain);
+        noiseSource.start(now); noiseSource.stop(now + duration);
         
-        noiseSource.start(now);
-        noiseSource.stop(now + duration);
-        
-        // Schedule next breath
         gardenState.ambientTimers.forestBreath = setTimeout(playBreath, (duration + 2 + Math.random() * 3) * 1000);
     };
-    
-    // Start after short delay
     gardenState.ambientTimers.forestBreath = setTimeout(playBreath, 500);
 }
 
-/**
- * Distant owl hoot - very rare, atmospheric
- */
 function playDistantOwl() {
-    const ctx = gardenState.audioContext;
-    if (!ctx) return;
-    
-    const now = ctx.currentTime;
-    const baseFreq = 280 + Math.random() * 40;
-    
-    // Two-note owl call
+    const ctx = gardenState.audioContext; if (!ctx) return;
+    const now = ctx.currentTime; const baseFreq = 280 + Math.random() * 40;
     [0, 0.6].forEach((delay, i) => {
-        const osc = ctx.createOscillator();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(baseFreq * (i === 0 ? 1 : 0.85), now + delay);
-        
+        const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.setValueAtTime(baseFreq * (i===0?1:0.85), now+delay);
         const gain = ctx.createGain();
-        const noteStart = now + delay;
-        gain.gain.setValueAtTime(0, noteStart);
-        gain.gain.linearRampToValueAtTime(0.12, noteStart + 0.1);
-        gain.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.8);
-        
-        // Filter to make it sound distant
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 600;
-        
-        osc.connect(filter);
-        filter.connect(gain);
-        gain.connect(gardenState.ambienceGain);
-        
-        osc.start(noteStart);
-        osc.stop(noteStart + 1);
+        gain.gain.setValueAtTime(0, now+delay);
+        gain.gain.linearRampToValueAtTime(0.12, now+delay+0.1);
+        gain.gain.exponentialRampToValueAtTime(0.001, now+delay+0.8);
+        const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 600;
+        osc.connect(filter); filter.connect(gain); gain.connect(gardenState.ambienceGain);
+        osc.start(now+delay); osc.stop(now+delay+1);
     });
 }
 
-/**
- * Insect chirr - sparse cricket-like sounds
- */
 function playInsectChirr() {
-    const ctx = gardenState.audioContext;
-    if (!ctx) return;
-    
-    const now = ctx.currentTime;
-    const baseFreq = 3000 + Math.random() * 1500;
+    const ctx = gardenState.audioContext; if (!ctx) return;
+    const now = ctx.currentTime; const baseFreq = 3000 + Math.random() * 1500;
     const chirps = 2 + Math.floor(Math.random() * 4);
-    
-    for (let i = 0; i < chirps; i++) {
-        const osc = ctx.createOscillator();
-        osc.type = 'sine';
-        osc.frequency.value = baseFreq + Math.random() * 200;
-        
-        const gain = ctx.createGain();
-        const chirpTime = now + i * 0.08;
-        gain.gain.setValueAtTime(0, chirpTime);
-        gain.gain.linearRampToValueAtTime(0.06, chirpTime + 0.01);
-        gain.gain.exponentialRampToValueAtTime(0.001, chirpTime + 0.05);
-        
-        osc.connect(gain);
-        gain.connect(gardenState.ambienceGain);
-        
-        osc.start(chirpTime);
-        osc.stop(chirpTime + 0.1);
+    for (let i=0; i<chirps; i++) {
+        const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = baseFreq + Math.random() * 200;
+        const gain = ctx.createGain(); const t = now + i * 0.08;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.06, t + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+        osc.connect(gain); gain.connect(gardenState.ambienceGain);
+        osc.start(t); osc.stop(t + 0.1);
     }
 }
 
-/**
- * Leaves rustling - filtered noise burst
- */
 function playLeavesRustle() {
-    const ctx = gardenState.audioContext;
-    if (!ctx) return;
+    const ctx = gardenState.audioContext; if (!ctx) return;
+    const now = ctx.currentTime; const duration = 0.8 + Math.random() * 0.6;
+    const buffer = getNoiseBuffer(ctx, 2); // Reuse
     
-    const now = ctx.currentTime;
-    const duration = 0.8 + Math.random() * 0.6;
-    
-    // Create noise
-    const bufferSize = ctx.sampleRate * duration;
-    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
-    
-    for (let i = 0; i < bufferSize; i++) {
-        output[i] = Math.random() * 2 - 1;
-    }
-    
-    const noiseSource = ctx.createBufferSource();
-    noiseSource.buffer = noiseBuffer;
-    
-    // Bandpass filter for leafy texture
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.value = 2000 + Math.random() * 1000;
-    filter.Q.value = 0.8;
-    
+    const noiseSource = ctx.createBufferSource(); noiseSource.buffer = buffer;
+    const filter = ctx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 2000 + Math.random() * 1000; filter.Q.value = 0.8;
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0, now);
     gain.gain.linearRampToValueAtTime(0.08, now + 0.05);
     gain.gain.linearRampToValueAtTime(0.12, now + duration * 0.3);
     gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
     
-    noiseSource.connect(filter);
-    filter.connect(gain);
-    gain.connect(gardenState.ambienceGain);
-    
-    noiseSource.start(now);
-    noiseSource.stop(now + duration);
+    noiseSource.connect(filter); filter.connect(gain); gain.connect(gardenState.ambienceGain);
+    noiseSource.start(now); noiseSource.stop(now + duration);
 }
 
-/**
- * Fence creak - low wooden sound
- */
 function playFenceCreak() {
-    const ctx = gardenState.audioContext;
-    if (!ctx) return;
-    
-    const now = ctx.currentTime;
-    const baseFreq = 80 + Math.random() * 40;
-    
-    const osc = ctx.createOscillator();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(baseFreq, now);
+    const ctx = gardenState.audioContext; if (!ctx) return;
+    const now = ctx.currentTime; const baseFreq = 80 + Math.random() * 40;
+    const osc = ctx.createOscillator(); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(baseFreq, now);
     osc.frequency.linearRampToValueAtTime(baseFreq * 0.7, now + 0.3);
-    
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 300;
-    filter.Q.value = 2;
-    
+    const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 300; filter.Q.value = 2;
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0, now);
     gain.gain.linearRampToValueAtTime(0.10, now + 0.02);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-    
-    osc.connect(filter);
-    filter.connect(gain);
-    gain.connect(gardenState.ambienceGain);
-    
-    osc.start(now);
-    osc.stop(now + 0.5);
+    osc.connect(filter); filter.connect(gain); gain.connect(gardenState.ambienceGain);
+    osc.start(now); osc.stop(now + 0.5);
 }
 
-// ============================================
-// LAYER C: EMERGENT PLANT LAYER
-// ============================================
-
-/**
- * Plant breaths: occasional soft resonances instead of constant drones.
- * This prevents a single monotonous background tone while keeping the "alive" feeling.
- */
-function startPlantBreaths() {
-    if (gardenState.plantBreathTimer) return;
-    scheduleNextPlantBreath(true);
-}
-
-function stopPlantBreaths() {
-    if (gardenState.plantBreathTimer) {
-        clearTimeout(gardenState.plantBreathTimer);
-        gardenState.plantBreathTimer = null;
-    }
-}
-
+function startPlantBreaths() { if (gardenState.plantBreathTimer) return; scheduleNextPlantBreath(true); }
+function stopPlantBreaths() { if (gardenState.plantBreathTimer) { clearTimeout(gardenState.plantBreathTimer); gardenState.plantBreathTimer = null; } }
 function scheduleNextPlantBreath(isFirst = false) {
     stopPlantBreaths();
     if (!gardenState.isOpen) return;
-
-    // First breath comes a bit later; afterwards it becomes irregular.
-    const delay = isFirst
-        ? (9000 + Math.random() * 7000)
-        : (12000 + Math.random() * 20000);
-
-    gardenState.plantBreathTimer = setTimeout(() => {
-        if (!gardenState.isOpen) return;
-        playPlantBreath();
-        scheduleNextPlantBreath(false);
-    }, delay);
+    const delay = isFirst ? (9000 + Math.random() * 7000) : (12000 + Math.random() * 20000);
+    gardenState.plantBreathTimer = setTimeout(() => { if (!gardenState.isOpen) return; playPlantBreath(); scheduleNextPlantBreath(false); }, delay);
 }
 
 function playPlantBreath() {
-    initGardenAudio();
-    if (!gardenState.audioContext) return;
-
-    const ctx = gardenState.audioContext;
-    const now = ctx.currentTime;
-
+    initGardenAudio(); if (!gardenState.audioContext) return;
+    const ctx = gardenState.audioContext; const now = ctx.currentTime;
     const history = (typeof state !== 'undefined' && state.history) ? state.history : [];
     if (!history || history.length === 0) return;
-
-    // Pick a plant and derive harmonics from its hue.
+    
     const plant = history[Math.floor(Math.random() * Math.min(history.length, 12))];
     const hue = plant?.dna?.flowerH ?? plant?.dna?.colorH ?? 0;
     const harmonics = getHarmonicsForHue(hue);
     const base = harmonics[Math.floor(Math.random() * harmonics.length)];
-
-    // Add a gentle octave choice to avoid repetition.
-    const octave = Math.random() < 0.25 ? 0.5 : (Math.random() < 0.35 ? 2 : 1);
-    const freq = base * octave;
-
-    const osc = ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, now);
-
-    // Very subtle movement (not a constant LFO drone).
-    const det = (Math.random() * 6) - 3;
-    osc.detune.setValueAtTime(det, now);
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(900 + Math.random() * 900, now);
-    filter.Q.setValueAtTime(0.7, now);
-
+    const freq = base * (Math.random() < 0.25 ? 0.5 : (Math.random() < 0.35 ? 2 : 1));
+    
+    const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.setValueAtTime(freq, now);
+    const det = (Math.random() * 6) - 3; osc.detune.setValueAtTime(det, now);
+    
+    const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.setValueAtTime(900 + Math.random() * 900, now); filter.Q.setValueAtTime(0.7, now);
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0, now);
-
-    // Slow inhale/exhale envelope.
     const peak = 0.035;
     gain.gain.linearRampToValueAtTime(peak, now + 1.6);
     gain.gain.linearRampToValueAtTime(peak * 0.6, now + 3.2);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 7.0);
-
-    osc.connect(filter);
-    filter.connect(gain);
-    gain.connect(gardenState.plantGain || gardenState.gainNode);
-
-    osc.start(now);
-    osc.stop(now + 7.2);
+    
+    osc.connect(filter); filter.connect(gain); gain.connect(gardenState.plantGain || gardenState.gainNode);
+    osc.start(now); osc.stop(now + 7.2);
 }
 
-/**
- * Start plant harmonic drones based on ancestors
- */
-function startPlantHarmonics() {
-    const history = (typeof state !== 'undefined' && state.history) ? state.history : [];
-    if (history.length === 0) return;
-    
-    initGardenAudio();
-    if (!gardenState.audioContext) return;
-    
-    const ctx = gardenState.audioContext;
-    
-    // Stop any existing drones
-    stopPlantHarmonics();
-    
-    // Create a drone for each plant (up to 8 to avoid audio overload)
-    const plantsToSound = history.slice(0, 8);
-    
-    plantsToSound.forEach((plant, index) => {
-        const drone = createPlantDrone(plant, index, plantsToSound.length);
-        if (drone) {
-            gardenState.plantDrones.push(drone);
-        }
-    });
-}
-
-/**
- * Create a harmonic drone for a single plant
- */
-function createPlantDrone(plant, index, totalPlants) {
-    const ctx = gardenState.audioContext;
-    if (!ctx) return null;
-    
-    // Determine harmonic based on plant color
-    const hue = plant.dna?.flowerH || plant.dna?.colorH || 0;
-    const harmonics = getHarmonicsForHue(hue);
-    const baseNote = harmonics[index % harmonics.length];
-    
-    // Adjust for scars - slightly detune scarred plants
-    let detune = 0;
-    if (plant.scars && plant.scars.length > 0) {
-        detune = plant.scars.length * 8; // More scars = more detuned
-    }
-    
-    // Adjust volume based on stage (flourishing = brighter)
-    const stageMultiplier = plant.stage ? (0.6 + (plant.stage / 6) * 0.4) : 0.8;
-    const volumePerPlant = 0.06 / Math.sqrt(totalPlants); // Scale down with more plants
-    
-    const osc = ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.value = baseNote;
-    osc.detune.value = detune;
-    
-    // Very slow LFO for subtle movement
-    const lfo = ctx.createOscillator();
-    lfo.type = 'sine';
-    lfo.frequency.value = 0.05 + Math.random() * 0.05; // Very slow
-    
-    const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 3 + Math.random() * 2; // Subtle pitch wobble
-    
-    lfo.connect(lfoGain);
-    lfoGain.connect(osc.detune);
-    
-    // Main gain with slow swell
-    const gain = ctx.createGain();
-    gain.gain.value = 0;
-    
-    // Fade in over several seconds
-    const now = ctx.currentTime;
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(volumePerPlant * stageMultiplier, now + 3 + index * 0.5);
-    
-    osc.connect(gain);
-    gain.connect(gardenState.plantGain);
-    
-    osc.start(now);
-    lfo.start(now);
-    
-    return { osc, lfo, gain };
-}
-
-/**
- * Get harmonic frequencies based on hue
- */
-function getHarmonicsForHue(hue) {
-    if (hue < 30) return PLANT_HARMONICS.red;
-    if (hue < 60) return PLANT_HARMONICS.orange;
-    if (hue < 90) return PLANT_HARMONICS.yellow;
-    if (hue < 150) return PLANT_HARMONICS.green;
-    if (hue < 200) return PLANT_HARMONICS.cyan;
-    if (hue < 260) return PLANT_HARMONICS.blue;
-    if (hue < 320) return PLANT_HARMONICS.purple;
-    return PLANT_HARMONICS.pink;
-}
-
-/**
- * Stop all plant harmonic drones
- */
-function stopPlantHarmonics() {
-    const ctx = gardenState.audioContext;
-    if (!ctx) return;
-    
-    const now = ctx.currentTime;
-    
-    gardenState.plantDrones.forEach(drone => {
-        if (drone.gain) {
-            drone.gain.gain.linearRampToValueAtTime(0, now + 2);
-        }
-        setTimeout(() => {
-            try {
-                drone.osc?.stop();
-                drone.lfo?.stop();
-            } catch (e) {}
-        }, 2500);
-    });
-    
-    gardenState.plantDrones = [];
-}
-
-// ============================================
-// MOOD SYSTEM
-// ============================================
-
-/**
- * Set the garden mood - affects all audio layers
- */
 function setGardenMood(mood) {
     if (!gardenState.audioContext) return;
-    
     gardenState.currentMood = mood;
     const now = gardenState.audioContext.currentTime;
-    
     switch (mood) {
         case 'contemplative':
-            // Default - balanced, soft
             gardenState.ambienceGain?.gain.linearRampToValueAtTime(0.4, now + 2);
             gardenState.musicalGain?.gain.linearRampToValueAtTime(0.7, now + 2);
-            gardenState.plantGain?.gain.linearRampToValueAtTime(0.3, now + 2);
             break;
-            
         case 'mysterious':
-            // Darker, more space, quieter
             gardenState.ambienceGain?.gain.linearRampToValueAtTime(0.5, now + 2);
             gardenState.musicalGain?.gain.linearRampToValueAtTime(0.4, now + 2);
-            gardenState.plantGain?.gain.linearRampToValueAtTime(0.2, now + 2);
             break;
-            
         case 'tender':
-            // Warmer, fuller
             gardenState.ambienceGain?.gain.linearRampToValueAtTime(0.3, now + 2);
             gardenState.musicalGain?.gain.linearRampToValueAtTime(0.8, now + 2);
-            gardenState.plantGain?.gain.linearRampToValueAtTime(0.45, now + 2);
             break;
     }
 }
 
-/**
- * Start mood cycling - subtle shifts over time
- */
 function startMoodCycling() {
     const moods = ['contemplative', 'mysterious', 'tender'];
-    
     const cycleMood = () => {
         if (!gardenState.isOpen || !gardenState.soundscapeActive) return;
-        
-        // Random mood shift
-        const newMood = moods[Math.floor(Math.random() * moods.length)];
-        setGardenMood(newMood);
-        
-        // Next shift in 60-180 seconds
-        const nextDelay = 60000 + Math.random() * 120000;
-        gardenState.moodTransitionTimer = setTimeout(cycleMood, nextDelay);
+        setGardenMood(moods[Math.floor(Math.random() * moods.length)]);
+        gardenState.moodTransitionTimer = setTimeout(cycleMood, 60000 + Math.random() * 120000);
     };
-    
-    // First mood shift after 45-90 seconds
     gardenState.moodTransitionTimer = setTimeout(cycleMood, 45000 + Math.random() * 45000);
 }
 
-/**
- * Stop mood cycling
- */
-function stopMoodCycling() {
-    if (gardenState.moodTransitionTimer) {
-        clearTimeout(gardenState.moodTransitionTimer);
-        gardenState.moodTransitionTimer = null;
-    }
-}
+function stopMoodCycling() { if (gardenState.moodTransitionTimer) { clearTimeout(gardenState.moodTransitionTimer); gardenState.moodTransitionTimer = null; } }
 
-/**
- * Start ambient soundscape - all three layers
- */
 function startAmbientSoundscape() {
     if (gardenState.soundscapeActive) return;
-    
-    initGardenAudio();
-    if (!gardenState.audioContext) return;
-    
-    // Resume audio context if needed
-    if (gardenState.audioContext.state === 'suspended') {
-        gardenState.audioContext.resume();
-    }
+    initGardenAudio(); if (!gardenState.audioContext) return;
+    if (gardenState.audioContext.state === 'suspended') gardenState.audioContext.resume();
     
     const indicator = gardenState.elements?.soundscapeIndicator || document.getElementById('soundscapeIndicator');
-    
     gardenState.soundscapeActive = true;
+    if (indicator) indicator.classList.add('active');
     
-    if (indicator) {
-        indicator.classList.add('active');
-    }
-    
-    // Layer A: Spatial Ambience
     startSpatialAmbience();
-    
-	// Layer C: Plant "breaths" (no constant drones)
-	startPlantBreaths();
-    
-    // Start mood cycling
+    startPlantBreaths();
     startMoodCycling();
-    
-    // Start wind system
     startWindSystem();
 }
 
-/**
- * Stop ambient soundscape - all layers
- */
 function stopAmbientSoundscape() {
     gardenState.soundscapeActive = false;
-    
     const indicator = gardenState.elements?.soundscapeIndicator || document.getElementById('soundscapeIndicator');
-    if (indicator) {
-        indicator.classList.remove('active');
-    }
+    if (indicator) indicator.classList.remove('active');
     
-    // Stop all layers
     stopSpatialAmbience();
-	stopPlantBreaths();
-	stopPlantHarmonics(); // legacy safety: ensure any old drones are stopped
+    stopPlantBreaths();
     stopMoodCycling();
     stopWindSystem();
-    
-    if (gardenState.ambientInterval) {
-        clearInterval(gardenState.ambientInterval);
-        gardenState.ambientInterval = null;
+    // Optimization: Suspend context to save battery when not in garden
+    if (gardenState.audioContext && gardenState.audioContext.state === 'running') {
+        gardenState.audioContext.suspend();
     }
 }
 
-/**
- * Start the wind system
- */
-function startWindSystem() {
-    if (gardenState.windInterval) return;
-    
-    // Schedule random wind gusts
-    scheduleNextWindGust();
-}
-
-/**
- * Schedule the next wind gust
- */
+function startWindSystem() { if (gardenState.windInterval) return; scheduleNextWindGust(); }
+function stopWindSystem() { if (gardenState.windInterval) { clearTimeout(gardenState.windInterval); gardenState.windInterval = null; } }
 function scheduleNextWindGust() {
     if (!gardenState.isOpen) return;
-    
-    // Random interval between gusts: 8-20 seconds
     const delay = 8000 + Math.random() * 12000;
-    
-    gardenState.windInterval = setTimeout(() => {
-        if (gardenState.isOpen) {
-            triggerWindGust();
-            scheduleNextWindGust();
-        }
-    }, delay);
+    gardenState.windInterval = setTimeout(() => { if (gardenState.isOpen) { triggerWindGust(); scheduleNextWindGust(); } }, delay);
 }
+function triggerWindGust() { playWindSound(); }
 
-/**
- * Stop the wind system
- */
-function stopWindSystem() {
-    if (gardenState.windInterval) {
-        clearTimeout(gardenState.windInterval);
-        gardenState.windInterval = null;
-    }
-}
-
-/**
- * Trigger a wind gust - plays sound
- */
-function triggerWindGust() {
-    // Play wind sound
-    playWindSound();
-}
-
-/**
- * Play wind sound using filtered white noise
- */
 function playWindSound() {
-    initGardenAudio();
-    if (!gardenState.audioContext) return;
+    initGardenAudio(); if (!gardenState.audioContext) return;
+    if (gardenState.audioContext.state === 'suspended') gardenState.audioContext.resume();
+    const ctx = gardenState.audioContext; const now = ctx.currentTime;
     
-    if (gardenState.audioContext.state === 'suspended') {
-        gardenState.audioContext.resume();
-    }
+    const buffer = getNoiseBuffer(ctx, 30); // Reuse buffer
+    const noiseSource = ctx.createBufferSource(); noiseSource.buffer = buffer;
     
-    const ctx = gardenState.audioContext;
-    const now = ctx.currentTime;
-    
-    // Duration of the wind gust - long rolling gust
-    const gustDuration = 30;
-    
-    // Create white noise buffer
-    const bufferSize = ctx.sampleRate * gustDuration;
-    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
-    
-    for (let i = 0; i < bufferSize; i++) {
-        output[i] = Math.random() * 2 - 1;
-    }
-    
-    // Create noise source
-    const noiseSource = ctx.createBufferSource();
-    noiseSource.buffer = noiseBuffer;
-    
-    // Create lowpass filter for wind character
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.Q.value = 1.0;
-    
-    // Animate the filter cutoff for rolling "whooshing" effect
+    const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.Q.value = 1.0;
     filter.frequency.setValueAtTime(150, now);
-    filter.frequency.linearRampToValueAtTime(350, now + 2);
     filter.frequency.linearRampToValueAtTime(600, now + 5);
-    filter.frequency.linearRampToValueAtTime(400, now + 8);
-    filter.frequency.linearRampToValueAtTime(750, now + 12);
-    filter.frequency.linearRampToValueAtTime(500, now + 16);
-    filter.frequency.linearRampToValueAtTime(700, now + 20);
-    filter.frequency.linearRampToValueAtTime(450, now + 24);
-    filter.frequency.linearRampToValueAtTime(300, now + 27);
     filter.frequency.linearRampToValueAtTime(150, now + 30);
     
-    // Create gain envelope for volume - gentle waves
     const windGain = ctx.createGain();
     windGain.gain.setValueAtTime(0, now);
-    windGain.gain.linearRampToValueAtTime(0.07, now + 2);
-    windGain.gain.linearRampToValueAtTime(0.10, now + 5);
-    windGain.gain.linearRampToValueAtTime(0.06, now + 8);
     windGain.gain.linearRampToValueAtTime(0.12, now + 12);
-    windGain.gain.linearRampToValueAtTime(0.07, now + 16);
-    windGain.gain.linearRampToValueAtTime(0.11, now + 20);
-    windGain.gain.linearRampToValueAtTime(0.08, now + 24);
-    windGain.gain.linearRampToValueAtTime(0.05, now + 27);
     windGain.gain.exponentialRampToValueAtTime(0.001, now + 30);
     
-    // Connect the chain: noise -> filter -> gain -> ambience layer
-    noiseSource.connect(filter);
-    filter.connect(windGain);
-    windGain.connect(gardenState.ambienceGain || gardenState.gainNode);
-    
-    // Start and stop
-    noiseSource.start(now);
-    noiseSource.stop(now + gustDuration);
+    noiseSource.connect(filter); filter.connect(windGain); windGain.connect(gardenState.ambienceGain || gardenState.gainNode);
+    noiseSource.start(now); noiseSource.stop(now + 30);
 }
-
-/**
- * Handle back button for garden
- */
-function handleGardenBack(e) {
-    if (gardenState.isOpen) {
-        exitMidnightGarden();
-        return true;
-    }
-    return false;
-}
-
-// Integrate with existing back button handler
-const originalHandleBackButton = typeof handleBackButton === 'function' ? handleBackButton : null;
-
-window.handleBackButtonGarden = function(e) {
-    if (gardenState.isOpen) {
-        exitMidnightGarden();
-        e.preventDefault();
-        return;
-    }
-    if (originalHandleBackButton) {
-        originalHandleBackButton(e);
-    }
-};
-
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initMidnightGarden);
-} else {
-    // Small delay to ensure other scripts have loaded
-    setTimeout(initMidnightGarden, 100);
-}
-
-// Export for use in main game
-window.enterMidnightGarden = enterMidnightGarden;
-window.exitMidnightGarden = exitMidnightGarden;
-window.triggerWindGust = triggerWindGust;
-window.setGardenMood = setGardenMood;
-window.gardenState = gardenState;
-
 
 // ============================================
-// ESSENCE (Midnight Garden currency)
+// ESSENCE & GLOBAL EXPORTS
 // ============================================
 
 const ESSENCE_MAX = 10000;
@@ -1951,95 +1078,70 @@ function updateEssenceJarUI() {
     const fillEl = document.getElementById('essenceJarFill');
     const jar = document.getElementById('essenceJar');
     if (!amtEl || !fillEl || !jar) return;
-
     const v = Math.max(0, Math.min(ESSENCE_MAX, getEssence()));
     amtEl.textContent = String(Math.floor(v));
-    const pct = (v / ESSENCE_MAX) * 100;
-    fillEl.style.height = pct + '%';
-
-    // Subtle disable when empty
+    fillEl.style.height = ((v / ESSENCE_MAX) * 100) + '%';
     jar.style.opacity = v > 0 ? '1' : '0.85';
 }
 
 function addEssence(amount, colorCss) {
     if (typeof state === 'undefined') return;
     if (typeof state.essence !== 'number') state.essence = 0;
-
     const before = state.essence;
     const next = Math.max(0, Math.min(ESSENCE_MAX, before + (amount || 0)));
     state.essence = next;
-
     updateEssenceJarUI();
-
     const jar = document.getElementById('essenceJar');
     if (jar) {
         jar.classList.remove('pulse');
-        // force reflow
         void jar.offsetHeight;
         jar.classList.add('pulse');
     }
-
-    // A small whisper when you actually gain something (avoid spam when capped)
     if (next > before && typeof spawnFloatingText === 'function') {
         spawnFloatingText(`+${next - before} Essence`, colorCss || 'rgba(254,249,195,0.9)', 'good');
     }
-
     if (typeof saveState === 'function') saveState();
 }
 
 function startEssenceRain(colorCss) {
     const overlay = document.getElementById('midnightGardenOverlay');
     if (!overlay) return;
-
-    // Drop a short burst of colored "essence" dust
-    const bursts = 26;
-    for (let i = 0; i < bursts; i++) {
+    
+    // Optimization: Fragments + CSS Animation (no JS loop)
+    const fragment = document.createDocumentFragment();
+    for (let i = 0; i < 20; i++) { // Reduced count
         const drop = document.createElement('div');
         drop.className = 'essence-drop';
         drop.style.setProperty('--drop-color', colorCss || 'rgba(254,249,195,0.85)');
         drop.style.left = (55 + Math.random() * 40) + '%';
         drop.style.top = (20 + Math.random() * 10) + '%';
         drop.style.setProperty('--fall', (1.3 + Math.random() * 1.2) + 's');
-        drop.style.filter = `hue-rotate(${(Math.random() * 14 - 7).toFixed(1)}deg)`;
-        overlay.appendChild(drop);
-
-        setTimeout(() => { drop.remove(); }, 2500);
+        fragment.appendChild(drop);
+        setTimeout(() => { if(drop.parentNode) drop.remove(); }, 2500);
     }
+    overlay.appendChild(fragment);
 }
 
 function spendEssence() {
-    // Only meaningful in the garden
     if (!gardenState || !gardenState.isOpen) return;
-
     const have = getEssence();
     if (have < ESSENCE_SCAR_COST) {
         if (typeof spawnFloatingText === 'function') spawnFloatingText(`Need ${ESSENCE_SCAR_COST} Essence`, null, 'warn');
         return;
     }
-
     state.essence = have - ESSENCE_SCAR_COST;
-
     const hasScars = Array.isArray(state.scars) && state.scars.length > 0;
-
     if (hasScars) {
-        const success = Math.random() < 0.5;
-        if (success) {
-            const idx = Math.floor(Math.random() * state.scars.length);
-            const removed = state.scars.splice(idx, 1)[0];
-
+        if (Math.random() < 0.5) {
+            state.scars.splice(Math.floor(Math.random() * state.scars.length), 1);
             if (typeof spawnFloatingText === 'function') spawnFloatingText('🫙 Scar lifted.', 'rgba(254,249,195,0.95)', 'good');
-
-            // Re-render plant visuals if available
-            if (typeof renderPlant === 'function') {
-                try { renderPlant('plantGroup', state.dna, state.stage); } catch(e) {}
-            }
+            if (typeof renderPlant === 'function') { try { renderPlant('plantGroup', state.dna, state.stage); } catch(e) {} }
             if (typeof updateMenuStats === 'function') updateMenuStats();
             if (typeof updateUI === 'function') updateUI();
         } else {
             if (typeof spawnFloatingText === 'function') spawnFloatingText('🫙 The scar holds.', 'rgba(254,249,195,0.75)', 'warn');
         }
     } else {
-        // No scars: convert Essence into growth, using the same math as singing.
         let needed = (typeof STAGE_THRESHOLDS !== 'undefined') ? (STAGE_THRESHOLDS[state.stage] || 1000) : 1000;
         if (typeof STAGE_THRESHOLDS !== 'undefined' && state.stage < 4) needed = STAGE_THRESHOLDS[state.stage + 1] - STAGE_THRESHOLDS[state.stage];
         const boost = needed * 0.1;
@@ -2047,7 +1149,21 @@ function spendEssence() {
         if (typeof spawnFloatingText === 'function') spawnFloatingText(`+${Math.floor(boost)} Growth`, '#4ade80', 'good');
         if (typeof updateUI === 'function') updateUI();
     }
-
     updateEssenceJarUI();
     if (typeof saveState === 'function') saveState();
 }
+
+window.handleBackButtonGarden = function(e) {
+    if (gardenState.isOpen) { exitMidnightGarden(); e.preventDefault(); return; }
+    if (typeof handleBackButton === 'function') handleBackButton(e);
+};
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initMidnightGarden); 
+else setTimeout(initMidnightGarden, 100);
+
+window.enterMidnightGarden = enterMidnightGarden;
+window.exitMidnightGarden = exitMidnightGarden;
+window.triggerWindGust = triggerWindGust;
+window.setGardenMood = setGardenMood;
+window.gardenState = gardenState;
+window.spendEssence = spendEssence;

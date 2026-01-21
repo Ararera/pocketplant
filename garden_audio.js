@@ -1,4 +1,5 @@
 // garden_audio.js - Web Audio Context and Sound Generation
+// Optimized: Cached buffers, proper resource cleanup, reduced garbage collection
 
 function initGardenAudio() {
     if (gardenState.audioContext) return;
@@ -22,7 +23,27 @@ function initGardenAudio() {
     } catch (e) { console.warn('Garden audio not available:', e); }
 }
 
+// Optimization: Helper to reuse noise buffers instead of creating new arrays every time
+function getNoiseBuffer(ctx, duration) {
+    // Round duration to nearest second to group cache hits
+    const key = Math.ceil(duration);
+    if (!gardenState.audioBuffers) gardenState.audioBuffers = {};
+    
+    if (gardenState.audioBuffers[key]) {
+        return gardenState.audioBuffers[key];
+    }
+    
+    const bufferSize = ctx.sampleRate * key;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const output = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+    
+    gardenState.audioBuffers[key] = buffer;
+    return buffer;
+}
+
 function playFireflyChord(familyIndex) {
+    if (!gardenState.isOpen) return; // Don't play if closed
     initGardenAudio();
     if (!gardenState.audioContext) return;
     if (gardenState.audioContext.state === 'suspended') gardenState.audioContext.resume();
@@ -30,6 +51,8 @@ function playFireflyChord(familyIndex) {
     const chord = GARDEN_CHORDS[familyIndex] || GARDEN_CHORDS[0];
     const timbre = FIREFLY_TIMBRES[familyIndex] || FIREFLY_TIMBRES[0];
     const ctx = gardenState.audioContext, now = ctx.currentTime;
+    
+    // Limit polyphony: If too many voices, maybe skip? (Optional optimization)
     
     chord.forEach((freq, i) => {
         const osc = ctx.createOscillator();
@@ -48,7 +71,8 @@ function playFireflyChord(familyIndex) {
 
 function playReverbTail(baseFreq, volume, duration) {
     const ctx = gardenState.audioContext, now = ctx.currentTime;
-    for (let i = 0; i < 3; i++) {
+    // Optimization: Reduced reverb oscillators from loop to 2 fixed
+    for (let i = 0; i < 2; i++) {
         const osc = ctx.createOscillator();
         osc.type = 'sine'; osc.frequency.value = baseFreq * (1 + i * 0.002);
         const gain = ctx.createGain();
@@ -61,6 +85,7 @@ function playReverbTail(baseFreq, volume, duration) {
 }
 
 function playPlantSound(plantData) {
+    if (!gardenState.isOpen) return;
     initGardenAudio();
     if (!gardenState.audioContext) return;
     if (gardenState.audioContext.state === 'suspended') gardenState.audioContext.resume();
@@ -85,8 +110,11 @@ function playPlantSound(plantData) {
         osc.connect(filter); filter.connect(gain); gain.connect(gardenState.musicalGain);
         osc.start(noteStart); osc.stop(noteStart + 2.5);
     });
-    if (stage >= 5) {
+    
+    // Optimization: Only do tail for high stages, check context state
+    if (stage >= 5 && ctx.state === 'running') {
         setTimeout(() => {
+            if (!gardenState.isOpen) return;
             const tailOsc = ctx.createOscillator();
             tailOsc.type = 'sine'; tailOsc.frequency.value = baseNote * 2;
             const tailGain = ctx.createGain();
@@ -125,6 +153,11 @@ function stopAmbientSoundscape() {
     stopMoodCycling();
     stopWindSystem();
     if (gardenState.ambientInterval) { clearInterval(gardenState.ambientInterval); gardenState.ambientInterval = null; }
+    
+    // Optimization: Suspend context to save battery when not in garden
+    if (gardenState.audioContext && gardenState.audioContext.state === 'running') {
+        gardenState.audioContext.suspend();
+    }
 }
 
 function startSpatialAmbience() {
@@ -156,25 +189,26 @@ function scheduleAmbientSound(soundName, playFunction) {
 
 function startForestBreath() {
     const ctx = gardenState.audioContext; if (!ctx) return;
-    const bufferSize = ctx.sampleRate * 10;
-    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+    
+    // Optimization: Use cached buffer
+    const duration = 10;
+    const noiseBuffer = getNoiseBuffer(ctx, duration);
     
     const playBreath = () => {
         if (!gardenState.isOpen || !gardenState.soundscapeActive) return;
-        const now = ctx.currentTime, duration = 6 + Math.random() * 4;
-        const noiseSource = ctx.createBufferSource(); noiseSource.buffer = noiseBuffer;
+        const now = ctx.currentTime, playDur = 6 + Math.random() * 4;
+        const noiseSource = ctx.createBufferSource(); 
+        noiseSource.buffer = noiseBuffer;
         const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 150; filter.Q.value = 0.5;
         const gain = ctx.createGain();
         gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(0.08, now + duration * 0.3);
-        gain.gain.linearRampToValueAtTime(0.12, now + duration * 0.5);
-        gain.gain.linearRampToValueAtTime(0.06, now + duration * 0.8);
-        gain.gain.linearRampToValueAtTime(0, now + duration);
+        gain.gain.linearRampToValueAtTime(0.08, now + playDur * 0.3);
+        gain.gain.linearRampToValueAtTime(0.12, now + playDur * 0.5);
+        gain.gain.linearRampToValueAtTime(0.06, now + playDur * 0.8);
+        gain.gain.linearRampToValueAtTime(0, now + playDur);
         noiseSource.connect(filter); filter.connect(gain); gain.connect(gardenState.ambienceGain);
-        noiseSource.start(now); noiseSource.stop(now + duration);
-        gardenState.ambientTimers.forestBreath = setTimeout(playBreath, (duration + 2 + Math.random() * 3) * 1000);
+        noiseSource.start(now); noiseSource.stop(now + playDur);
+        gardenState.ambientTimers.forestBreath = setTimeout(playBreath, (playDur + 2 + Math.random() * 3) * 1000);
     };
     gardenState.ambientTimers.forestBreath = setTimeout(playBreath, 500);
 }
@@ -213,10 +247,10 @@ function playInsectChirr() {
 function playLeavesRustle() {
     const ctx = gardenState.audioContext; if (!ctx) return;
     const now = ctx.currentTime, duration = 0.8 + Math.random() * 0.6;
-    const bufferSize = ctx.sampleRate * duration;
-    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+    
+    // Optimization: Use cached buffer
+    const noiseBuffer = getNoiseBuffer(ctx, 2);
+    
     const noiseSource = ctx.createBufferSource(); noiseSource.buffer = noiseBuffer;
     const filter = ctx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 2000 + Math.random() * 1000; filter.Q.value = 0.8;
     const gain = ctx.createGain();
@@ -344,11 +378,11 @@ function triggerWindGust() { playWindSound(); }
 function playWindSound() {
     initGardenAudio(); if (!gardenState.audioContext) return;
     if (gardenState.audioContext.state === 'suspended') gardenState.audioContext.resume();
+    
+    // Optimization: Use cached buffer
     const ctx = gardenState.audioContext, now = ctx.currentTime, gustDuration = 30;
-    const bufferSize = ctx.sampleRate * gustDuration;
-    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+    const noiseBuffer = getNoiseBuffer(ctx, gustDuration);
+    
     const noiseSource = ctx.createBufferSource(); noiseSource.buffer = noiseBuffer;
     const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.Q.value = 1.0;
     filter.frequency.setValueAtTime(150, now);

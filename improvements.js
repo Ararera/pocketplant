@@ -1,7 +1,31 @@
 /* ============================================
    POCKET SPROUT - v1.2 Improvements
    New features and fixes
+   Optimized for Performance
    ============================================ */
+
+// Optimization: UI Cache to prevent repeated DOM queries
+const uiCache = {
+    ringWater: null, ringSun: null, ringLove: null,
+    urgencyWarning: null, urgencyText: null,
+    modifierList: null, activeModifiers: null,
+    plantMoodDisplay: null, stageLabel: null,
+    plantHero: null, genBadge: null,
+    discoveriesList: null, fireflyFamilyGrid: null,
+    hintBubble: null, hintContent: null,
+    genBadge: null, detailOrb: null, detailFamilyName: null,
+    detailFamilyPower: null, detailFireflyCount: null,
+    guardianBarFill: null, guardianBarLabel: null, releaseBtn: null,
+    familyDetailPanel: null, quickStatsTooltip: null, quickStatsContent: null
+};
+
+// Helper to get cached element
+function getEl(id) {
+    if (uiCache[id]) return uiCache[id];
+    const el = document.getElementById(id);
+    if (el) uiCache[id] = el;
+    return el;
+}
 
 // ============================================
 // MENU TABS SYSTEM
@@ -10,15 +34,20 @@
 function switchMenuTab(tabName) {
     // Update tab buttons
     document.querySelectorAll('.menu-tab').forEach(tab => {
-        tab.classList.toggle('active', tab.dataset.tab === tabName);
+        const isActive = tab.dataset.tab === tabName;
+        if (tab.classList.contains('active') !== isActive) {
+            tab.classList.toggle('active', isActive);
+        }
     });
     
-    // Build the tab content ID (tabCare, tabCollect, tabInfo)
     const tabId = 'tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1);
     
     // Update tab content
     document.querySelectorAll('.menu-tab-content').forEach(content => {
-        content.classList.toggle('active', content.id === tabId);
+        const isActive = content.id === tabId;
+        if (content.classList.contains('active') !== isActive) {
+            content.classList.toggle('active', isActive);
+        }
     });
 }
 
@@ -29,7 +58,7 @@ window.switchMenuTab = switchMenuTab;
 // DISCOVERIES SYSTEM
 // ============================================
 
-const DISCOVERIES = [
+const DISCOVERIES = Object.freeze([
     { id: 'first_water', name: 'First Rain', desc: 'Watered your plant for the first time', icon: '💧' },
     { id: 'first_sun', name: 'Let There Be Light', desc: 'Gave your plant sunlight', icon: '☀️' },
     { id: 'first_love', name: 'Tender Touch', desc: 'Showed affection to your plant', icon: '❤️' },
@@ -50,7 +79,7 @@ const DISCOVERIES = [
     { id: 'sang_to_plant', name: 'Plant Whisperer', desc: 'Sang to your plant', icon: '🎵' },
     { id: 'invoke_power', name: 'Essence Caller', desc: 'Used Essence in the Midnight Garden', icon: '⚡' },
     { id: 'scar_healed', name: 'Unburdened', desc: 'Lifted a scar using Essence', icon: '🫙' }
-];
+]);
 
 function unlockDiscovery(discoveryId) {
     if (!state.discoveries) state.discoveries = [];
@@ -84,12 +113,14 @@ function closeDiscoveries() {
 }
 
 function renderDiscoveries() {
-    const list = document.getElementById('discoveriesList');
+    const list = getEl('discoveriesList');
     if (!list) return;
     
     if (!state.discoveries) state.discoveries = [];
     
-    list.innerHTML = '';
+    // Optimization: Use DocumentFragment to batch inserts
+    const fragment = document.createDocumentFragment();
+    
     DISCOVERIES.forEach(d => {
         const unlocked = state.discoveries.includes(d.id);
         const item = document.createElement('div');
@@ -101,15 +132,18 @@ function renderDiscoveries() {
                 <div class="discovery-desc">${unlocked ? d.desc : 'Keep playing to discover'}</div>
             </div>
         `;
-        list.appendChild(item);
+        fragment.appendChild(item);
     });
+    
+    list.innerHTML = '';
+    list.appendChild(fragment);
 }
 
 // ============================================
 // DIAGNOSTIC MOODS
 // ============================================
 
-const DIAGNOSTIC_MOODS = {
+const DIAGNOSTIC_MOODS = Object.freeze({
     crisis_water: { text: 'desperately thirsty...', color: '#f87171', class: 'crisis' },
     crisis_sun: { text: 'fading in darkness...', color: '#f87171', class: 'crisis' },
     crisis_love: { text: 'feeling abandoned...', color: '#f87171', class: 'crisis' },
@@ -124,7 +158,7 @@ const DIAGNOSTIC_MOODS = {
     content: { text: 'swaying gently', color: '#a3e635', class: '' },
     growing: { text: 'growing steadily', color: '#4ade80', class: '' },
     dormant: { text: 'resting quietly', color: '#94a3b8', class: '' }
-};
+});
 
 function getDiagnosticMood() {
     const w = state.water, s = state.sun, l = state.love;
@@ -163,16 +197,18 @@ function updateUrgencyIndicators() {
     const w = state.water, s = state.sun, l = state.love;
     const min = Math.min(w, s, l);
     
-    const ringWater = document.getElementById('ringWater');
-    const ringSun = document.getElementById('ringSun');
-    const ringLove = document.getElementById('ringLove');
+    // Optimization: Use cached elements
+    const ringWater = getEl('ringWater');
+    const ringSun = getEl('ringSun');
+    const ringLove = getEl('ringLove');
     
+    // Toggle class is efficient, only touches DOM if changed
     if (ringWater) ringWater.classList.toggle('urgent', w < 20);
     if (ringSun) ringSun.classList.toggle('urgent', s < 20);
     if (ringLove) ringLove.classList.toggle('urgent', l < 20);
     
-    const urgencyWarning = document.getElementById('urgencyWarning');
-    const urgencyText = document.getElementById('urgencyText');
+    const urgencyWarning = getEl('urgencyWarning');
+    const urgencyText = getEl('urgencyText');
     
     if (urgencyWarning && urgencyText) {
         if (min < 15) {
@@ -191,9 +227,13 @@ function updateUrgencyIndicators() {
 // ============================================
 
 function updateActiveModifiers() {
-    const modifiers = document.getElementById('modifierList');
-    const container = document.getElementById('activeModifiers');
+    const modifiers = getEl('modifierList');
+    const container = getEl('activeModifiers');
     if (!modifiers || !container) return;
+    
+    // Optimization: Check if rebuild is necessary could be added,
+    // but building small strings is generally fast enough in JS.
+    // The previous implementation is fine, just using cached DOM now.
     
     const mods = [];
     
@@ -244,9 +284,11 @@ function updateActiveModifiers() {
     
     container.classList.toggle('has-modifiers', mods.length > 0);
     
-    modifiers.innerHTML = mods.map(m => 
-        `<span class="modifier-tag ${m.class}">${m.text}</span>`
-    ).join('');
+    // Only update innerHTML if it's actually different (saves layout/paint)
+    const newHTML = mods.map(m => `<span class="modifier-tag ${m.class}">${m.text}</span>`).join('');
+    if (modifiers.innerHTML !== newHTML) {
+        modifiers.innerHTML = newHTML;
+    }
 }
 
 // ============================================
@@ -254,8 +296,8 @@ function updateActiveModifiers() {
 // ============================================
 
 function showQuickStats(x, y) {
-    const tooltip = document.getElementById('quickStatsTooltip');
-    const content = document.getElementById('quickStatsContent');
+    const tooltip = getEl('quickStatsTooltip');
+    const content = getEl('quickStatsContent');
     if (!tooltip || !content) return;
     
     let html = '';
@@ -298,7 +340,7 @@ function showQuickStats(x, y) {
 }
 
 function hideQuickStats() {
-    const tooltip = document.getElementById('quickStatsTooltip');
+    const tooltip = getEl('quickStatsTooltip');
     if (tooltip) tooltip.classList.remove('visible');
 }
 
@@ -334,8 +376,8 @@ function showHint(hintId) {
     const hint = HINTS[hintId];
     if (!hint) return;
     
-    const bubble = document.getElementById('hintBubble');
-    const content = document.getElementById('hintContent');
+    const bubble = getEl('hintBubble');
+    const content = getEl('hintContent');
     
     if (bubble && content) {
         content.textContent = hint.content;
@@ -347,7 +389,7 @@ function showHint(hintId) {
 }
 
 function dismissHint() {
-    const bubble = document.getElementById('hintBubble');
+    const bubble = getEl('hintBubble');
     if (bubble) bubble.classList.remove('visible');
 }
 
@@ -356,10 +398,11 @@ function dismissHint() {
 // ============================================
 
 function renderFireflyLogImproved() {
-    const grid = document.getElementById('fireflyFamilyGrid');
+    const grid = getEl('fireflyFamilyGrid');
     if (!grid || typeof FIREFLY_FAMILIES === 'undefined') return;
     
-    grid.innerHTML = '';
+    // Optimization: Fragments again
+    const fragment = document.createDocumentFragment();
     
     FIREFLY_FAMILIES.forEach((f, i) => {
         const cnt = state.fireflies[i] || 0;
@@ -381,20 +424,24 @@ function renderFireflyLogImproved() {
             <div class="family-mini-progress" style="width:${progress}%;background:${col}"></div>
         `;
         
+        // Note: Event delegation is better, but this is acceptable for small lists (8 items)
         card.onclick = () => {
             selectedFamily = i;
             renderFireflyLogImproved();
             renderFamilyDetail();
         };
         
-        grid.appendChild(card);
+        fragment.appendChild(card);
     });
+    
+    grid.innerHTML = '';
+    grid.appendChild(fragment);
     
     renderFamilyDetail();
 }
 
 function renderFamilyDetail() {
-    const det = document.getElementById('familyDetailPanel');
+    const det = getEl('familyDetailPanel');
     if (selectedFamily === null || !det || typeof FIREFLY_FAMILIES === 'undefined') {
         if (det) det.style.display = 'none';
         return;
@@ -409,20 +456,20 @@ function renderFamilyDetail() {
     
     det.style.setProperty('--family-color', col);
     
-    const orb = document.getElementById('detailOrb');
+    const orb = getEl('detailOrb');
     if (orb) orb.style.cssText = `background:${col};box-shadow:0 0 20px ${col}`;
     
-    const name = document.getElementById('detailFamilyName');
+    const name = getEl('detailFamilyName');
     if (name) name.textContent = f.name + ' Family';
     
-    const power = document.getElementById('detailFamilyPower');
+    const power = getEl('detailFamilyPower');
     if (power) power.textContent = f.desc;
     
-    const count = document.getElementById('detailFireflyCount');
+    const count = getEl('detailFireflyCount');
     if (count) count.textContent = `You have ${cnt} fireflies`;
     
-    const barFill = document.getElementById('guardianBarFill');
-    const barLabel = document.getElementById('guardianBarLabel');
+    const barFill = getEl('guardianBarFill');
+    const barLabel = getEl('guardianBarLabel');
     
     if (barFill && barLabel) {
         const progress = Math.min(100, (cnt / threshold) * 100);
@@ -435,7 +482,7 @@ function renderFamilyDetail() {
         }
     }
     
-    const btn = document.getElementById('releaseBtn');
+    const btn = getEl('releaseBtn');
     if (btn) {
         btn.disabled = cnt < 1;
         btn.textContent = cnt >= 1 ? '✨ Invoke Power' : 'No fireflies';
@@ -479,7 +526,7 @@ function showGardenFireflyHint() {
 // ============================================
 
 function updateGenBadgeText() {
-    const genBadge = document.getElementById('genBadge');
+    const genBadge = getEl('genBadge');
     if (genBadge && typeof state !== 'undefined') {
         genBadge.textContent = `GEN ${state.generation}`;
     }
@@ -501,18 +548,24 @@ function enhancedRender() {
     updateBuffVisuals();
     
     // Update mood with diagnostic version
-    const plantMoodDisplay = document.getElementById('plantMoodDisplay');
+    const plantMoodDisplay = getEl('plantMoodDisplay');
     if (plantMoodDisplay && typeof state !== 'undefined') {
         const mood = getDiagnosticMood();
-        plantMoodDisplay.textContent = mood.text;
-        plantMoodDisplay.style.color = mood.color;
-        plantMoodDisplay.className = 'plant-mood ' + mood.class;
+        // Optimization: check text content first
+        if (plantMoodDisplay.textContent !== mood.text) {
+            plantMoodDisplay.textContent = mood.text;
+            plantMoodDisplay.style.color = mood.color;
+            plantMoodDisplay.className = 'plant-mood ' + mood.class;
+        }
     }
     
     // Update stage label
-    const stageLabel = document.getElementById('stageLabel');
+    const stageLabel = getEl('stageLabel');
     if (stageLabel && typeof STAGES !== 'undefined' && typeof state !== 'undefined') {
-        stageLabel.textContent = STAGES[state.stage - 1] || 'Seed';
+        const txt = STAGES[state.stage - 1] || 'Seed';
+        if (stageLabel.textContent !== txt) {
+            stageLabel.textContent = txt;
+        }
     }
 }
 
@@ -521,10 +574,11 @@ function enhancedRender() {
 // ============================================
 
 function updateAscensionGlow() {
-    const plantHero = document.getElementById('plantHero');
+    const plantHero = getEl('plantHero');
     if (!plantHero || typeof state === 'undefined') return;
     
     const isReady = state.stage >= 5 && !state.isDead;
+    // toggle handles boolean check internally
     plantHero.classList.toggle('ascension-ready', isReady);
     
     // Show hint if ready and not shown before
@@ -538,7 +592,7 @@ function updateAscensionGlow() {
 // ============================================
 
 function updateBuffVisuals() {
-    const plantHero = document.getElementById('plantHero');
+    const plantHero = getEl('plantHero');
     if (!plantHero || typeof state === 'undefined') return;
     
     // Check for active buffs with color
@@ -562,6 +616,7 @@ function updateBuffVisuals() {
         }
     } else {
         // No active buffs or guardians
+        // Removing classes is cheap if they aren't there
         plantHero.classList.remove('buff-active', 'buff-water', 'buff-sun', 'buff-love', 'buff-growth', 'buff-health', 'buff-slow', 'buff-luck', 'buff-random');
         plantHero.style.removeProperty('--buff-color');
     }

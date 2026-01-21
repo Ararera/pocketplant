@@ -161,7 +161,7 @@
     --moon-tint-opacity: 0;
     position: absolute;
     top: 12%;
-    left: 50%;
+    left: 48%;
     transform: translateX(-50%);
     width: 70px;
     height: 70px;
@@ -926,6 +926,7 @@ body.midnight-garden-active .firefly {
     border: 1px solid rgba(254, 249, 195, 0.14);
     backdrop-filter: blur(10px);
     box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    scale:0.8;
 }
 
 .essence-jar:active{
