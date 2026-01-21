@@ -68,14 +68,26 @@
         <div class="garden-plants-scroll" id="gardenPlantsScroll"></div>
     </div>
 
-    <!-- Soundscape Indicator (subtle volume hint) -->
+    <!-- Soundscape Indicator (subtle volume hint) - stays centered -->
     <div class="soundscape-indicator" id="soundscapeIndicator" title="Audio active">
         <div class="soundscape-bar" aria-hidden="true">
             <div class="soundscape-bar-fill"></div>
         </div>
         <div class="soundscape-caption" aria-hidden="true">turn up the volume</div>
     </div>
-    
+
+    <!-- Essence Jar (currency) -->
+    <button class="essence-jar" id="essenceJar" onclick="spendEssence()" aria-label="Essence Jar">
+        <div class="jar-glass" aria-hidden="true">
+            <div class="jar-liquid" id="essenceJarFill"></div>
+            <div class="jar-highlight" aria-hidden="true"></div>
+        </div>
+        <div class="jar-label">
+            <div class="jar-amt" id="essenceAmt">0</div>
+            <div class="jar-cap">/ 10000</div>
+        </div>
+    </button>
+
     <!-- Firefly hint for garden -->
     <div class="garden-firefly-hint" id="gardenFireflyHint">
         <span>Tap fireflies to hear their sounds</span>
