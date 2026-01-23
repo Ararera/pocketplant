@@ -457,11 +457,18 @@ function spawnGardenFirefly(familyIndex, container) {
     ff.style.background = color;
     ff.style.setProperty('--ff-color', color);
     ff.style.setProperty('--glow-dur', `${2 + Math.random() * 2}s`);
-    // Initialize transform
+    // Initialize transform for GPU-accelerated positioning
     ff.style.transform = `translate3d(${startX}vw, ${startY}vh, 0)`;
     
     ff.dataset.family = familyIndex;
     container.appendChild(ff);
+    
+    // Trigger fade-in after a frame to ensure CSS transition works
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            ff.classList.add('visible');
+        });
+    });
     
     // Create Data Object
     const fireflyData = {
@@ -526,13 +533,26 @@ function startVisualLoop() {
 
 function updateFireflies(dt, now) {
     const active = [];
+    const currentTime = Date.now();
     
     for (let i = 0; i < gardenState.fireflies.length; i++) {
         const f = gardenState.fireflies[i];
+        const age = currentTime - f.spawnTime;
         
-        // Check lifespan
-        if (Date.now() - f.spawnTime > f.lifeTime) {
-            if (f.element && f.element.parentNode) f.element.parentNode.removeChild(f.element);
+        // Check if approaching end of life - trigger fadeout
+        if (age > f.lifeTime - 1200 && !f.fadingOut) {
+            f.fadingOut = true;
+            if (f.element) {
+                f.element.classList.remove('visible');
+                f.element.classList.add('fadeout');
+            }
+        }
+        
+        // Remove after fadeout completes
+        if (age > f.lifeTime) {
+            if (f.element && f.element.parentNode) {
+                f.element.parentNode.removeChild(f.element);
+            }
             continue;
         }
         
@@ -547,7 +567,37 @@ function updateFireflies(dt, now) {
         const dx = f.targetX - f.x;
         const dy = f.targetY - f.y;
         
-        // Wobble
+        // Wobble - use cached now value for consistency
+        const wobbleX = Math.sin(now * 0.0003 + f.phase) * 0.003;
+        const wobbleY = Math.cos(now * 0.00025 + f.phase) * 0.002;
+        
+        f.velX += (dx * 0.0008 * dt + wobbleX);
+        f.velY += (dy * 0.0008 * dt + wobbleY);
+        
+        // Stronger damping for smoother motion
+        f.velX *= 0.992;
+        f.velY *= 0.992;
+        
+        // Cap speed
+        const maxSpeed = 0.05;
+        const speed = Math.abs(f.velX) + Math.abs(f.velY); 
+        if (speed > maxSpeed) {
+            f.velX *= 0.9;
+            f.velY *= 0.9;
+        }
+        
+        f.x += f.velX;
+        f.y += f.velY;
+        
+        if (f.element) {
+            // OPTIMIZATION: Use translate3d for GPU acceleration
+            f.element.style.transform = `translate3d(${f.x}vw, ${f.y}vh, 0)`;
+        }
+        
+        active.push(f);
+    }
+    gardenState.fireflies = active;
+}
         const wobbleX = Math.sin(now * 0.0003 + f.phase) * 0.003;
         const wobbleY = Math.cos(now * 0.00025 + f.phase) * 0.002;
         
@@ -749,6 +799,10 @@ function _updateMoonStreak(key, colorCss) {
     else { gardenState.moonStreakKey = key; gardenState.moonStreakCount = 1; }
     
     if (gardenState.moonStreakCount >= 3) {
+        // Also start a looping melody layer tied to this color family.
+        const famIndex = parseInt(key, 10);
+        if (typeof startColorMelodyLoop === 'function' && Number.isFinite(famIndex)) startColorMelodyLoop(famIndex);
+
         gardenState.moonStreakCount = 0; gardenState.moonStreakKey = null;
         _applyMoonFullTint(colorCss);
         addEssence(100, colorCss);

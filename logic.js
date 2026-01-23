@@ -492,7 +492,9 @@ function startGameLoop() {
 
 // Global throttles
 let _lastRenderTime = 0;
+let _lastTimeOfDayCheck = 0;
 const RENDER_THROTTLE_MS = 1000; // Only update UI once per second (battery saver!)
+const TIME_CHECK_THROTTLE_MS = 30000; // Check time of day every 30 seconds
 
 function gameTick() {
     // CRITICAL BATTERY SAVER:
@@ -501,7 +503,8 @@ function gameTick() {
 
     if (state.isDead) return;
     
-    lastTickTime = Date.now();
+    const now = Date.now();
+    lastTickTime = now;
     
     // Logic always runs
     simulateStep(CONFIG.tickRate / 1000, 'online');
@@ -509,7 +512,7 @@ function gameTick() {
     processGuardians();
     attemptSpawnFirefly();
     
-    // Save logic (Debounced)
+    // Save logic (Debounced - every 5 seconds)
     if (!saveDebounceTimer) {
         saveDebounceTimer = setTimeout(() => { 
             if (typeof saveState === 'function') saveState(); 
@@ -517,10 +520,15 @@ function gameTick() {
         }, 5000);
     }
     
-    // UI Rendering - Throttled!
-    // We don't need 60fps stats updates. 1fps is plenty for a chill game.
-    if (lastTickTime - _lastRenderTime > RENDER_THROTTLE_MS) {
+    // UI Rendering - Throttled to 1fps for battery
+    if (now - _lastRenderTime > RENDER_THROTTLE_MS) {
         if (typeof render === 'function') render();
-        _lastRenderTime = lastTickTime;
+        _lastRenderTime = now;
+    }
+    
+    // Time of day check - very infrequent
+    if (now - _lastTimeOfDayCheck > TIME_CHECK_THROTTLE_MS) {
+        if (typeof updateTimeOfDay === 'function') updateTimeOfDay();
+        _lastTimeOfDayCheck = now;
     }
 }

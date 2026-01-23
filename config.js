@@ -120,11 +120,17 @@ const CONFIG = {
     maxFireflyPerFamily: 12, 
     offlineChunkSize: 60,
     
-    // Add this object to control visual fidelity toggles dynamically later
+    // Performance configuration
     performance: {
         enableParticles: true,
-        lowPowerMode: false, // Can be toggled by user
-        maxParticlesLowPower: 5
+        lowPowerMode: false, // Can be toggled by user or auto-detected
+        maxParticlesLowPower: 5,
+        // Tick rates (ms)
+        normalTickRate: 1000,
+        lowPowerTickRate: 2000,
+        // Visual update throttling
+        renderThrottleMs: 1000,
+        lowPowerRenderThrottleMs: 2000
     }
 };
 

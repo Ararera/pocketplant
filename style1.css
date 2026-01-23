@@ -12,3 +12,19 @@ body.time-night .moon::before,body.time-evening .moon::before{opacity:1;}
   contain:layout paint;
   isolation:isolate;
 }
+
+/* --- Battery optimization: Reduce paint on static elements --- */
+.status-panel,.dock-container,.menu-overlay,.menu-card{
+  contain:layout style paint;
+}
+
+/* --- Animation performance: Use GPU layers for animated elements --- */
+.star,.seasonal-blossom,.seasonal-leaf,.seasonal-snow,.seasonal-beam,.raindrop{
+  contain:layout style;
+  will-change:transform,opacity;
+}
+
+/* --- Pause all animations when body has .paused class --- */
+body.paused *,body.paused *::before,body.paused *::after{
+  animation-play-state:paused!important;
+}

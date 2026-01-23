@@ -236,19 +236,29 @@ function spawnVisualFirefly(fam, isGuardian) {
     ff.style.background = col;
     ff.style.left = (10 + Math.random() * 80) + '%';
     ff.style.top = (15 + Math.random() * 50) + '%';
-    // Fade-in via CSS class to avoid animation/transition fights on mobile GPUs
-    requestAnimationFrame(() => { ff.classList.add('visible'); });
+    
     const handleTap = (e) => {
         e.preventDefault(); e.stopPropagation();
         if (isGuardian) activateGuardian(fam, ff); else collectFirefly(fam, ff);
     };
-    ff.addEventListener('click', handleTap); ff.addEventListener('touchend', handleTap, { passive: false });
+    ff.addEventListener('click', handleTap); 
+    ff.addEventListener('touchend', handleTap, { passive: false });
     document.body.appendChild(ff);
+    
+    // Fade-in: Wait for next frame to apply visible class (ensures transition triggers)
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            ff.classList.add('visible');
+        });
+    });
+    
     const life = 11000;
     setTimeout(() => {
         if (ff.parentNode && !ff.classList.contains('guardian-active')) {
+            // Remove visible, add fadeout for smooth transition
+            ff.classList.remove('visible');
             ff.classList.add('fadeout');
-            setTimeout(() => ff.remove(), 1300);
+            setTimeout(() => { if (ff.parentNode) ff.remove(); }, 1200);
         }
     }, life);
 }

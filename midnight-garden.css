@@ -231,6 +231,7 @@
 }
 
 /* Ambient Fireflies */
+/* === OPTIMIZED GARDEN FIREFLY STYLES === */
 .garden-firefly {
     position: absolute;
     width: 5px;
@@ -238,11 +239,32 @@
     border-radius: 50%;
     pointer-events: auto;
     cursor: pointer;
+    
+    /* GPU layer isolation */
+    contain: layout style paint;
+    will-change: transform;
+    backface-visibility: hidden;
+    
+    /* Start invisible - JS controls fade via opacity property */
     opacity: 0;
-    animation: 
-        gardenFireflyGlow var(--glow-dur, 3s) ease-in-out infinite,
-        gardenFireflyFade var(--life, 30s) ease-in-out forwards;
-    transition: transform 0.2s ease;
+    
+    /* Glow animation only - no opacity in keyframes */
+    animation: gardenFireflyGlow var(--glow-dur, 3s) ease-in-out infinite;
+    
+    /* Smooth fade transitions */
+    transition: opacity 1.2s ease-out, transform 0.2s ease;
+}
+
+/* Fade in state - applied by JS after spawn */
+.garden-firefly.visible {
+    opacity: 1;
+}
+
+/* Fade out state */
+.garden-firefly.fadeout {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 1s ease-out;
 }
 
 .garden-firefly:active {
@@ -274,12 +296,7 @@
     }
 }
 
-@keyframes gardenFireflyFade {
-    0% { opacity: 0; transform: scale(0.5); }
-    8% { opacity: 1; transform: scale(1); }
-    85% { opacity: 1; transform: scale(1); }
-    100% { opacity: 0; transform: scale(0.7); }
-}
+/* Removed gardenFireflyFade - opacity now controlled by JS classes */
 
 /* Forest Background Layers */
 .garden-forest {
@@ -893,8 +910,7 @@ body.midnight-garden-active .firefly {
 
 /* --- Compositing stability (reduce flicker) --- */
 .midnight-garden-overlay,.garden-sky,.garden-stars,.garden-aurora,.garden-moon,.garden-fog,.fog-layer,.garden-motes,.garden-fireflies,.garden-forest,.forest-layer,.garden-ground,.garden-vignette{
-  transform:translateZ(0);
-  will-change:transform,opacity;
+    will-change:transform,opacity;
   backface-visibility:hidden;
 }
 .midnight-garden-overlay{
@@ -1031,4 +1047,189 @@ body.midnight-garden-active .firefly {
     0%{ opacity: 0; transform: translateY(-18px) scale(0.85); }
     15%{ opacity: 0.9; }
     100%{ opacity: 0; transform: translateY(220px) scale(1.05); }
+}
+
+
+
+/* ============================================
+   ESSENCE: Ephemeral Constellation Indicator
+   (Replaces always-visible jar/count)
+   ============================================ */
+
+/* Keep the jar mechanics available in markup, but remove it from the scene */
+.essence-jar{
+    display: none !important;
+}
+
+.essence-toast{
+    position: absolute;
+    left: 50%;
+    top: 20%;
+    transform: translate(-50%, 0);
+    z-index: 460;
+    pointer-events: none;
+    opacity: 0;
+    filter: blur(0.15px);
+    will-change: transform, opacity;
+}
+
+.essence-toast.visible{
+    animation: essenceToastInOut 3.1s ease-in-out forwards;
+}
+
+@keyframes essenceToastInOut{
+    0%   { opacity: 0; transform: translate(-50%, 10px) scale(0.98); }
+    12%  { opacity: 1; transform: translate(-50%, 0px) scale(1); }
+    80%  { opacity: 1; transform: translate(-50%, 0px) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -6px) scale(0.99); }
+}
+
+.essence-toast-inner{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgba(10, 12, 18, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 12px 34px rgba(0,0,0,0.32);
+}
+
+.essence-toast-dots{
+    display:flex;
+    gap: 6px;
+    align-items:center;
+    justify-content:center;
+    margin-bottom: 2px;
+}
+
+.essence-toast-dot{
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgba(254, 249, 195, 0.75);
+    box-shadow: 0 0 10px rgba(254, 249, 195, 0.35);
+    opacity: 0.7;
+    animation: essenceDotFloat 2.2s ease-in-out infinite;
+}
+
+.essence-toast-dot:nth-child(2){ animation-delay: .25s; opacity: 0.55; transform: translateY(2px); }
+.essence-toast-dot:nth-child(3){ animation-delay: .5s;  opacity: 0.45; transform: translateY(-1px); }
+.essence-toast-dot:nth-child(4){ animation-delay: .75s; opacity: 0.6;  transform: translateY(1px); }
+
+@keyframes essenceDotFloat{
+    0%, 100% { transform: translateY(0px); }
+    50%      { transform: translateY(-4px); }
+}
+
+.essence-toast-line1{
+    font-size: 0.72rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(254, 249, 195, 0.92);
+    text-shadow: 0 0 26px rgba(254, 249, 195, 0.22);
+}
+
+.essence-toast-line2{
+    font-size: 0.62rem;
+    letter-spacing: 0.7px;
+    color: rgba(255,255,255,0.55);
+    text-shadow: 0 0 18px rgba(0,0,0,0.25);
+}
+
+
+
+/* ============================================
+   ESSENCE SPEND (Moon hold -> tiny ritual panel)
+   ============================================ */
+
+.essence-spend-panel{
+    position: absolute;
+    left: 50%;
+    top: 20%;
+    transform: translateX(-50%) translateY(-8px);
+    width: min(320px, calc(100% - 44px));
+    padding: 12px 12px 10px;
+    border-radius: 16px;
+    background: rgba(10, 12, 18, 0.58);
+    border: 1px solid rgba(254, 249, 195, 0.16);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 18px 48px rgba(0,0,0,0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 260ms ease, transform 260ms ease;
+    z-index: 418;
+    text-align: center;
+}
+
+.essence-spend-panel.open{
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+    pointer-events: auto;
+}
+
+.essence-spend-title{
+    font-size: 0.75rem;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: rgba(254,249,195,0.80);
+    margin-bottom: 6px;
+}
+
+.essence-spend-sub{
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.60);
+    line-height: 1.25;
+    margin-bottom: 8px;
+}
+
+.essence-spend-note {
+    margin-top: 6px;
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.55);
+    line-height: 1.2;
+}
+
+
+.essence-spend-total{
+    font-size: 0.70rem;
+    color: rgba(255,255,255,0.44);
+    margin-bottom: 10px;
+}
+
+.essence-spend-actions{
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.essence-spend-actions button{
+    all: unset;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    letter-spacing: 0.6px;
+    transition: transform 120ms ease, opacity 120ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.essence-spend-confirm{
+    background: rgba(254,249,195,0.14);
+    border: 1px solid rgba(254,249,195,0.22);
+    color: rgba(254,249,195,0.88);
+}
+
+.essence-spend-cancel{
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.10);
+    color: rgba(255,255,255,0.62);
+}
+
+.essence-spend-actions button:active{
+    transform: scale(0.98);
+    opacity: 0.9;
 }

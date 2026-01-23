@@ -12,6 +12,97 @@
     pointer-events: none;
 }
 
+
+
+/* ============================================
+   SKY LAYER
+   Core sky gradient. This is the "daytime blue"
+   and should feel atmospheric, not flat.
+   ============================================ */
+
+.sky-layer{
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+
+    /* Baseline daytime sky: brighter at horizon, deeper overhead */
+    background: linear-gradient(
+        to bottom,
+        #dbefff 0%,
+        #bcdcff 40%,
+        #8fbce6 75%,
+        #6fa3d1 100%
+    );
+
+    /* Smooth time-of-day transitions */
+    transition: background 2s ease;
+}
+
+/* Dawn: warmer, softer */
+body.time-dawn .sky-layer{
+    background: linear-gradient(
+        to bottom,
+        #ffe9dc 0%,
+        #ffd2c1 22%,
+        #c9d7ff 62%,
+        #8fb8e6 100%
+    );
+}
+
+/* Morning: crisp, bright */
+body.time-morning .sky-layer{
+    background: linear-gradient(
+        to bottom,
+        #eef7ff 0%,
+        #cfe8ff 45%,
+        #9dc7ee 100%
+    );
+}
+
+/* Afternoon: slightly deeper */
+body.time-afternoon .sky-layer{
+    background: linear-gradient(
+        to bottom,
+        #dbefff 0%,
+        #b7d8ff 38%,
+        #86b7e6 78%,
+        #6a9bcc 100%
+    );
+}
+
+/* Dusk: cooler violets with warmth near horizon */
+body.time-dusk .sky-layer{
+    background: linear-gradient(
+        to bottom,
+        #f7d6c9 0%,
+        #d5b7d9 28%,
+        #7f8fd6 68%,
+        #4c5aa8 100%
+    );
+}
+
+/* Evening: muted, heading toward night */
+body.time-evening .sky-layer{
+    background: linear-gradient(
+        to bottom,
+        #4b5e7a 0%,
+        #32445f 45%,
+        #1f2d42 100%
+    );
+}
+
+/* Night: deep, desaturated */
+body.time-night .sky-layer{
+    background: linear-gradient(
+        to bottom,
+        #0b1422 0%,
+        #0a1020 40%,
+        #070a14 100%
+    );
+}
+
 /* ============================================
    GROUND & GRASS LAYERS
    ============================================ */

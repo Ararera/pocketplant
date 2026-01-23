@@ -216,12 +216,13 @@ function spawnGardenFirefly(familyIndex, container) {
     let posX = 10 + Math.random() * 80, posY = 15 + Math.random() * 55;
     const glowDur = 2 + Math.random() * 2, lifeDur = 25 + Math.random() * 20;
     
-    ff.style.cssText = `left: ${posX}%; top: ${posY}%; background: ${color}; --ff-color: ${color}; --glow-dur: ${glowDur}s; --life: ${lifeDur}s;`;
+    ff.style.cssText = `left: ${posX}%; top: ${posY}%; background: ${color}; --ff-color: ${color}; --glow-dur: ${glowDur}s;`;
     ff.dataset.family = familyIndex;
     
     // Declare these before the handler so they're in scope
     let animationId = null;
     let lifeTimer = null;
+    let fadeoutTimer = null;
     
     const handleTap = (e) => {
         e.preventDefault(); e.stopPropagation();
@@ -229,6 +230,7 @@ function spawnGardenFirefly(familyIndex, container) {
         if (gardenState.moonFlightActive) return;
         if (animationId) cancelAnimationFrame(animationId);
         if (lifeTimer) clearTimeout(lifeTimer);
+        if (fadeoutTimer) clearTimeout(fadeoutTimer);
         playFireflyChord(familyIndex);
         if (typeof markGardenActivity === 'function') markGardenActivity();
         ff.removeEventListener('click', handleTap);
@@ -238,6 +240,13 @@ function spawnGardenFirefly(familyIndex, container) {
     ff.addEventListener('click', handleTap);
     ff.addEventListener('touchend', handleTap, { passive: false });
     container.appendChild(ff);
+    
+    // Fade in after append
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            ff.classList.add('visible');
+        });
+    });
     
     const moveState = { x: posX, y: posY, targetX: posX, targetY: posY, velX: 0, velY: 0, timeToNewTarget: 0 };
     let lastTime = performance.now();
@@ -266,8 +275,16 @@ function spawnGardenFirefly(familyIndex, container) {
     };
     animationId = requestAnimationFrame(animateFirefly);
     
-    const fireflyData = { element: ff, family: familyIndex, spawnTime: Date.now(), animationId: animationId, lifeTimer: null };
+    const fireflyData = { element: ff, family: familyIndex, spawnTime: Date.now(), animationId: animationId, lifeTimer: null, fadeoutTimer: null };
     gardenState.fireflies.push(fireflyData);
+    
+    // Start fadeout 1.2s before end of life
+    fadeoutTimer = setTimeout(() => {
+        ff.classList.remove('visible');
+        ff.classList.add('fadeout');
+    }, (lifeDur - 1.2) * 1000);
+    fireflyData.fadeoutTimer = fadeoutTimer;
+    
     lifeTimer = setTimeout(() => {
         if (animationId) cancelAnimationFrame(animationId);
         if (ff.parentNode) ff.remove();
@@ -278,7 +295,11 @@ function spawnGardenFirefly(familyIndex, container) {
 
 function stopGardenFireflies() {
     if (gardenState.fireflySpawnInterval) { clearInterval(gardenState.fireflySpawnInterval); gardenState.fireflySpawnInterval = null; }
-    gardenState.fireflies.forEach(ff => { if (ff.animationId) cancelAnimationFrame(ff.animationId); if (ff.lifeTimer) clearTimeout(ff.lifeTimer); });
+    gardenState.fireflies.forEach(ff => { 
+        if (ff.animationId) cancelAnimationFrame(ff.animationId); 
+        if (ff.lifeTimer) clearTimeout(ff.lifeTimer);
+        if (ff.fadeoutTimer) clearTimeout(ff.fadeoutTimer);
+    });
     gardenState.fireflies = [];
 }
 
@@ -412,7 +433,14 @@ function spawnColoredMoteRain(colorCss, durationMs) {
 function _updateMoonStreak(key, colorCss) {
     if (gardenState.moonStreakKey === key) gardenState.moonStreakCount += 1;
     else { gardenState.moonStreakKey = key; gardenState.moonStreakCount = 1; }
-    if (gardenState.moonStreakCount >= 3) { gardenState.moonStreakCount = 0; gardenState.moonStreakKey = null; _applyMoonFullTint(colorCss, 7000); }
+    if (gardenState.moonStreakCount >= 3) {
+        // 3 same-color fireflies: trigger the moon tint mechanic AND unlock the color melody loop.
+        // Melody loop is subtle and persistent while the player remains in the garden.
+        try { if (typeof startColorMelodyLoop === 'function') startColorMelodyLoop(Number(key)); } catch (e) {}
+        gardenState.moonStreakCount = 0;
+        gardenState.moonStreakKey = null;
+        _applyMoonFullTint(colorCss, 7000);
+    }
 }
 
 function flyFireflyToMoon(fireflyEl, familyIndex, colorCss) {
