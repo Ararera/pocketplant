@@ -20,15 +20,6 @@ let gardenState = {
     plantDrones: [],
     // Audio Buffers Cache (New for optimization)
     audioBuffers: {},
-
-    // ===== Music tools (Sound Seeds + gestures) =====
-    soundSeeds: [],            // persisted in state.gardenSoundSeeds
-    seedLoops: {},             // runtime audio handles keyed by seed id
-    seedPaletteOpen: false,
-    activeSeedDrag: null,
-    gestureTrail: [],
-    lastGestureAt: 0,
-    _gardenTransport: { bpm: 38, startTime: 0 },
     
     // Current mood
     currentMood: 'contemplative', // contemplative, mysterious, tender
@@ -133,18 +124,4 @@ function _parseColorToRgb(col) {
 }
 
 function _rgbToCss(rgb, a) { const alpha = (typeof a === 'number') ? a : 1; return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`; }
-function _mixRgb(a, b, t) { return { r: Math.round(a.r * (1 - t) + b.r * t), g: Math.round(a.g * (1 - t) + b.g * t), b: Math.round(a.b * (1 - t) + b.b * t) }; }// ============================================
-// SOUND SEEDS (music tools)
-// ============================================
-
-const SOUND_SEED_TYPES = Object.freeze([
-    { id: 'bell',  label: 'Bell',  icon: '✦', pattern: [0, 2, 4, 7, 9],  octave: 5, density: 0.55 },
-    { id: 'pad',   label: 'Pad',   icon: '◍', pattern: [0, 3, 5, 7, 10], octave: 4, density: 0.38 },
-    { id: 'chime', label: 'Chime', icon: '✧', pattern: [0, 2, 5, 9],     octave: 6, density: 0.62 },
-]);
-
-// Keep it calming by capping concurrent loops.
-const MAX_SOUND_SEEDS = 8;
-
-// Slow shared pulse. Seeds and gesture-gliss quantize to this.
-const GARDEN_TRANSPORT_BPM = 38;
+function _mixRgb(a, b, t) { return { r: Math.round(a.r * (1 - t) + b.r * t), g: Math.round(a.g * (1 - t) + b.g * t), b: Math.round(a.b * (1 - t) + b.b * t) }; }

@@ -12,17 +12,11 @@ function initMidnightGarden() {
         soundscapeIndicator: document.getElementById('soundscapeIndicator'),
         essenceJar: document.getElementById('essenceJar'),
         essenceAmt: document.getElementById('essenceAmt'),
-        essenceFill: document.getElementById('essenceJarFill'),
-        seedLayer: document.getElementById('gardenSeedLayer'),
-        seedPouchBtn: document.getElementById('seedPouchBtn'),
-        seedPalette: document.getElementById('seedPalette'),
-        seedSlotRow: document.getElementById('seedSlotRow')
+        essenceFill: document.getElementById('essenceJarFill')
     };
 
     // Sync Essence jar immediately (if present)
     if (typeof updateEssenceJarUI === 'function') updateEssenceJarUI();
-
-    initGardenMusicTools();
 }
 
 function createGardenStars() {
@@ -56,8 +50,6 @@ function enterMidnightGarden() {
         overlay.classList.add('open');
         setTimeout(() => { transition.classList.remove('active'); }, 300);
         setTimeout(() => { startAmbientSoundscape(); }, 1000);
-        // Restore Sound Seeds a beat later so transport is stable.
-        setTimeout(() => { loadGardenSoundSeeds(); }, 1200);
     }, 800);
     if (typeof pushHistoryState === 'function') pushHistoryState();
 }
@@ -66,10 +58,6 @@ function exitMidnightGarden() {
     if (!gardenState.isOpen) return;
     const transition = gardenState.elements?.transition || document.getElementById('midnightTransition');
     const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
-    // Persist & stop Sound Seeds before leaving.
-    saveGardenSoundSeeds();
-    if (typeof stopAllSoundSeeds === 'function') stopAllSoundSeeds();
-
     stopAmbientSoundscape();
     stopGardenFireflies();
     transition.classList.add('active');
@@ -281,13 +269,13 @@ function spawnGardenFirefly(familyIndex, container) {
     const moveState = {
         x: posX,
         y: posY,
-        velX: (Math.random() - 0.5) * 0.15, // Start with gentle velocity
-        velY: (Math.random() - 0.5) * 0.12,
-        targetX: posX + (Math.random() - 0.5) * 15,
-        targetY: posY + (Math.random() - 0.5) * 10,
+        velX: (Math.random() - 0.5) * 0.8, // Start with some velocity!
+        velY: (Math.random() - 0.5) * 0.6,
+        targetX: posX + (Math.random() - 0.5) * 30,
+        targetY: posY + (Math.random() - 0.5) * 20,
         phase: 'drift', // drift, pause, dart
         phaseTime: 0,
-        phaseDuration: 5 + Math.random() * 6,
+        phaseDuration: 3 + Math.random() * 4,
         bobOffset: Math.random() * Math.PI * 2, // For gentle bobbing
         dartCooldown: 0
     };
@@ -316,29 +304,29 @@ function spawnGardenFirefly(familyIndex, container) {
             
             // Weighted random phase selection
             const roll = Math.random();
-            if (roll < 0.55) {
+            if (roll < 0.6) {
                 // Drift phase - gentle movement toward target
                 moveState.phase = 'drift';
-                moveState.phaseDuration = 6 + Math.random() * 8;
-                // Pick a new target - modest distance
-                moveState.targetX = moveState.x + (Math.random() - 0.5) * 20;
-                moveState.targetY = moveState.y + (Math.random() - 0.5) * 15;
+                moveState.phaseDuration = 3 + Math.random() * 5;
+                // Pick a new target
+                moveState.targetX = moveState.x + (Math.random() - 0.5) * 40;
+                moveState.targetY = moveState.y + (Math.random() - 0.5) * 30;
                 moveState.targetX = Math.max(5, Math.min(95, moveState.targetX));
                 moveState.targetY = Math.max(10, Math.min(70, moveState.targetY));
-            } else if (roll < 0.75 && moveState.dartCooldown <= 0) {
+            } else if (roll < 0.8 && moveState.dartCooldown <= 0) {
                 // Dart phase - quick movement burst (real fireflies do this!)
                 moveState.phase = 'dart';
-                moveState.phaseDuration = 0.4 + Math.random() * 0.5;
-                // Dart in a random direction - gentle speed
+                moveState.phaseDuration = 0.3 + Math.random() * 0.4;
+                // Dart in a random direction
                 const dartAngle = Math.random() * Math.PI * 2;
-                const dartSpeed = 0.3 + Math.random() * 0.25;
+                const dartSpeed = 1.5 + Math.random() * 1.5;
                 moveState.velX = Math.cos(dartAngle) * dartSpeed;
                 moveState.velY = Math.sin(dartAngle) * dartSpeed;
-                moveState.dartCooldown = 8 + Math.random() * 10; // Don't dart again too soon
+                moveState.dartCooldown = 4 + Math.random() * 6; // Don't dart again too soon
             } else {
                 // Pause phase - hover in place with gentle bob
                 moveState.phase = 'pause';
-                moveState.phaseDuration = 3 + Math.random() * 5;
+                moveState.phaseDuration = 1.5 + Math.random() * 3;
             }
         }
         
@@ -348,30 +336,30 @@ function spawnGardenFirefly(familyIndex, container) {
         
         switch(moveState.phase) {
             case 'drift':
-                // Very gentle acceleration toward target
-                moveState.velX += dx * 0.0004 * deltaTime * 60;
-                moveState.velY += dy * 0.0004 * deltaTime * 60;
+                // Gentle acceleration toward target
+                moveState.velX += dx * 0.003 * deltaTime * 60;
+                moveState.velY += dy * 0.003 * deltaTime * 60;
                 // Add subtle sinusoidal bob
-                moveState.velY += Math.sin(currentTime * 0.001 + moveState.bobOffset) * 0.002;
-                moveState.velX += Math.cos(currentTime * 0.0008 + moveState.bobOffset) * 0.0015;
-                // Strong damping for dreamy movement
-                moveState.velX *= Math.pow(0.94, deltaTime * 60);
-                moveState.velY *= Math.pow(0.94, deltaTime * 60);
+                moveState.velY += Math.sin(currentTime * 0.002 + moveState.bobOffset) * 0.01;
+                moveState.velX += Math.cos(currentTime * 0.0015 + moveState.bobOffset) * 0.008;
+                // Moderate damping
+                moveState.velX *= Math.pow(0.96, deltaTime * 60);
+                moveState.velY *= Math.pow(0.96, deltaTime * 60);
                 break;
                 
             case 'dart':
-                // Less damping during dart - but still controlled
-                moveState.velX *= Math.pow(0.97, deltaTime * 60);
-                moveState.velY *= Math.pow(0.97, deltaTime * 60);
+                // Minimal damping during dart - let it fly!
+                moveState.velX *= Math.pow(0.985, deltaTime * 60);
+                moveState.velY *= Math.pow(0.985, deltaTime * 60);
                 break;
                 
             case 'pause':
                 // Strong damping to slow down, but keep gentle bob
-                moveState.velX *= Math.pow(0.88, deltaTime * 60);
-                moveState.velY *= Math.pow(0.88, deltaTime * 60);
+                moveState.velX *= Math.pow(0.9, deltaTime * 60);
+                moveState.velY *= Math.pow(0.9, deltaTime * 60);
                 // Gentle hovering motion
-                moveState.velY += Math.sin(currentTime * 0.0015 + moveState.bobOffset) * 0.003;
-                moveState.velX += Math.cos(currentTime * 0.001 + moveState.bobOffset) * 0.002;
+                moveState.velY += Math.sin(currentTime * 0.003 + moveState.bobOffset) * 0.015;
+                moveState.velX += Math.cos(currentTime * 0.002 + moveState.bobOffset) * 0.01;
                 break;
         }
         
@@ -380,10 +368,10 @@ function spawnGardenFirefly(familyIndex, container) {
         moveState.y += moveState.velY * deltaTime * 60;
         
         // Soft boundary bounce (fireflies tend to turn away from edges)
-        if (moveState.x < 5) { moveState.velX += 0.02; moveState.x = 5; }
-        if (moveState.x > 95) { moveState.velX -= 0.02; moveState.x = 95; }
-        if (moveState.y < 8) { moveState.velY += 0.015; moveState.y = 8; }
-        if (moveState.y > 72) { moveState.velY -= 0.015; moveState.y = 72; }
+        if (moveState.x < 5) { moveState.velX += 0.05; moveState.x = 5; }
+        if (moveState.x > 95) { moveState.velX -= 0.05; moveState.x = 95; }
+        if (moveState.y < 8) { moveState.velY += 0.04; moveState.y = 8; }
+        if (moveState.y > 72) { moveState.velY -= 0.04; moveState.y = 72; }
         
         ff.style.left = moveState.x + '%';
         ff.style.top = moveState.y + '%';
@@ -623,279 +611,6 @@ window.triggerWindGust = triggerWindGust;
 window.setGardenMood = setGardenMood;
 window.gardenState = gardenState;
 
-
-
-
-// ============================================
-// MUSIC TOOLS: SOUND SEEDS + GESTURE GLISS
-// ============================================
-
-function initGardenMusicTools() {
-    const row = gardenState.elements?.seedSlotRow || document.getElementById('seedSlotRow');
-    const pouch = gardenState.elements?.seedPouchBtn || document.getElementById('seedPouchBtn');
-    const palette = gardenState.elements?.seedPalette || document.getElementById('seedPalette');
-    const seedLayer = gardenState.elements?.seedLayer || document.getElementById('gardenSeedLayer');
-
-    if (row && !row.dataset.built) {
-        row.dataset.built = '1';
-        row.innerHTML = '';
-        (typeof SOUND_SEED_TYPES !== 'undefined' ? SOUND_SEED_TYPES : []).forEach(t => {
-            const slot = document.createElement('div');
-            slot.className = 'seed-slot';
-            slot.dataset.seedType = t.id;
-            slot.innerHTML = `<div class="seed-icon">${t.icon}</div><div class="seed-name">${t.label}</div>`;
-            slot.addEventListener('pointerdown', (e) => beginSeedDrag(e, t));
-            row.appendChild(slot);
-        });
-    }
-
-    if (pouch && !pouch.dataset.bound) {
-        pouch.dataset.bound = '1';
-        pouch.addEventListener('click', (e) => {
-            e.preventDefault();
-            toggleSeedPalette();
-        });
-    }
-
-    // Gesture gliss across the overlay (anything non-UI).
-    if (seedLayer && !seedLayer.dataset.gestureBound) {
-        seedLayer.dataset.gestureBound = '1';
-        const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
-        if (overlay) {
-            overlay.addEventListener('pointerdown', handleGardenGestureStart, { passive: false });
-            overlay.addEventListener('pointermove', handleGardenGestureMove, { passive: false });
-            overlay.addEventListener('pointerup', handleGardenGestureEnd, { passive: false });
-            overlay.addEventListener('pointercancel', handleGardenGestureEnd, { passive: false });
-        }
-    }
-}
-
-function toggleSeedPalette(force) {
-    const palette = gardenState.elements?.seedPalette || document.getElementById('seedPalette');
-    if (!palette) return;
-    const next = (typeof force === 'boolean') ? force : !palette.classList.contains('open');
-    gardenState.seedPaletteOpen = next;
-    palette.classList.toggle('open', next);
-    palette.setAttribute('aria-hidden', next ? 'false' : 'true');
-}
-
-function beginSeedDrag(e, seedType) {
-    if (!gardenState.isOpen) return;
-    e.preventDefault();
-    e.stopPropagation();
-    toggleSeedPalette(false);
-
-    const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
-    if (!overlay) return;
-
-    const existing = Array.isArray(state?.gardenSoundSeeds) ? state.gardenSoundSeeds.length : 0;
-    if (typeof MAX_SOUND_SEEDS !== 'undefined' && existing >= MAX_SOUND_SEEDS) {
-        if (typeof spawnFloatingText === 'function') spawnFloatingText('Too many seeds', null, 'warn');
-        return;
-    }
-
-    const ghost = document.createElement('div');
-    ghost.className = `garden-seed ${seedType.id}`;
-    ghost.dataset.icon = seedType.icon;
-    ghost.style.opacity = '0.75';
-    ghost.style.pointerEvents = 'none';
-
-    const layer = gardenState.elements?.seedLayer || document.getElementById('gardenSeedLayer');
-    (layer || overlay).appendChild(ghost);
-
-    const updateGhost = (clientX, clientY) => {
-        const r = overlay.getBoundingClientRect();
-        const x = (clientX - r.left) / r.width;
-        const y = (clientY - r.top) / r.height;
-        ghost.style.left = (x * 100) + '%';
-        ghost.style.top = (y * 100) + '%';
-    };
-
-    updateGhost(e.clientX, e.clientY);
-    gardenState.activeSeedDrag = { type: seedType, ghost, overlay, updateGhost };
-
-    const move = (ev) => { ev.preventDefault(); updateGhost(ev.clientX, ev.clientY); };
-    const up = (ev) => {
-        ev.preventDefault();
-        try { window.removeEventListener('pointermove', move, true); window.removeEventListener('pointerup', up, true); } catch (err) {}
-        finalizeSeedDrop(ev.clientX, ev.clientY);
-    };
-
-    window.addEventListener('pointermove', move, true);
-    window.addEventListener('pointerup', up, true);
-}
-
-function finalizeSeedDrop(clientX, clientY) {
-    const drag = gardenState.activeSeedDrag;
-    gardenState.activeSeedDrag = null;
-    if (!drag) return;
-
-    const { overlay, type, ghost } = drag;
-    const r = overlay.getBoundingClientRect();
-    const x = Math.max(0.02, Math.min(0.98, (clientX - r.left) / r.width));
-    const y = Math.max(0.05, Math.min(0.95, (clientY - r.top) / r.height));
-
-    try { ghost.remove(); } catch (e) {}
-
-    const seed = {
-        id: `seed_${Date.now()}_${Math.floor(Math.random() * 1e6)}`,
-        type: type.id,
-        x, y,
-        scaleIndex: 0,
-        lastTouched: Date.now(),
-    };
-
-    if (typeof state !== 'undefined') {
-        if (!Array.isArray(state.gardenSoundSeeds)) state.gardenSoundSeeds = [];
-        state.gardenSoundSeeds.push(seed);
-        if (typeof saveState === 'function') saveState();
-    }
-
-    renderSoundSeed(seed);
-    if (typeof startSoundSeed === 'function') startSoundSeed(seed);
-
-    const el = document.getElementById(seed.id);
-    if (el) { el.classList.remove('pulse'); void el.offsetHeight; el.classList.add('pulse'); }
-    if (typeof spawnFloatingText === 'function') spawnFloatingText('♫ Seed planted', 'rgba(254,249,195,0.75)', 'good');
-}
-
-function loadGardenSoundSeeds() {
-    if (!gardenState.isOpen) return;
-
-    // Anchor transport on entry for consistent quantization.
-    try {
-        gardenState._gardenTransport = gardenState._gardenTransport || { bpm: (typeof GARDEN_TRANSPORT_BPM !== 'undefined' ? GARDEN_TRANSPORT_BPM : 38), startTime: 0 };
-        gardenState._gardenTransport.bpm = (typeof GARDEN_TRANSPORT_BPM !== 'undefined' ? GARDEN_TRANSPORT_BPM : 38);
-        const ctx = gardenState.audioContext;
-        gardenState._gardenTransport.startTime = (ctx && typeof ctx.currentTime === 'number') ? ctx.currentTime : 0;
-    } catch (e) {}
-
-    const layer = gardenState.elements?.seedLayer || document.getElementById('gardenSeedLayer');
-    if (layer) layer.innerHTML = '';
-
-    const seeds = (typeof state !== 'undefined' && Array.isArray(state.gardenSoundSeeds)) ? state.gardenSoundSeeds : [];
-    gardenState.soundSeeds = seeds.slice(0, (typeof MAX_SOUND_SEEDS !== 'undefined' ? MAX_SOUND_SEEDS : 8));
-
-    gardenState.soundSeeds.forEach(seed => {
-        renderSoundSeed(seed);
-        if (typeof startSoundSeed === 'function') startSoundSeed(seed);
-    });
-}
-
-function saveGardenSoundSeeds() {
-    if (typeof state === 'undefined') return;
-    if (!Array.isArray(state.gardenSoundSeeds)) state.gardenSoundSeeds = [];
-
-    // Positions live in the objects, but keep this hook for future drag.
-    if (typeof saveState === 'function') saveState();
-}
-
-function renderSoundSeed(seed) {
-    const layer = gardenState.elements?.seedLayer || document.getElementById('gardenSeedLayer');
-    if (!layer || !seed) return;
-
-    const existing = document.getElementById(seed.id);
-    if (existing) existing.remove();
-
-    const typeInfo = (typeof SOUND_SEED_TYPES !== 'undefined') ? SOUND_SEED_TYPES.find(t => t.id === seed.type) : null;
-    const icon = typeInfo?.icon || '♫';
-
-    const el = document.createElement('div');
-    el.className = `garden-seed ${seed.type}`;
-    el.id = seed.id;
-    el.dataset.icon = icon;
-    el.style.left = (seed.x * 100) + '%';
-    el.style.top = (seed.y * 100) + '%';
-
-    // Tap: retune (rotate through small set of offsets)
-    el.addEventListener('click', (e) => {
-        e.preventDefault(); e.stopPropagation();
-        seed.scaleIndex = (seed.scaleIndex + 1) % 5;
-        seed.lastTouched = Date.now();
-        el.classList.remove('pulse'); void el.offsetHeight; el.classList.add('pulse');
-        if (typeof updateSoundSeed === 'function') updateSoundSeed(seed);
-        if (typeof spawnFloatingText === 'function') spawnFloatingText('retuned', 'rgba(254,249,195,0.6)', 'good');
-        if (typeof saveState === 'function') saveState();
-    });
-
-    // Hold: remove
-    let holdT = null;
-    const cancelHold = () => { if (holdT) { clearTimeout(holdT); holdT = null; } };
-    el.addEventListener('pointerdown', (e) => {
-        e.stopPropagation();
-        cancelHold();
-        holdT = setTimeout(() => {
-            cancelHold();
-            removeSoundSeed(seed.id);
-        }, 600);
-    });
-    el.addEventListener('pointerup', cancelHold);
-    el.addEventListener('pointercancel', cancelHold);
-    el.addEventListener('pointerleave', cancelHold);
-
-    layer.appendChild(el);
-}
-
-function removeSoundSeed(seedId) {
-    if (!seedId) return;
-    if (typeof stopSoundSeed === 'function') stopSoundSeed(seedId);
-
-    if (typeof state !== 'undefined' && Array.isArray(state.gardenSoundSeeds)) {
-        state.gardenSoundSeeds = state.gardenSoundSeeds.filter(s => s.id !== seedId);
-        if (typeof saveState === 'function') saveState();
-    }
-    const el = document.getElementById(seedId);
-    if (el) el.remove();
-    if (typeof spawnFloatingText === 'function') spawnFloatingText('seed removed', null, 'warn');
-}
-
-// ----- Gesture gliss: swipe across the overlay to play a soft harp-like run.
-function _isGardenUiTarget(target) {
-    if (!target) return false;
-    return !!(target.closest && (target.closest('#seedPalette') || target.closest('#seedPouchBtn') || target.closest('#essenceJar') || target.closest('#midnightGardenBack')));
-}
-
-function handleGardenGestureStart(e) {
-    if (!gardenState.isOpen) return;
-    if (_isGardenUiTarget(e.target)) return;
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    gardenState.gestureTrail = [{ x: e.clientX, y: e.clientY, t: performance.now() }];
-}
-
-function handleGardenGestureMove(e) {
-    if (!gardenState.isOpen) return;
-    if (!gardenState.gestureTrail || gardenState.gestureTrail.length === 0) return;
-    if (e.pointerType !== 'mouse') e.preventDefault();
-    const now = performance.now();
-    const last = gardenState.gestureTrail[gardenState.gestureTrail.length - 1];
-    const dx = e.clientX - last.x;
-    const dy = e.clientY - last.y;
-    if ((dx*dx + dy*dy) < 80) return;
-    gardenState.gestureTrail.push({ x: e.clientX, y: e.clientY, t: now });
-}
-
-function handleGardenGestureEnd(e) {
-    if (!gardenState.isOpen) return;
-    const pts = gardenState.gestureTrail || [];
-    gardenState.gestureTrail = [];
-    if (pts.length < 6) return;
-
-    const now = Date.now();
-    if (gardenState.lastGestureAt && (now - gardenState.lastGestureAt) < 1200) return;
-    gardenState.lastGestureAt = now;
-
-    const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
-    if (!overlay) return;
-    const r = overlay.getBoundingClientRect();
-
-    const norm = pts.map(p => ({
-        x: Math.max(0, Math.min(1, (p.x - r.left) / r.width)),
-        y: Math.max(0, Math.min(1, (p.y - r.top) / r.height)),
-        t: p.t
-    }));
-
-    if (typeof playGestureGliss === 'function') playGestureGliss(norm);
-}
 
 // ============================================
 // ESSENCE (Midnight Garden currency)

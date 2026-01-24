@@ -234,16 +234,17 @@ function initMidnightGarden() {
         const HOLD_MS = 520;
 
         const clearHold = () => {
-            if (holdTimer) { 
-                clearTimeout(holdTimer);
-                holdTimer = null;
-            }
+            if (holdTimer) { try { clearTimeout(holdTimer); } catch (_) {} }
+            holdTimer = null;
         };
 
-        const startHold = () => {
-            console.log('[Garden] Moon hold started, gardenState.isOpen:', gardenState.isOpen);
+        const startHold = (e) => {
+            console.log('[Garden] Moon startHold triggered, gardenState.isOpen:', gardenState.isOpen);
+            // Only when garden is actually open
             if (!gardenState.isOpen) return;
             clearHold();
+            // Prevent the hold from selecting text / dragging
+            try { e.preventDefault(); } catch (_) {}
             holdTimer = setTimeout(() => {
                 console.log('[Garden] Hold timer complete, opening dialog');
                 holdTimer = null;
@@ -251,35 +252,36 @@ function initMidnightGarden() {
             }, HOLD_MS);
         };
 
-        // Prevent context menu on long press
-        moon.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            return false;
-        });
-
-        // Touch events (most reliable for mobile)
+        // Use both pointer events AND touch events for maximum compatibility
+        // Pointer events (modern browsers)
+        moon.addEventListener('pointerdown', startHold, { passive: false });
+        moon.addEventListener('pointerup', clearHold);
+        moon.addEventListener('pointercancel', clearHold);
+        moon.addEventListener('pointerleave', clearHold);
+        
+        // Touch events fallback (iOS Safari)
         moon.addEventListener('touchstart', (e) => {
-            console.log('[Garden] Moon touchstart');
-            e.preventDefault();
-            startHold();
-        }, { passive: false });
-        
-        moon.addEventListener('touchend', (e) => {
-            console.log('[Garden] Moon touchend');
-            e.preventDefault();
+            if (!gardenState.isOpen) return;
             clearHold();
-        }, { passive: false });
-        
-        moon.addEventListener('touchcancel', clearHold);
-        moon.addEventListener('touchmove', clearHold); // Cancel if finger moves
-        
-        // Mouse events for desktop
-        moon.addEventListener('mousedown', (e) => {
-            console.log('[Garden] Moon mousedown');
             e.preventDefault();
-            startHold();
-        });
+            holdTimer = setTimeout(() => {
+                holdTimer = null;
+                openEssenceDialog();
+            }, HOLD_MS);
+        }, { passive: false });
+        moon.addEventListener('touchend', clearHold);
+        moon.addEventListener('touchcancel', clearHold);
         
+        // Mouse events fallback (older browsers)
+        moon.addEventListener('mousedown', (e) => {
+            if (!gardenState.isOpen) return;
+            if (e.pointerType) return; // Skip if pointer event already handled
+            clearHold();
+            holdTimer = setTimeout(() => {
+                holdTimer = null;
+                openEssenceDialog();
+            }, HOLD_MS);
+        });
         moon.addEventListener('mouseup', clearHold);
         moon.addEventListener('mouseleave', clearHold);
 
@@ -288,10 +290,7 @@ function initMidnightGarden() {
         moon.setAttribute('role', 'button');
         moon.setAttribute('aria-label', 'Hold to offer essence');
         moon.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') { 
-                e.preventDefault(); 
-                openEssenceDialog(); 
-            }
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEssenceDialog(); }
         });
     }
 }
