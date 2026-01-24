@@ -84,110 +84,6 @@ function playReverbTail(baseFreq, volume, duration) {
     }
 }
 
-// ============================================
-// COLOR MELODY LAYERS (unlocked by 3 same-color fireflies)
-// ============================================
-
-// Each family gets a distinct timbre and a small looping phrase.
-// These are intentionally subtle so they sit under the existing ambience.
-const GARDEN_MELODY_FAMILIES = Object.freeze({
-    // 0..7 match your firefly families
-    0: { name: 'Ember',  osc: 'triangle', filter: 900,  gain: 0.055, bpm: 44,  phrase: [0, 2, 4, 2, 0, 2, 5, 4] },
-    1: { name: 'Citrine',osc: 'sine',     filter: 2200, gain: 0.045, bpm: 48,  phrase: [0, 4, 2, 4, 5, 4, 2, 0] },
-    2: { name: 'Verdant',osc: 'sawtooth', filter: 700,  gain: 0.040, bpm: 40,  phrase: [0, 2, 0, 3, 2, 5, 3, 2] },
-    3: { name: 'Aqua',   osc: 'sine',     filter: 2600, gain: 0.050, bpm: 42,  phrase: [0, 3, 5, 3, 2, 3, 5, 7] },
-    4: { name: 'Azure',  osc: 'triangle', filter: 1400, gain: 0.048, bpm: 38,  phrase: [0, 2, 4, 7, 4, 2, 0, 2] },
-    5: { name: 'Violet', osc: 'sine',     filter: 1600, gain: 0.042, bpm: 36,  phrase: [0, 5, 4, 2, 4, 5, 7, 5] },
-    6: { name: 'Rose',   osc: 'triangle', filter: 1800, gain: 0.046, bpm: 46,  phrase: [0, 2, 4, 5, 4, 2, 0, 7] },
-    7: { name: 'Pearl',  osc: 'sine',     filter: 1200, gain: 0.038, bpm: 34,  phrase: [0, 2, 1, 2, 4, 2, 5, 4] }
-});
-
-// Scale degrees (in semitones) relative to a family root. Keep it gentle.
-const _MELODY_SCALE = Object.freeze([0, 2, 4, 5, 7, 9, 11, 12]);
-
-function _familyRootHz(familyIndex) {
-    // Use the root of the family chord as anchor.
-    const chord = GARDEN_CHORDS[familyIndex] || GARDEN_CHORDS[0];
-    return chord[0] || 220;
-}
-
-function _playMelodyNote(ctx, freq, familyCfg) {
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    osc.type = familyCfg.osc;
-    osc.frequency.setValueAtTime(freq, now);
-    // Tiny random detune for life (but subtle)
-    osc.detune.setValueAtTime((Math.random() - 0.5) * 6, now);
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(familyCfg.filter, now);
-    filter.Q.setValueAtTime(0.7, now);
-
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(familyCfg.gain, now + 0.03);
-    g.gain.exponentialRampToValueAtTime(0.0008, now + 0.9);
-
-    osc.connect(filter);
-    filter.connect(g);
-    g.connect(gardenState.musicalGain);
-    osc.start(now);
-    osc.stop(now + 1.0);
-}
-
-function startColorMelodyLoop(familyIndex) {
-    if (!gardenState.isOpen) return;
-    initGardenAudio();
-    const ctx = gardenState.audioContext;
-    if (!ctx) return;
-    if (ctx.state === 'suspended') ctx.resume();
-
-    const idx = Number(familyIndex);
-    const cfg = GARDEN_MELODY_FAMILIES[idx];
-    if (!cfg) return;
-
-    // If already running, don't restart (prevents audible re-attack spam)
-    if (gardenState.colorMelodyActive && gardenState.colorMelodyActive[idx]) return;
-    if (!gardenState.colorMelodyActive) gardenState.colorMelodyActive = {};
-    if (!gardenState.colorMelodyTimers) gardenState.colorMelodyTimers = {};
-    if (!gardenState.colorMelodyLastStartAt) gardenState.colorMelodyLastStartAt = {};
-
-    gardenState.colorMelodyActive[idx] = true;
-    gardenState.colorMelodyLastStartAt[idx] = Date.now();
-
-    const root = _familyRootHz(idx);
-    const beat = 60 / (cfg.bpm || 40);
-    const stepDur = beat * 0.9; // slightly under-beat keeps it drifting/organic
-
-    let step = 0;
-    const playStep = () => {
-        if (!gardenState.isOpen || !gardenState.soundscapeActive || !gardenState.colorMelodyActive[idx]) return;
-        if (ctx.state === 'suspended') return; // will resume on next trigger
-
-        const degIndex = cfg.phrase[step % cfg.phrase.length];
-        const semis = _MELODY_SCALE[Math.max(0, Math.min(_MELODY_SCALE.length - 1, degIndex))];
-        const freq = root * Math.pow(2, semis / 12);
-
-        _playMelodyNote(ctx, freq, cfg);
-        step += 1;
-
-        gardenState.colorMelodyTimers[idx] = setTimeout(playStep, stepDur * 1000);
-    };
-
-    // Start slightly delayed so it feels like it "arrives" after the moon event.
-    gardenState.colorMelodyTimers[idx] = setTimeout(playStep, 220);
-}
-
-function stopAllColorMelodies() {
-    if (!gardenState.colorMelodyTimers) return;
-    Object.keys(gardenState.colorMelodyTimers).forEach((k) => {
-        try { clearTimeout(gardenState.colorMelodyTimers[k]); } catch (e) {}
-    });
-    gardenState.colorMelodyTimers = {};
-    gardenState.colorMelodyActive = {};
-}
-
 function playPlantSound(plantData) {
     if (!gardenState.isOpen) return;
     initGardenAudio();
@@ -256,8 +152,6 @@ function stopAmbientSoundscape() {
     stopPlantHarmonics();
     stopMoodCycling();
     stopWindSystem();
-    // Stop any color melody loops (they are independent of the ambient timers)
-    stopAllColorMelodies();
     if (gardenState.ambientInterval) { clearInterval(gardenState.ambientInterval); gardenState.ambientInterval = null; }
     
     // Optimization: Suspend context to save battery when not in garden

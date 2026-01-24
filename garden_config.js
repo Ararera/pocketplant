@@ -37,11 +37,6 @@ let gardenState = {
     moonHitFadeTimer: null,
     _moonBaseBoxShadow: null,
     _moonBaseBackground: null,
-
-    // Color melody layers (unlocked by 3 same-color fireflies)
-    colorMelodyTimers: {},
-    colorMelodyActive: {},
-    colorMelodyLastStartAt: {},
     
     // Performance: Master Animation Loop ID
     visualLoopId: null

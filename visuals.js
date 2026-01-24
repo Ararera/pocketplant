@@ -95,17 +95,25 @@ const audio = {
         if (!this.ctx) return;
         if (this.dropletBus) return;
         const ctx = this.ctx;
+
+        // A tiny "room" for piano droplets: delay + lowpass feedback.
         this.dropletBus = ctx.createGain();
         this.dropletBus.gain.value = 1.0;
+
         this.dropletDelay = ctx.createDelay(1.2);
         this.dropletDelay.delayTime.value = 0.18;
+
         this.dropletFeedback = ctx.createGain();
         this.dropletFeedback.gain.value = 0.35;
+
         this.dropletLP = ctx.createBiquadFilter();
         this.dropletLP.type = 'lowpass';
         this.dropletLP.frequency.value = 1400;
         this.dropletLP.Q.value = 0.7;
+
+        // bus -> (dry) bgFilter, and bus -> delay loop -> bgFilter
         this.dropletBus.connect(this.bgFilter);
+
         this.dropletBus.connect(this.dropletDelay);
         this.dropletDelay.connect(this.dropletLP);
         this.dropletLP.connect(this.dropletFeedback);
@@ -116,59 +124,67 @@ const audio = {
         const ctx = this.ctx;
         if (!ctx) return;
         this._ensureDropletFX();
+
         const freq = this._midiToFreq(midi);
+
+        // Two partials: fundamental + a soft upper partial.
         const o1 = ctx.createOscillator();
         const o2 = ctx.createOscillator();
         o1.type = 'triangle';
         o2.type = 'sine';
+
         o1.frequency.setValueAtTime(freq, t);
         o2.frequency.setValueAtTime(freq * 2, t);
+
+        // Slight, stable detune so it doesn't sound like a pure test tone.
         const det = (Math.random() - 0.5) * 6;
         o1.detune.setValueAtTime(det, t);
         o2.detune.setValueAtTime(-det * 0.6, t);
+
         const f = ctx.createBiquadFilter();
         f.type = 'lowpass';
         f.frequency.setValueAtTime(1800 * brightness, t);
         f.Q.setValueAtTime(0.9, t);
+
         const g = ctx.createGain();
         g.gain.setValueAtTime(0.0001, t);
         g.gain.linearRampToValueAtTime(amp, t + 0.012);
         g.gain.exponentialRampToValueAtTime(0.0001, t + 2.8);
+
+        // A tiny transient click -> 'felt hammer' (very low level).
         const click = ctx.createBufferSource();
         const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.02), ctx.sampleRate);
         const d = buf.getChannelData(0);
         for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length) * 0.35;
         click.buffer = buf;
+
         const cg = ctx.createGain();
         cg.gain.setValueAtTime(0.0001, t);
         cg.gain.linearRampToValueAtTime(amp * 0.25, t + 0.005);
         cg.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+
         o1.connect(f); o2.connect(f);
         f.connect(g);
         g.connect(this.dropletBus);
+
         click.connect(cg);
         cg.connect(this.dropletBus);
+
         o1.start(t);
         o2.start(t);
         click.start(t);
+
         o1.stop(t + 3.0);
         o2.stop(t + 3.0);
         click.stop(t + 0.06);
     },
-
-    // ============================================
-    // EXPANDED ZEN MELODY SYSTEM
-    // 6-minute non-repeating contemplative music
-    // ============================================
-
-    playBackgroundMusic() {
+playBackgroundMusic() {
         if (!this.ctx) this.init();
         if (this.ctx.state === 'suspended') this.ctx.resume();
         if (this.isMusicPlaying) return;
         this.isMusicPlaying = true;
         this.bgTimers.forEach(id => clearTimeout(id));
         this.bgTimers = [];
-
         if (!this.bgMasterGain) {
             this.bgMasterGain = this.ctx.createGain();
             this.bgMasterGain.gain.value = 0.06;
@@ -181,185 +197,169 @@ const audio = {
             this.bgFilter.Q.value = 0.5;
             this.bgFilter.connect(this.bgMasterGain);
         }
-
-        const LOOP_SECONDS = 360;
-        
-        // Expanded chord progression - 24 chords for more harmonic journey
-        const CHORDS = [
-            [48, 55, 62, 67], [48, 55, 60, 64], [45, 52, 57, 62], [45, 52, 60, 64],
-            [43, 50, 55, 59], [43, 50, 57, 62], [41, 48, 55, 60], [41, 48, 53, 57],
-            [40, 47, 52, 55], [40, 47, 55, 59], [38, 45, 52, 57], [38, 45, 50, 57],
-            [36, 43, 48, 55], [36, 43, 50, 55], [41, 48, 53, 60], [43, 48, 55, 60],
-            [45, 50, 57, 62], [45, 52, 57, 60], [43, 50, 55, 62], [43, 50, 57, 60],
-            [41, 48, 55, 60], [40, 48, 55, 60], [43, 48, 55, 60], [48, 55, 60, 67]
-        ];
+        const LOOP_SECONDS = 360, CHORDS = [[48, 55, 62, 64], [45, 52, 59, 62], [41, 48, 55, 60], [43, 50, 57, 62], [38, 45, 52, 55, 60], [48, 55, 60, 64], [45, 52, 57, 62], [41, 48, 53, 60], [43, 50, 55, 62], [48, 55, 62, 64]];
+        const STEP = 14, STEPS = Math.floor(LOOP_SECONDS / STEP);
 
         const SEASON_MELODIES = {
-            // SPRING: Awakening, hopeful - pentatonic with gentle rises
-            0: {
-                phrases: [
-                    [{ bass: 48, notes: [67] }, { notes: [64] }, null, { notes: [62] }, { bass: 43, notes: [67] }, { notes: [69] }, { notes: [67] }, null, { notes: [64] }, { bass: 45, notes: [62] }, { notes: [64] }, { notes: [67] }],
-                    [{ bass: 48, notes: [72] }, { notes: [71] }, { notes: [69] }, null, { bass: 45, notes: [67] }, { notes: [69] }, { notes: [72] }, { notes: [69] }, null, { bass: 43, notes: [67] }, { notes: [64] }, { notes: [67] }],
-                    [{ bass: 41, notes: [69] }, { notes: [72] }, { notes: [74] }, null, { notes: [72] }, { bass: 43, notes: [71] }, { notes: [69] }, null, { notes: [67] }, { bass: 48, notes: [64] }, { notes: [67] }, { notes: [64] }],
-                    [{ bass: 45, notes: [76] }, { notes: [74] }, null, { notes: [72] }, { bass: 48, notes: [69] }, { notes: [71] }, { notes: [72] }, null, { notes: [69] }, { bass: 43, notes: [67] }, null, { notes: [72] }],
-                    [{ bass: 41, notes: [72] }, { notes: [69] }, { notes: [67] }, null, { bass: 45, notes: [64] }, { notes: [67] }, null, { notes: [69] }, { bass: 48, notes: [67] }, { notes: [64] }, null, { notes: [67] }],
-                    [{ bass: 43, notes: [67] }, null, { notes: [64] }, { notes: [62] }, { bass: 48, notes: [60] }, null, { notes: [62] }, { notes: [64] }, null, { bass: 48, notes: [67] }, null, null]
+            // Slow, simple piano phrases (less "pingy", more melodic). Notes are MIDI numbers.
+            // Each phrase slot describes what to play inside a STEP; null = rest.
+            // 0: Spring, 1: Summer, 2: Autumn, 3: Winter
+            0: { // Spring: C major, gentle stepwise motion
+                phrase: [
+                    { bass: 48, notes: [64] },   // C2 + E4
+                    { notes: [62] },             // D4
+                    { notes: [60] },             // C4
+                    { notes: [62] },             // D4
+                    { bass: 50, notes: [64] },   // D2 + E4
+                    { notes: [67] },             // G4
+                    { notes: [64] },             // E4
+                    { notes: [62] }              // D4
                 ],
-                amp: 0.022, bright: 0.95
+                amp: 0.020, bright: 0.92
             },
-            // SUMMER: Warm, expansive - lydian/major, brighter
-            1: {
-                phrases: [
-                    [{ bass: 50, notes: [69] }, { notes: [71] }, { notes: [74] }, null, { bass: 48, notes: [72] }, { notes: [74] }, { notes: [71] }, null, { notes: [69] }, { bass: 45, notes: [72] }, { notes: [69] }, { notes: [71] }],
-                    [{ bass: 48, notes: [76] }, { notes: [74] }, null, { notes: [72] }, { bass: 50, notes: [74] }, { notes: [76] }, { notes: [74] }, null, { bass: 45, notes: [72] }, { notes: [74] }, { notes: [72] }, { notes: [69] }],
-                    [{ bass: 43, notes: [74] }, { notes: [76] }, null, { notes: [74] }, { notes: [72] }, { bass: 48, notes: [71] }, null, { notes: [72] }, { notes: [74] }, { bass: 50, notes: [71] }, null, { notes: [69] }],
-                    [{ bass: 45, notes: [69] }, null, { notes: [72] }, { notes: [74] }, { bass: 48, notes: [76] }, null, { notes: [74] }, null, { bass: 43, notes: [72] }, { notes: [71] }, { notes: [69] }, null],
-                    [{ bass: 50, notes: [74] }, { notes: [72] }, null, { notes: [69] }, { bass: 48, notes: [71] }, { notes: [72] }, null, { notes: [69] }, { bass: 45, notes: [67] }, null, { notes: [69] }, { notes: [72] }],
-                    [{ bass: 43, notes: [71] }, { notes: [69] }, null, { notes: [67] }, { bass: 48, notes: [69] }, null, { notes: [67] }, { notes: [64] }, { bass: 48, notes: [67] }, null, null, { notes: [64] }]
+            1: { // Summer: a touch brighter, still restrained
+                phrase: [
+                    { bass: 50, notes: [67] },   // D2 + G4
+                    { notes: [69] },             // A4
+                    { notes: [67] },             // G4
+                    { notes: [64] },             // E4
+                    { bass: 48, notes: [62] },   // C2 + D4
+                    { notes: [64] },             // E4
+                    { notes: [67] },             // G4
+                    { notes: [69] }              // A4
                 ],
-                amp: 0.024, bright: 1.05
+                amp: 0.022, bright: 1.02
             },
-            // AUTUMN: Reflective, bittersweet - minor modes, descending
-            2: {
-                phrases: [
-                    [{ bass: 45, notes: [64] }, { notes: [67] }, { notes: [69] }, null, { bass: 43, notes: [67] }, { notes: [65] }, null, { notes: [64] }, { bass: 45, notes: [62] }, { notes: [64] }, { notes: [67] }, null],
-                    [{ bass: 41, notes: [72] }, { notes: [69] }, { notes: [67] }, null, { notes: [65] }, { bass: 45, notes: [64] }, null, { notes: [67] }, { notes: [65] }, { bass: 40, notes: [64] }, null, { notes: [62] }],
-                    [{ bass: 45, notes: [69] }, { notes: [72] }, null, { notes: [71] }, { bass: 43, notes: [69] }, { notes: [67] }, { notes: [65] }, null, { bass: 41, notes: [64] }, { notes: [65] }, null, { notes: [64] }],
-                    [{ bass: 38, notes: [65] }, null, { notes: [67] }, { notes: [69] }, { bass: 45, notes: [67] }, null, { notes: [65] }, { notes: [64] }, null, { bass: 40, notes: [62] }, { notes: [64] }, null],
-                    [{ bass: 45, notes: [60] }, { notes: [62] }, null, { notes: [64] }, { bass: 41, notes: [65] }, null, { notes: [64] }, { notes: [62] }, { bass: 43, notes: [60] }, null, { notes: [62] }, null],
-                    [{ bass: 45, notes: [64] }, null, { notes: [62] }, null, { bass: 40, notes: [60] }, { notes: [62] }, null, null, { bass: 45, notes: [60] }, null, null, null]
+            2: { // Autumn: warmer, a little lower in register (A minor flavor)
+                phrase: [
+                    { bass: 45, notes: [60] },   // A1 + C4
+                    { notes: [62] },             // D4
+                    { notes: [64] },             // E4
+                    { notes: [62] },             // D4
+                    { bass: 43, notes: [59] },   // G1 + B3
+                    { notes: [60] },             // C4
+                    { notes: [62] },             // D4
+                    { notes: [59] }              // B3
                 ],
-                amp: 0.019, bright: 0.85
+                amp: 0.018, bright: 0.86
             },
-            // WINTER: Sparse, crystalline - lots of space, high sparkles
-            3: {
-                phrases: [
-                    [{ bass: 36, notes: [67] }, null, null, { notes: [64] }, null, { bass: 38, notes: [62] }, null, null, { notes: [65] }, null, { notes: [64] }, null],
-                    [{ bass: 41, notes: [72] }, null, null, { notes: [71] }, null, null, { bass: 36, notes: [69] }, null, { notes: [67] }, null, null, { notes: [65] }],
-                    [{ bass: 33, notes: [76] }, null, null, null, { notes: [74] }, null, { bass: 38, notes: [72] }, null, null, { notes: [69] }, null, null],
-                    [{ bass: 36 }, null, null, { notes: [67] }, null, null, null, { bass: 41, notes: [65] }, null, null, { notes: [64] }, null],
-                    [{ bass: 38, notes: [74] }, null, { notes: [72] }, null, null, { bass: 36, notes: [71] }, null, null, null, { notes: [67] }, null, null],
-                    [{ bass: 41, notes: [65] }, null, null, null, { notes: [64] }, null, { bass: 36, notes: [60] }, null, null, null, null, null]
+            3: { // Winter: sparse, minor-leaning, more air between notes
+                phrase: [
+                    { bass: 38, notes: [62] },   // D1 + D4
+                    null,
+                    { notes: [65] },             // F4
+                    null,
+                    { bass: 41, notes: [60] },   // F1 + C4
+                    null,
+                    { notes: [58] },             // Bb3
+                    { notes: [60] }              // C4
                 ],
-                amp: 0.017, bright: 0.75
+                amp: 0.016, bright: 0.78
             }
         };
-
         const pickSeasonMelody = () => {
             const si = this._getSeasonIndex();
             return SEASON_MELODIES[si] || SEASON_MELODIES[0];
         };
-
         const makeEvents = (seed) => {
-            const rand = this._mulberry32(seed);
-            const ev = [];
-            const CHORD_INTERVAL = 15;
-            const NUM_CHORDS = Math.floor(LOOP_SECONDS / CHORD_INTERVAL);
-            const MELODY_SLOT_TIME = 5;
-            const melody = pickSeasonMelody();
-
-            for (let i = 0; i < NUM_CHORDS; i++) {
-                const tt = i * CHORD_INTERVAL;
+            const rand = this._mulberry32(seed), ev = [];
+            for (let i = 0; i < STEPS; i++) {
+                const tt = i * STEP;
                 let stack = CHORDS[i % CHORDS.length].slice();
-                if (rand() < 0.25) stack = [...stack.slice(1), stack[0] + 12];
-                if (rand() < 0.10) stack.push(stack[stack.length - 1] + 7);
+                if (rand() < 0.35) stack = [...stack.slice(1), stack[0] + 12];
+                if (rand() < 0.12) stack = stack.concat([stack[stack.length - 1] + 7]);
                 ev.push({ t: tt, type: 'chord', midi: stack });
-            }
 
-            let globalSlot = 0;
-            for (let phraseIdx = 0; phraseIdx < melody.phrases.length; phraseIdx++) {
-                const phrase = melody.phrases[phraseIdx];
-                for (let slotIdx = 0; slotIdx < phrase.length; slotIdx++) {
-                    const slot = phrase[slotIdx];
-                    const tt = globalSlot * MELODY_SLOT_TIME;
-                    if (slot) {
-                        const baseAmp = melody.amp;
-                        const bright = melody.bright;
-                        const humanize = (rand() - 0.5) * 0.4;
-                        if (Number.isFinite(slot.bass)) {
-                            ev.push({ t: tt + 0.3 + humanize, type: 'melody', midi: [slot.bass], amp: baseAmp * 0.5, bright: Math.max(0.55, bright - 0.3) });
+                // Slow seasonal piano phrase (structured, with rests).
+                const melody = pickSeasonMelody();
+                const slot = melody.phrase[i % melody.phrase.length];
+                if (slot) {
+                    const baseAmp = melody.amp;
+                    const bright = melody.bright;
+
+                    // Place notes slightly off-grid for a more human feel.
+                    const o1 = 2.0 + rand() * 0.6;
+                    const o2 = 8.2 + rand() * 0.7;
+
+                    // Optional "left hand" bass note (very soft).
+                    if (Number.isFinite(slot.bass)) {
+                        ev.push({
+                            t: tt + 0.8 + rand() * 0.4,
+                            type: 'melody',
+                            midi: [slot.bass],
+                            amp: baseAmp * 0.55,
+                            bright: Math.max(0.6, bright - 0.25)
+                        });
+                    }
+
+                    // Main note(s).
+                    const notes = slot.notes || [];
+                    if (notes.length) {
+                        // Optional grace note (upper/lower neighbor), very soft and quick.
+                        if (rand() < 0.18) {
+                            const g = notes[0] + (rand() < 0.5 ? 2 : -2);
+                            ev.push({
+                                t: tt + o1 - (0.18 + rand() * 0.08),
+                                type: 'melody',
+                                midi: [g],
+                                amp: baseAmp * 0.35,
+                                bright: Math.max(0.65, bright - 0.15)
+                            });
                         }
-                        const notes = slot.notes || [];
-                        if (notes.length > 0) {
-                            if (rand() < 0.12) {
-                                const grace = notes[0] + (rand() < 0.5 ? 2 : -1);
-                                ev.push({ t: tt + 1.8 + humanize - 0.15, type: 'melody', midi: [grace], amp: baseAmp * 0.3, bright: bright * 0.9 });
-                            }
-                            ev.push({ t: tt + 2.0 + humanize, type: 'melody', midi: [notes[0]], amp: baseAmp, bright: bright });
-                            if (notes.length > 1) {
-                                ev.push({ t: tt + 3.5 + humanize + rand() * 0.3, type: 'melody', midi: [notes[1]], amp: baseAmp * 0.85, bright: bright });
-                            }
+                        ev.push({ t: tt + o1, type: 'melody', midi: [notes[0]], amp: baseAmp, bright });
+                        if (notes.length > 1) {
+                            ev.push({ t: tt + o2, type: 'melody', midi: [notes[1]], amp: baseAmp * 0.9, bright });
                         }
                     }
-                    globalSlot++;
                 }
-            }
 
-            const bellPool = [79, 81, 83, 84, 86, 88];
-            let bellTime = 25 + rand() * 20;
-            while (bellTime < LOOP_SECONDS - 10) {
-                if (rand() < 0.6) {
-                    ev.push({ t: bellTime, type: 'bell', midi: [bellPool[Math.floor(rand() * bellPool.length)]] });
+                // Rare bell sparkles (keep these extra sparse so melody stays special).
+                if (rand() < 0.10) {
+                    const off = 2.5 + rand() * 7, bellPool = [72, 74, 76, 79, 81];
+                    ev.push({ t: tt + off, type: 'bell', midi: [bellPool[Math.floor(rand() * bellPool.length)]] });
                 }
-                bellTime += 30 + rand() * 35;
             }
             return ev;
         };
-
         const playAmbientPad = (t, chordMidi) => {
-            const ctx = this.ctx, dur = 14;
+            const ctx = this.ctx, dur = 12;
             chordMidi.forEach((m, i) => {
                 const o = ctx.createOscillator(), g = ctx.createGain();
-                o.type = 'sine';
-                o.frequency.setValueAtTime(this._midiToFreq(m), t);
+                o.type = 'sine'; o.frequency.setValueAtTime(this._midiToFreq(m), t);
                 o.detune.setValueAtTime((i - (chordMidi.length - 1) / 2) * 3 + (Math.random() - 0.5) * 5, t);
-                g.gain.setValueAtTime(0, t);
-                g.gain.linearRampToValueAtTime(0.065, t + 3.5);
-                g.gain.setValueAtTime(0.065, t + dur - 4.5);
-                g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-                o.connect(g); g.connect(this.bgFilter);
-                o.start(t); o.stop(t + dur + 0.1);
+                g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.07, t + 3);
+                g.gain.setValueAtTime(0.07, t + dur - 4); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+                o.connect(g); g.connect(this.bgFilter); o.start(t); o.stop(t + dur + 0.1);
             });
         };
-
         const playAmbientBell = (t, midi) => {
             const ctx = this.ctx, o = ctx.createOscillator(), g = ctx.createGain();
-            o.type = 'sine';
-            o.frequency.setValueAtTime(this._midiToFreq(midi), t);
-            g.gain.setValueAtTime(0, t);
-            g.gain.linearRampToValueAtTime(0.022, t + 0.5);
-            g.gain.exponentialRampToValueAtTime(0.001, t + 6);
-            o.connect(g); g.connect(this.bgFilter);
-            o.start(t); o.stop(t + 6.5);
+            o.type = 'sine'; o.frequency.setValueAtTime(this._midiToFreq(midi), t);
+            g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.025, t + 0.4);
+            g.gain.exponentialRampToValueAtTime(0.001, t + 5);
+            o.connect(g); g.connect(this.bgFilter); o.start(t); o.stop(t + 5.5);
         };
-
         const scheduleLoop = () => {
             if (!this.isMusicPlaying) return;
-            const events = makeEvents(Date.now() % 10000);
-            const startAt = this.ctx.currentTime + 0.1;
+            const events = makeEvents(1337), startAt = this.ctx.currentTime + 0.05;
             for (const e of events) {
-                const when = startAt + e.t;
-                const delayMs = Math.max(0, (when - this.ctx.currentTime) * 1000);
+                const when = startAt + e.t, delayMs = Math.max(0, (when - this.ctx.currentTime) * 1000);
                 const id = setTimeout(() => {
                     if (!this.isMusicPlaying) return;
-                    try {
-                        if (e.type === 'chord') playAmbientPad(when, e.midi);
+                    try { if (e.type === 'chord') playAmbientPad(when, e.midi);
                         else if (e.type === 'melody') this._playPianoDropletAt(when, e.midi[0], e.amp || 0.018, e.bright || 1.0);
-                        else if (e.type === 'bell') playAmbientBell(when, e.midi[0]);
-                    } catch (_) { }
+                        else playAmbientBell(when, e.midi[0]); } catch (_) { }
                 }, delayMs);
                 this.bgTimers.push(id);
             }
             const loopId = setTimeout(() => {
                 this.bgTimers.forEach(id => clearTimeout(id));
-                this.bgTimers = [];
-                scheduleLoop();
-            }, (LOOP_SECONDS + 0.5) * 1000);
+                this.bgTimers = []; scheduleLoop();
+            }, (LOOP_SECONDS + 0.15) * 1000);
             this.bgTimers.push(loopId);
         };
         scheduleLoop();
     },
-
     stopBackgroundMusic() {
         this.isMusicPlaying = false;
         this.bgTimers.forEach(id => clearTimeout(id));
@@ -388,12 +388,20 @@ function updateTimeOfDay() {
 function updateNightMotes(timeOfDay) {
     const container = document.getElementById('nightMotes');
     if (!container) return;
+    
     const isNight = timeOfDay === 'night' || timeOfDay === 'evening';
+    
+    // Only populate motes once
     if (isNight && container.children.length === 0) {
         for (let i = 0; i < 25; i++) {
             const mote = document.createElement('div');
             mote.className = 'night-mote';
-            mote.style.cssText = `left:${Math.random()*100}%;top:${20+Math.random()*60}%;--dur:${10+Math.random()*8}s;--delay:${Math.random()*10}s;`;
+            mote.style.cssText = `
+                left: ${Math.random() * 100}%;
+                top: ${20 + Math.random() * 60}%;
+                --dur: ${10 + Math.random() * 8}s;
+                --delay: ${Math.random() * 10}s;
+            `;
             container.appendChild(mote);
         }
     } else if (!isNight && container.children.length > 0) {
@@ -419,6 +427,7 @@ function updateSeason() {
     const s = SEASONS[state.season % 4];
     const i = document.getElementById('seasonIndicator');
     if (i) i.textContent = `${s.icon} ${s.name}`;
+    // Set data-season attribute for environment scene CSS
     document.body.setAttribute('data-season', s.name);
     updateSeasonalVisuals();
 }
@@ -430,74 +439,65 @@ function updateSeasonalVisuals() {
     if (c.dataset.season === currentKey) return;
     c.dataset.season = currentKey;
     c.innerHTML = '';
-    const fragment = document.createDocumentFragment();
-    const isLowPower = CONFIG.performance?.lowPowerMode;
-    
     if (sn === 'Spring') {
-        const count = isLowPower ? 5 : 10;
-        for (let i = 0; i < count; i++) {
+        for (let i = 0; i < 10; i++) {
             const b = document.createElement('div');
             b.className = 'seasonal-blossom';
             b.style.left = (Math.random() * 120 - 10) + '%';
             b.style.animationDelay = (Math.random() * -30) + 's';
             b.style.animationDuration = (18 + Math.random() * 12) + 's';
-            fragment.appendChild(b);
+            c.appendChild(b);
         }
     } else if (sn === 'Summer') {
         if (isDaytime()) {
-            const h = document.createElement('div');
-            h.className = 'seasonal-heatwave';
-            h.style.animationDelay = (Math.random() * -3) + 's';
-            h.style.animationDuration = (5 + Math.random() * 3) + 's';
-            fragment.appendChild(h);
-            const beamCount = isLowPower ? 1 : 2;
-            for (let i = 0; i < beamCount; i++) {
+            for (let i = 0; i < 2; i++) {
+                const h = document.createElement('div');
+                h.className = 'seasonal-heatwave';
+                h.style.animationDelay = (Math.random() * -3) + 's';
+                h.style.animationDuration = (5 + Math.random() * 3) + 's';
+                c.appendChild(h);
+            }
+            for (let i = 0; i < 2; i++) {
                 const b = document.createElement('div');
                 b.className = 'seasonal-beam';
                 b.style.left = (20 + Math.random() * 60) + '%';
                 b.style.transform = 'rotate(-20deg)';
                 b.style.animationDelay = (Math.random() * -5) + 's';
-                fragment.appendChild(b);
+                c.appendChild(b);
             }
         }
     } else if (sn === 'Autumn') {
-        const count = isLowPower ? 5 : 10;
-        for (let i = 0; i < count; i++) {
+        for (let i = 0; i < 10; i++) {
             const l = document.createElement('div');
             l.className = 'seasonal-leaf';
             l.style.left = (Math.random() * 120 - 20) + '%';
             l.style.animationDelay = (Math.random() * -25) + 's';
             l.style.animationDuration = (15 + Math.random() * 10) + 's';
             l.style.backgroundColor = ['#e67e22', '#d35400', '#f1c40f'][Math.floor(Math.random() * 3)];
-            fragment.appendChild(l);
+            c.appendChild(l);
         }
     } else if (sn === 'Winter') {
-        const count = isLowPower ? 20 : 40;
-        for (let i = 0; i < count; i++) {
+        for (let i = 0; i < 40; i++) {
             const s = document.createElement('div');
             s.className = 'seasonal-snow';
             s.style.left = Math.random() * 100 + '%';
             s.style.animationDelay = (Math.random() * -20) + 's';
             s.style.animationDuration = (10 + Math.random() * 5) + 's';
-            fragment.appendChild(s);
+            c.appendChild(s);
         }
     }
-    c.appendChild(fragment);
 }
 
 function setupWorld() {
     const c = Math.min(80, 20 + state.generation * 8), s = document.getElementById('starsContainer');
     if (s) {
         s.innerHTML = '';
-        const fragment = document.createDocumentFragment();
-        const starCount = CONFIG.performance?.lowPowerMode ? Math.floor(c * 0.6) : c;
-        for (let i = 0; i < starCount; i++) {
+        for (let i = 0; i < c; i++) {
             const star = document.createElement('div');
             star.className = 'star';
-            star.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*60}%;--dur:${3+Math.random()*4}s;--delay:${Math.random()*5}s;--brightness:${0.4+Math.random()*0.6}`;
-            fragment.appendChild(star);
+            star.style.cssText = `left:${Math.random() * 100}%;top:${Math.random() * 60}%;--dur:${3 + Math.random() * 4}s;--delay:${Math.random() * 5}s;--brightness:${0.4 + Math.random() * 0.6}`;
+            s.appendChild(star);
         }
-        s.appendChild(fragment);
     }
 }
 
@@ -505,15 +505,12 @@ function setupWeather() {
     const r = document.getElementById('rainContainer');
     if (r) {
         r.innerHTML = '';
-        const fragment = document.createDocumentFragment();
-        const dropCount = CONFIG.performance?.lowPowerMode ? 30 : 60;
-        for (let i = 0; i < dropCount; i++) {
+        for (let i = 0; i < 60; i++) {
             const d = document.createElement('div');
             d.className = 'raindrop';
-            d.style.cssText = `left:${Math.random()*100}%;animation-delay:${Math.random()*2}s;animation-duration:${0.6+Math.random()*0.4}s`;
-            fragment.appendChild(d);
+            d.style.cssText = `left:${Math.random() * 100}%;animation-delay:${Math.random() * 2}s;animation-duration:${0.6 + Math.random() * 0.4}s`;
+            r.appendChild(d);
         }
-        r.appendChild(fragment);
     }
 }
 
@@ -550,14 +547,21 @@ function updateMainPot() {
     if (p) p.setAttribute('fill', state.potPattern ? `url(#${state.potPattern})` : 'none');
 }
 
+// Night motes - floating particles for nighttime ambience
 function setupNightMotes() {
     const container = document.getElementById('nightMotes');
     if (!container || container.children.length > 0) return;
+    
     const moteCount = 15;
     for (let i = 0; i < moteCount; i++) {
         const mote = document.createElement('div');
         mote.className = 'night-mote';
-        mote.style.cssText = `left:${Math.random()*100}%;top:${30+Math.random()*50}%;--dur:${10+Math.random()*8}s;--delay:${Math.random()*-15}s;`;
+        mote.style.cssText = `
+            left: ${Math.random() * 100}%;
+            top: ${30 + Math.random() * 50}%;
+            --dur: ${10 + Math.random() * 8}s;
+            --delay: ${Math.random() * -15}s;
+        `;
         container.appendChild(mote);
     }
 }

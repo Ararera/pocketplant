@@ -213,29 +213,13 @@ function spawnGardenFirefly(familyIndex, container) {
     const ff = document.createElement('div');
     ff.className = 'garden-firefly';
     const color = typeof getFireflyColor === 'function' ? getFireflyColor(familyIndex) : `hsl(${[15, 45, 120, 180, 210, 270, 330, 0][familyIndex]}, 70%, 60%)`;
-    
-    // Spawn position - can spawn from edges or middle
-    let posX, posY;
-    const spawnEdge = Math.random() < 0.4; // 40% chance to spawn from edge
-    if (spawnEdge) {
-        const edge = Math.floor(Math.random() * 4);
-        switch(edge) {
-            case 0: posX = -5; posY = 20 + Math.random() * 50; break; // left
-            case 1: posX = 105; posY = 20 + Math.random() * 50; break; // right
-            case 2: posX = 10 + Math.random() * 80; posY = -5; break; // top
-            case 3: posX = 10 + Math.random() * 80; posY = 75; break; // bottom
-        }
-    } else {
-        posX = 10 + Math.random() * 80;
-        posY = 15 + Math.random() * 55;
-    }
-    
-    const glowDur = 2 + Math.random() * 2;
-    const lifeDur = 20 + Math.random() * 25;
+    let posX = 10 + Math.random() * 80, posY = 15 + Math.random() * 55;
+    const glowDur = 2 + Math.random() * 2, lifeDur = 25 + Math.random() * 20;
     
     ff.style.cssText = `left: ${posX}%; top: ${posY}%; background: ${color}; --ff-color: ${color}; --glow-dur: ${glowDur}s;`;
     ff.dataset.family = familyIndex;
     
+    // Declare these before the handler so they're in scope
     let animationId = null;
     let lifeTimer = null;
     let fadeoutTimer = null;
@@ -264,133 +248,34 @@ function spawnGardenFirefly(familyIndex, container) {
         });
     });
     
-    // More realistic firefly movement state
-    // Fireflies have distinct flight patterns: drift, pause, quick dart, gentle bob
-    const moveState = {
-        x: posX,
-        y: posY,
-        velX: (Math.random() - 0.5) * 0.8, // Start with some velocity!
-        velY: (Math.random() - 0.5) * 0.6,
-        targetX: posX + (Math.random() - 0.5) * 30,
-        targetY: posY + (Math.random() - 0.5) * 20,
-        phase: 'drift', // drift, pause, dart
-        phaseTime: 0,
-        phaseDuration: 3 + Math.random() * 4,
-        bobOffset: Math.random() * Math.PI * 2, // For gentle bobbing
-        dartCooldown: 0
-    };
-    
-    // Clamp initial target to bounds
-    moveState.targetX = Math.max(5, Math.min(95, moveState.targetX));
-    moveState.targetY = Math.max(10, Math.min(70, moveState.targetY));
-    
+    const moveState = { x: posX, y: posY, targetX: posX, targetY: posY, velX: 0, velY: 0, timeToNewTarget: 0 };
     let lastTime = performance.now();
-    
     const animateFirefly = (currentTime) => {
-        if (!ff.parentNode || !gardenState.isOpen) { 
-            cancelAnimationFrame(animationId); 
-            return; 
-        }
-        
-        const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1); // Cap delta to avoid jumps
+        if (!ff.parentNode || !gardenState.isOpen) { cancelAnimationFrame(animationId); return; }
+        const deltaTime = (currentTime - lastTime) / 1000;
         lastTime = currentTime;
-        
-        moveState.phaseTime += deltaTime;
-        moveState.dartCooldown -= deltaTime;
-        
-        // Phase transitions
-        if (moveState.phaseTime >= moveState.phaseDuration) {
-            moveState.phaseTime = 0;
-            
-            // Weighted random phase selection
-            const roll = Math.random();
-            if (roll < 0.6) {
-                // Drift phase - gentle movement toward target
-                moveState.phase = 'drift';
-                moveState.phaseDuration = 3 + Math.random() * 5;
-                // Pick a new target
-                moveState.targetX = moveState.x + (Math.random() - 0.5) * 40;
-                moveState.targetY = moveState.y + (Math.random() - 0.5) * 30;
-                moveState.targetX = Math.max(5, Math.min(95, moveState.targetX));
-                moveState.targetY = Math.max(10, Math.min(70, moveState.targetY));
-            } else if (roll < 0.8 && moveState.dartCooldown <= 0) {
-                // Dart phase - quick movement burst (real fireflies do this!)
-                moveState.phase = 'dart';
-                moveState.phaseDuration = 0.3 + Math.random() * 0.4;
-                // Dart in a random direction
-                const dartAngle = Math.random() * Math.PI * 2;
-                const dartSpeed = 1.5 + Math.random() * 1.5;
-                moveState.velX = Math.cos(dartAngle) * dartSpeed;
-                moveState.velY = Math.sin(dartAngle) * dartSpeed;
-                moveState.dartCooldown = 4 + Math.random() * 6; // Don't dart again too soon
-            } else {
-                // Pause phase - hover in place with gentle bob
-                moveState.phase = 'pause';
-                moveState.phaseDuration = 1.5 + Math.random() * 3;
-            }
+        moveState.timeToNewTarget -= deltaTime;
+        if (moveState.timeToNewTarget <= 0) {
+            // Very gentle, small target changes
+            moveState.targetX = moveState.x + (Math.random() - 0.5) * 4;
+            moveState.targetY = moveState.y + (Math.random() - 0.5) * 3;
+            moveState.targetX = Math.max(5, Math.min(95, moveState.targetX));
+            moveState.targetY = Math.max(10, Math.min(65, moveState.targetY));
+            moveState.timeToNewTarget = 15 + Math.random() * 20;
         }
-        
-        // Apply physics based on phase
-        const dx = moveState.targetX - moveState.x;
-        const dy = moveState.targetY - moveState.y;
-        
-        switch(moveState.phase) {
-            case 'drift':
-                // Gentle acceleration toward target
-                moveState.velX += dx * 0.003 * deltaTime * 60;
-                moveState.velY += dy * 0.003 * deltaTime * 60;
-                // Add subtle sinusoidal bob
-                moveState.velY += Math.sin(currentTime * 0.002 + moveState.bobOffset) * 0.01;
-                moveState.velX += Math.cos(currentTime * 0.0015 + moveState.bobOffset) * 0.008;
-                // Moderate damping
-                moveState.velX *= Math.pow(0.96, deltaTime * 60);
-                moveState.velY *= Math.pow(0.96, deltaTime * 60);
-                break;
-                
-            case 'dart':
-                // Minimal damping during dart - let it fly!
-                moveState.velX *= Math.pow(0.985, deltaTime * 60);
-                moveState.velY *= Math.pow(0.985, deltaTime * 60);
-                break;
-                
-            case 'pause':
-                // Strong damping to slow down, but keep gentle bob
-                moveState.velX *= Math.pow(0.9, deltaTime * 60);
-                moveState.velY *= Math.pow(0.9, deltaTime * 60);
-                // Gentle hovering motion
-                moveState.velY += Math.sin(currentTime * 0.003 + moveState.bobOffset) * 0.015;
-                moveState.velX += Math.cos(currentTime * 0.002 + moveState.bobOffset) * 0.01;
-                break;
-        }
-        
-        // Apply velocity
-        moveState.x += moveState.velX * deltaTime * 60;
-        moveState.y += moveState.velY * deltaTime * 60;
-        
-        // Soft boundary bounce (fireflies tend to turn away from edges)
-        if (moveState.x < 5) { moveState.velX += 0.05; moveState.x = 5; }
-        if (moveState.x > 95) { moveState.velX -= 0.05; moveState.x = 95; }
-        if (moveState.y < 8) { moveState.velY += 0.04; moveState.y = 8; }
-        if (moveState.y > 72) { moveState.velY -= 0.04; moveState.y = 72; }
-        
-        ff.style.left = moveState.x + '%';
-        ff.style.top = moveState.y + '%';
-        
+        const dx = moveState.targetX - moveState.x, dy = moveState.targetY - moveState.y;
+        // Very gentle, dreamy movement - much slower
+        moveState.velX += (dx * 0.00012 + Math.sin(currentTime * 0.00008 + familyIndex) * 0.0003);
+        moveState.velY += (dy * 0.00012 + Math.cos(currentTime * 0.00006 + familyIndex) * 0.00025);
+        // Strong damping for smooth, lazy floating
+        moveState.velX *= 0.97; moveState.velY *= 0.97;
+        moveState.x += moveState.velX; moveState.y += moveState.velY;
+        ff.style.left = moveState.x + '%'; ff.style.top = moveState.y + '%';
         animationId = requestAnimationFrame(animateFirefly);
     };
-    
     animationId = requestAnimationFrame(animateFirefly);
     
-    const fireflyData = { 
-        element: ff, 
-        family: familyIndex, 
-        spawnTime: Date.now(), 
-        animationId: animationId, 
-        lifeTimer: null, 
-        fadeoutTimer: null,
-        x: posX,
-        y: posY
-    };
+    const fireflyData = { element: ff, family: familyIndex, spawnTime: Date.now(), animationId: animationId, lifeTimer: null, fadeoutTimer: null };
     gardenState.fireflies.push(fireflyData);
     
     // Start fadeout 1.2s before end of life
@@ -548,14 +433,7 @@ function spawnColoredMoteRain(colorCss, durationMs) {
 function _updateMoonStreak(key, colorCss) {
     if (gardenState.moonStreakKey === key) gardenState.moonStreakCount += 1;
     else { gardenState.moonStreakKey = key; gardenState.moonStreakCount = 1; }
-    if (gardenState.moonStreakCount >= 3) {
-        // 3 same-color fireflies: trigger the moon tint mechanic AND unlock the color melody loop.
-        // Melody loop is subtle and persistent while the player remains in the garden.
-        try { if (typeof startColorMelodyLoop === 'function') startColorMelodyLoop(Number(key)); } catch (e) {}
-        gardenState.moonStreakCount = 0;
-        gardenState.moonStreakKey = null;
-        _applyMoonFullTint(colorCss, 7000);
-    }
+    if (gardenState.moonStreakCount >= 3) { gardenState.moonStreakCount = 0; gardenState.moonStreakKey = null; _applyMoonFullTint(colorCss, 7000); }
 }
 
 function flyFireflyToMoon(fireflyEl, familyIndex, colorCss) {
