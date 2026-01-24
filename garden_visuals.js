@@ -12,11 +12,17 @@ function initMidnightGarden() {
         soundscapeIndicator: document.getElementById('soundscapeIndicator'),
         essenceJar: document.getElementById('essenceJar'),
         essenceAmt: document.getElementById('essenceAmt'),
-        essenceFill: document.getElementById('essenceJarFill')
+        essenceFill: document.getElementById('essenceJarFill'),
+        seedLayer: document.getElementById('gardenSeedLayer'),
+        seedPouchBtn: document.getElementById('seedPouchBtn'),
+        seedPalette: document.getElementById('seedPalette'),
+        seedSlotRow: document.getElementById('seedSlotRow')
     };
 
     // Sync Essence jar immediately (if present)
     if (typeof updateEssenceJarUI === 'function') updateEssenceJarUI();
+
+    initGardenMusicTools();
 }
 
 function createGardenStars() {
@@ -50,6 +56,8 @@ function enterMidnightGarden() {
         overlay.classList.add('open');
         setTimeout(() => { transition.classList.remove('active'); }, 300);
         setTimeout(() => { startAmbientSoundscape(); }, 1000);
+        // Restore Sound Seeds a beat later so transport is stable.
+        setTimeout(() => { loadGardenSoundSeeds(); }, 1200);
     }, 800);
     if (typeof pushHistoryState === 'function') pushHistoryState();
 }
@@ -58,6 +66,10 @@ function exitMidnightGarden() {
     if (!gardenState.isOpen) return;
     const transition = gardenState.elements?.transition || document.getElementById('midnightTransition');
     const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
+    // Persist & stop Sound Seeds before leaving.
+    saveGardenSoundSeeds();
+    if (typeof stopAllSoundSeeds === 'function') stopAllSoundSeeds();
+
     stopAmbientSoundscape();
     stopGardenFireflies();
     transition.classList.add('active');
@@ -213,13 +225,29 @@ function spawnGardenFirefly(familyIndex, container) {
     const ff = document.createElement('div');
     ff.className = 'garden-firefly';
     const color = typeof getFireflyColor === 'function' ? getFireflyColor(familyIndex) : `hsl(${[15, 45, 120, 180, 210, 270, 330, 0][familyIndex]}, 70%, 60%)`;
-    let posX = 10 + Math.random() * 80, posY = 15 + Math.random() * 55;
-    const glowDur = 2 + Math.random() * 2, lifeDur = 25 + Math.random() * 20;
+    
+    // Spawn position - can spawn from edges or middle
+    let posX, posY;
+    const spawnEdge = Math.random() < 0.4; // 40% chance to spawn from edge
+    if (spawnEdge) {
+        const edge = Math.floor(Math.random() * 4);
+        switch(edge) {
+            case 0: posX = -5; posY = 20 + Math.random() * 50; break; // left
+            case 1: posX = 105; posY = 20 + Math.random() * 50; break; // right
+            case 2: posX = 10 + Math.random() * 80; posY = -5; break; // top
+            case 3: posX = 10 + Math.random() * 80; posY = 75; break; // bottom
+        }
+    } else {
+        posX = 10 + Math.random() * 80;
+        posY = 15 + Math.random() * 55;
+    }
+    
+    const glowDur = 2 + Math.random() * 2;
+    const lifeDur = 20 + Math.random() * 25;
     
     ff.style.cssText = `left: ${posX}%; top: ${posY}%; background: ${color}; --ff-color: ${color}; --glow-dur: ${glowDur}s;`;
     ff.dataset.family = familyIndex;
     
-    // Declare these before the handler so they're in scope
     let animationId = null;
     let lifeTimer = null;
     let fadeoutTimer = null;
@@ -248,34 +276,133 @@ function spawnGardenFirefly(familyIndex, container) {
         });
     });
     
-    const moveState = { x: posX, y: posY, targetX: posX, targetY: posY, velX: 0, velY: 0, timeToNewTarget: 0 };
+    // More realistic firefly movement state
+    // Fireflies have distinct flight patterns: drift, pause, quick dart, gentle bob
+    const moveState = {
+        x: posX,
+        y: posY,
+        velX: (Math.random() - 0.5) * 0.15, // Start with gentle velocity
+        velY: (Math.random() - 0.5) * 0.12,
+        targetX: posX + (Math.random() - 0.5) * 15,
+        targetY: posY + (Math.random() - 0.5) * 10,
+        phase: 'drift', // drift, pause, dart
+        phaseTime: 0,
+        phaseDuration: 5 + Math.random() * 6,
+        bobOffset: Math.random() * Math.PI * 2, // For gentle bobbing
+        dartCooldown: 0
+    };
+    
+    // Clamp initial target to bounds
+    moveState.targetX = Math.max(5, Math.min(95, moveState.targetX));
+    moveState.targetY = Math.max(10, Math.min(70, moveState.targetY));
+    
     let lastTime = performance.now();
+    
     const animateFirefly = (currentTime) => {
-        if (!ff.parentNode || !gardenState.isOpen) { cancelAnimationFrame(animationId); return; }
-        const deltaTime = (currentTime - lastTime) / 1000;
-        lastTime = currentTime;
-        moveState.timeToNewTarget -= deltaTime;
-        if (moveState.timeToNewTarget <= 0) {
-            // Very gentle, small target changes
-            moveState.targetX = moveState.x + (Math.random() - 0.5) * 4;
-            moveState.targetY = moveState.y + (Math.random() - 0.5) * 3;
-            moveState.targetX = Math.max(5, Math.min(95, moveState.targetX));
-            moveState.targetY = Math.max(10, Math.min(65, moveState.targetY));
-            moveState.timeToNewTarget = 15 + Math.random() * 20;
+        if (!ff.parentNode || !gardenState.isOpen) { 
+            cancelAnimationFrame(animationId); 
+            return; 
         }
-        const dx = moveState.targetX - moveState.x, dy = moveState.targetY - moveState.y;
-        // Very gentle, dreamy movement - much slower
-        moveState.velX += (dx * 0.00012 + Math.sin(currentTime * 0.00008 + familyIndex) * 0.0003);
-        moveState.velY += (dy * 0.00012 + Math.cos(currentTime * 0.00006 + familyIndex) * 0.00025);
-        // Strong damping for smooth, lazy floating
-        moveState.velX *= 0.97; moveState.velY *= 0.97;
-        moveState.x += moveState.velX; moveState.y += moveState.velY;
-        ff.style.left = moveState.x + '%'; ff.style.top = moveState.y + '%';
+        
+        const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.1); // Cap delta to avoid jumps
+        lastTime = currentTime;
+        
+        moveState.phaseTime += deltaTime;
+        moveState.dartCooldown -= deltaTime;
+        
+        // Phase transitions
+        if (moveState.phaseTime >= moveState.phaseDuration) {
+            moveState.phaseTime = 0;
+            
+            // Weighted random phase selection
+            const roll = Math.random();
+            if (roll < 0.55) {
+                // Drift phase - gentle movement toward target
+                moveState.phase = 'drift';
+                moveState.phaseDuration = 6 + Math.random() * 8;
+                // Pick a new target - modest distance
+                moveState.targetX = moveState.x + (Math.random() - 0.5) * 20;
+                moveState.targetY = moveState.y + (Math.random() - 0.5) * 15;
+                moveState.targetX = Math.max(5, Math.min(95, moveState.targetX));
+                moveState.targetY = Math.max(10, Math.min(70, moveState.targetY));
+            } else if (roll < 0.75 && moveState.dartCooldown <= 0) {
+                // Dart phase - quick movement burst (real fireflies do this!)
+                moveState.phase = 'dart';
+                moveState.phaseDuration = 0.4 + Math.random() * 0.5;
+                // Dart in a random direction - gentle speed
+                const dartAngle = Math.random() * Math.PI * 2;
+                const dartSpeed = 0.3 + Math.random() * 0.25;
+                moveState.velX = Math.cos(dartAngle) * dartSpeed;
+                moveState.velY = Math.sin(dartAngle) * dartSpeed;
+                moveState.dartCooldown = 8 + Math.random() * 10; // Don't dart again too soon
+            } else {
+                // Pause phase - hover in place with gentle bob
+                moveState.phase = 'pause';
+                moveState.phaseDuration = 3 + Math.random() * 5;
+            }
+        }
+        
+        // Apply physics based on phase
+        const dx = moveState.targetX - moveState.x;
+        const dy = moveState.targetY - moveState.y;
+        
+        switch(moveState.phase) {
+            case 'drift':
+                // Very gentle acceleration toward target
+                moveState.velX += dx * 0.0004 * deltaTime * 60;
+                moveState.velY += dy * 0.0004 * deltaTime * 60;
+                // Add subtle sinusoidal bob
+                moveState.velY += Math.sin(currentTime * 0.001 + moveState.bobOffset) * 0.002;
+                moveState.velX += Math.cos(currentTime * 0.0008 + moveState.bobOffset) * 0.0015;
+                // Strong damping for dreamy movement
+                moveState.velX *= Math.pow(0.94, deltaTime * 60);
+                moveState.velY *= Math.pow(0.94, deltaTime * 60);
+                break;
+                
+            case 'dart':
+                // Less damping during dart - but still controlled
+                moveState.velX *= Math.pow(0.97, deltaTime * 60);
+                moveState.velY *= Math.pow(0.97, deltaTime * 60);
+                break;
+                
+            case 'pause':
+                // Strong damping to slow down, but keep gentle bob
+                moveState.velX *= Math.pow(0.88, deltaTime * 60);
+                moveState.velY *= Math.pow(0.88, deltaTime * 60);
+                // Gentle hovering motion
+                moveState.velY += Math.sin(currentTime * 0.0015 + moveState.bobOffset) * 0.003;
+                moveState.velX += Math.cos(currentTime * 0.001 + moveState.bobOffset) * 0.002;
+                break;
+        }
+        
+        // Apply velocity
+        moveState.x += moveState.velX * deltaTime * 60;
+        moveState.y += moveState.velY * deltaTime * 60;
+        
+        // Soft boundary bounce (fireflies tend to turn away from edges)
+        if (moveState.x < 5) { moveState.velX += 0.02; moveState.x = 5; }
+        if (moveState.x > 95) { moveState.velX -= 0.02; moveState.x = 95; }
+        if (moveState.y < 8) { moveState.velY += 0.015; moveState.y = 8; }
+        if (moveState.y > 72) { moveState.velY -= 0.015; moveState.y = 72; }
+        
+        ff.style.left = moveState.x + '%';
+        ff.style.top = moveState.y + '%';
+        
         animationId = requestAnimationFrame(animateFirefly);
     };
+    
     animationId = requestAnimationFrame(animateFirefly);
     
-    const fireflyData = { element: ff, family: familyIndex, spawnTime: Date.now(), animationId: animationId, lifeTimer: null, fadeoutTimer: null };
+    const fireflyData = { 
+        element: ff, 
+        family: familyIndex, 
+        spawnTime: Date.now(), 
+        animationId: animationId, 
+        lifeTimer: null, 
+        fadeoutTimer: null,
+        x: posX,
+        y: posY
+    };
     gardenState.fireflies.push(fireflyData);
     
     // Start fadeout 1.2s before end of life
@@ -496,6 +623,279 @@ window.triggerWindGust = triggerWindGust;
 window.setGardenMood = setGardenMood;
 window.gardenState = gardenState;
 
+
+
+
+// ============================================
+// MUSIC TOOLS: SOUND SEEDS + GESTURE GLISS
+// ============================================
+
+function initGardenMusicTools() {
+    const row = gardenState.elements?.seedSlotRow || document.getElementById('seedSlotRow');
+    const pouch = gardenState.elements?.seedPouchBtn || document.getElementById('seedPouchBtn');
+    const palette = gardenState.elements?.seedPalette || document.getElementById('seedPalette');
+    const seedLayer = gardenState.elements?.seedLayer || document.getElementById('gardenSeedLayer');
+
+    if (row && !row.dataset.built) {
+        row.dataset.built = '1';
+        row.innerHTML = '';
+        (typeof SOUND_SEED_TYPES !== 'undefined' ? SOUND_SEED_TYPES : []).forEach(t => {
+            const slot = document.createElement('div');
+            slot.className = 'seed-slot';
+            slot.dataset.seedType = t.id;
+            slot.innerHTML = `<div class="seed-icon">${t.icon}</div><div class="seed-name">${t.label}</div>`;
+            slot.addEventListener('pointerdown', (e) => beginSeedDrag(e, t));
+            row.appendChild(slot);
+        });
+    }
+
+    if (pouch && !pouch.dataset.bound) {
+        pouch.dataset.bound = '1';
+        pouch.addEventListener('click', (e) => {
+            e.preventDefault();
+            toggleSeedPalette();
+        });
+    }
+
+    // Gesture gliss across the overlay (anything non-UI).
+    if (seedLayer && !seedLayer.dataset.gestureBound) {
+        seedLayer.dataset.gestureBound = '1';
+        const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
+        if (overlay) {
+            overlay.addEventListener('pointerdown', handleGardenGestureStart, { passive: false });
+            overlay.addEventListener('pointermove', handleGardenGestureMove, { passive: false });
+            overlay.addEventListener('pointerup', handleGardenGestureEnd, { passive: false });
+            overlay.addEventListener('pointercancel', handleGardenGestureEnd, { passive: false });
+        }
+    }
+}
+
+function toggleSeedPalette(force) {
+    const palette = gardenState.elements?.seedPalette || document.getElementById('seedPalette');
+    if (!palette) return;
+    const next = (typeof force === 'boolean') ? force : !palette.classList.contains('open');
+    gardenState.seedPaletteOpen = next;
+    palette.classList.toggle('open', next);
+    palette.setAttribute('aria-hidden', next ? 'false' : 'true');
+}
+
+function beginSeedDrag(e, seedType) {
+    if (!gardenState.isOpen) return;
+    e.preventDefault();
+    e.stopPropagation();
+    toggleSeedPalette(false);
+
+    const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
+    if (!overlay) return;
+
+    const existing = Array.isArray(state?.gardenSoundSeeds) ? state.gardenSoundSeeds.length : 0;
+    if (typeof MAX_SOUND_SEEDS !== 'undefined' && existing >= MAX_SOUND_SEEDS) {
+        if (typeof spawnFloatingText === 'function') spawnFloatingText('Too many seeds', null, 'warn');
+        return;
+    }
+
+    const ghost = document.createElement('div');
+    ghost.className = `garden-seed ${seedType.id}`;
+    ghost.dataset.icon = seedType.icon;
+    ghost.style.opacity = '0.75';
+    ghost.style.pointerEvents = 'none';
+
+    const layer = gardenState.elements?.seedLayer || document.getElementById('gardenSeedLayer');
+    (layer || overlay).appendChild(ghost);
+
+    const updateGhost = (clientX, clientY) => {
+        const r = overlay.getBoundingClientRect();
+        const x = (clientX - r.left) / r.width;
+        const y = (clientY - r.top) / r.height;
+        ghost.style.left = (x * 100) + '%';
+        ghost.style.top = (y * 100) + '%';
+    };
+
+    updateGhost(e.clientX, e.clientY);
+    gardenState.activeSeedDrag = { type: seedType, ghost, overlay, updateGhost };
+
+    const move = (ev) => { ev.preventDefault(); updateGhost(ev.clientX, ev.clientY); };
+    const up = (ev) => {
+        ev.preventDefault();
+        try { window.removeEventListener('pointermove', move, true); window.removeEventListener('pointerup', up, true); } catch (err) {}
+        finalizeSeedDrop(ev.clientX, ev.clientY);
+    };
+
+    window.addEventListener('pointermove', move, true);
+    window.addEventListener('pointerup', up, true);
+}
+
+function finalizeSeedDrop(clientX, clientY) {
+    const drag = gardenState.activeSeedDrag;
+    gardenState.activeSeedDrag = null;
+    if (!drag) return;
+
+    const { overlay, type, ghost } = drag;
+    const r = overlay.getBoundingClientRect();
+    const x = Math.max(0.02, Math.min(0.98, (clientX - r.left) / r.width));
+    const y = Math.max(0.05, Math.min(0.95, (clientY - r.top) / r.height));
+
+    try { ghost.remove(); } catch (e) {}
+
+    const seed = {
+        id: `seed_${Date.now()}_${Math.floor(Math.random() * 1e6)}`,
+        type: type.id,
+        x, y,
+        scaleIndex: 0,
+        lastTouched: Date.now(),
+    };
+
+    if (typeof state !== 'undefined') {
+        if (!Array.isArray(state.gardenSoundSeeds)) state.gardenSoundSeeds = [];
+        state.gardenSoundSeeds.push(seed);
+        if (typeof saveState === 'function') saveState();
+    }
+
+    renderSoundSeed(seed);
+    if (typeof startSoundSeed === 'function') startSoundSeed(seed);
+
+    const el = document.getElementById(seed.id);
+    if (el) { el.classList.remove('pulse'); void el.offsetHeight; el.classList.add('pulse'); }
+    if (typeof spawnFloatingText === 'function') spawnFloatingText('♫ Seed planted', 'rgba(254,249,195,0.75)', 'good');
+}
+
+function loadGardenSoundSeeds() {
+    if (!gardenState.isOpen) return;
+
+    // Anchor transport on entry for consistent quantization.
+    try {
+        gardenState._gardenTransport = gardenState._gardenTransport || { bpm: (typeof GARDEN_TRANSPORT_BPM !== 'undefined' ? GARDEN_TRANSPORT_BPM : 38), startTime: 0 };
+        gardenState._gardenTransport.bpm = (typeof GARDEN_TRANSPORT_BPM !== 'undefined' ? GARDEN_TRANSPORT_BPM : 38);
+        const ctx = gardenState.audioContext;
+        gardenState._gardenTransport.startTime = (ctx && typeof ctx.currentTime === 'number') ? ctx.currentTime : 0;
+    } catch (e) {}
+
+    const layer = gardenState.elements?.seedLayer || document.getElementById('gardenSeedLayer');
+    if (layer) layer.innerHTML = '';
+
+    const seeds = (typeof state !== 'undefined' && Array.isArray(state.gardenSoundSeeds)) ? state.gardenSoundSeeds : [];
+    gardenState.soundSeeds = seeds.slice(0, (typeof MAX_SOUND_SEEDS !== 'undefined' ? MAX_SOUND_SEEDS : 8));
+
+    gardenState.soundSeeds.forEach(seed => {
+        renderSoundSeed(seed);
+        if (typeof startSoundSeed === 'function') startSoundSeed(seed);
+    });
+}
+
+function saveGardenSoundSeeds() {
+    if (typeof state === 'undefined') return;
+    if (!Array.isArray(state.gardenSoundSeeds)) state.gardenSoundSeeds = [];
+
+    // Positions live in the objects, but keep this hook for future drag.
+    if (typeof saveState === 'function') saveState();
+}
+
+function renderSoundSeed(seed) {
+    const layer = gardenState.elements?.seedLayer || document.getElementById('gardenSeedLayer');
+    if (!layer || !seed) return;
+
+    const existing = document.getElementById(seed.id);
+    if (existing) existing.remove();
+
+    const typeInfo = (typeof SOUND_SEED_TYPES !== 'undefined') ? SOUND_SEED_TYPES.find(t => t.id === seed.type) : null;
+    const icon = typeInfo?.icon || '♫';
+
+    const el = document.createElement('div');
+    el.className = `garden-seed ${seed.type}`;
+    el.id = seed.id;
+    el.dataset.icon = icon;
+    el.style.left = (seed.x * 100) + '%';
+    el.style.top = (seed.y * 100) + '%';
+
+    // Tap: retune (rotate through small set of offsets)
+    el.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        seed.scaleIndex = (seed.scaleIndex + 1) % 5;
+        seed.lastTouched = Date.now();
+        el.classList.remove('pulse'); void el.offsetHeight; el.classList.add('pulse');
+        if (typeof updateSoundSeed === 'function') updateSoundSeed(seed);
+        if (typeof spawnFloatingText === 'function') spawnFloatingText('retuned', 'rgba(254,249,195,0.6)', 'good');
+        if (typeof saveState === 'function') saveState();
+    });
+
+    // Hold: remove
+    let holdT = null;
+    const cancelHold = () => { if (holdT) { clearTimeout(holdT); holdT = null; } };
+    el.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        cancelHold();
+        holdT = setTimeout(() => {
+            cancelHold();
+            removeSoundSeed(seed.id);
+        }, 600);
+    });
+    el.addEventListener('pointerup', cancelHold);
+    el.addEventListener('pointercancel', cancelHold);
+    el.addEventListener('pointerleave', cancelHold);
+
+    layer.appendChild(el);
+}
+
+function removeSoundSeed(seedId) {
+    if (!seedId) return;
+    if (typeof stopSoundSeed === 'function') stopSoundSeed(seedId);
+
+    if (typeof state !== 'undefined' && Array.isArray(state.gardenSoundSeeds)) {
+        state.gardenSoundSeeds = state.gardenSoundSeeds.filter(s => s.id !== seedId);
+        if (typeof saveState === 'function') saveState();
+    }
+    const el = document.getElementById(seedId);
+    if (el) el.remove();
+    if (typeof spawnFloatingText === 'function') spawnFloatingText('seed removed', null, 'warn');
+}
+
+// ----- Gesture gliss: swipe across the overlay to play a soft harp-like run.
+function _isGardenUiTarget(target) {
+    if (!target) return false;
+    return !!(target.closest && (target.closest('#seedPalette') || target.closest('#seedPouchBtn') || target.closest('#essenceJar') || target.closest('#midnightGardenBack')));
+}
+
+function handleGardenGestureStart(e) {
+    if (!gardenState.isOpen) return;
+    if (_isGardenUiTarget(e.target)) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    gardenState.gestureTrail = [{ x: e.clientX, y: e.clientY, t: performance.now() }];
+}
+
+function handleGardenGestureMove(e) {
+    if (!gardenState.isOpen) return;
+    if (!gardenState.gestureTrail || gardenState.gestureTrail.length === 0) return;
+    if (e.pointerType !== 'mouse') e.preventDefault();
+    const now = performance.now();
+    const last = gardenState.gestureTrail[gardenState.gestureTrail.length - 1];
+    const dx = e.clientX - last.x;
+    const dy = e.clientY - last.y;
+    if ((dx*dx + dy*dy) < 80) return;
+    gardenState.gestureTrail.push({ x: e.clientX, y: e.clientY, t: now });
+}
+
+function handleGardenGestureEnd(e) {
+    if (!gardenState.isOpen) return;
+    const pts = gardenState.gestureTrail || [];
+    gardenState.gestureTrail = [];
+    if (pts.length < 6) return;
+
+    const now = Date.now();
+    if (gardenState.lastGestureAt && (now - gardenState.lastGestureAt) < 1200) return;
+    gardenState.lastGestureAt = now;
+
+    const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
+    if (!overlay) return;
+    const r = overlay.getBoundingClientRect();
+
+    const norm = pts.map(p => ({
+        x: Math.max(0, Math.min(1, (p.x - r.left) / r.width)),
+        y: Math.max(0, Math.min(1, (p.y - r.top) / r.height)),
+        t: p.t
+    }));
+
+    if (typeof playGestureGliss === 'function') playGestureGliss(norm);
+}
 
 // ============================================
 // ESSENCE (Midnight Garden currency)

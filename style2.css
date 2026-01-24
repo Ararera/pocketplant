@@ -7,6 +7,8 @@
   pointer-events:auto;
   cursor:pointer;
   z-index:120;
+  background:var(--firefly-color);
+  box-shadow:0 0 8px 2px var(--firefly-color), 0 0 16px 4px var(--firefly-color);
   
   /* GPU-accelerated layer - use transform for positioning */
   transform:translate3d(0,0,0) scale(0.65);
@@ -31,6 +33,7 @@
   transform:translate3d(0,0,0) scale(0.7);
   pointer-events:none;
 }
+/* Outer glow effect */
 .firefly::before{
   content:'';
   position:absolute;
@@ -40,14 +43,18 @@
   background:radial-gradient(circle,color-mix(in srgb,var(--firefly-color) 55%, transparent),transparent 65%);
   opacity:0.85;
   transform:translateZ(0);
-  /* Removed will-change to reduce memory on mobile */
 }
+/* Larger tap target (invisible) - 80px total tap area */
 .firefly::after{
   content:'';
   position:absolute;
-  inset:-20px;
+  inset:-36px;
   border-radius:50%;
+  background:transparent;
+  pointer-events:auto;
+  z-index:1;
 }
+.firefly{touch-action:manipulation;}
 @keyframes fireflyDrift{
   0%,100%{transform:translate3d(0,0,0) scale(1)}
   25%{transform:translate3d(20px,-15px,0) scale(1)}

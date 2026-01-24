@@ -47,6 +47,108 @@ let gardenState = {
     visualLoopId: null
 };
 
+// --- Main game environment suspension (prevents compositor flicker when returning) ---
+function suspendMainEnvironmentVisuals() {
+    try {
+        const envScene = document.getElementById('environmentScene');
+        const rainClouds = document.getElementById('rainClouds');
+        const rainContainer = document.getElementById('rainContainer');
+        const rainbow = document.getElementById('rainbowContainer');
+        const sunRays = document.getElementById('sunRaysContainer');
+        if (envScene) envScene.classList.remove('raining');
+        if (rainClouds) rainClouds.classList.remove('active');
+        if (rainContainer) rainContainer.classList.remove('active');
+        if (rainbow) rainbow.classList.remove('visible');
+        if (sunRays) {
+            // Hard-disable + remove to avoid filter-driven flicker resurfacing
+            sunRays.classList.remove('active');
+            try { if (sunRays._sunRemoveTimer) { clearTimeout(sunRays._sunRemoveTimer); sunRays._sunRemoveTimer = null; } } catch (_) {}
+            try { if (sunRays.parentNode) sunRays.parentNode.removeChild(sunRays); } catch (_) {}
+        }
+    } catch (_) {}
+}
+
+function resumeMainEnvironmentVisuals() {
+    try {
+        // CRITICAL FIX: Defer visual restoration to prevent compositor flicker
+        // When returning from garden with rain/sun active, multiple elements
+        // with will-change and animations restart simultaneously, causing flash.
+        
+        // Step 1: Pause all animations briefly
+        document.body.classList.add('paused');
+        
+        // Step 2: Use double-rAF to ensure compositing is stable
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                // Step 3: Remove pause and apply theme
+                document.body.classList.remove('paused');
+                
+                // Step 4: Stagger the re-activation of visual effects
+                if (typeof applyTheme === 'function') {
+                    // Apply theme without triggering animations immediately
+                    applyTheme();
+                }
+                
+                // Step 5: Reposition moonbeam after layout settles
+                setTimeout(() => {
+                    if (typeof positionMoonbeam === 'function') {
+                        requestAnimationFrame(positionMoonbeam);
+                    }
+                }, 100);
+            });
+        });
+    } catch (_) {}
+}
+
+// --- Essence offer dialog (moon long-press) ---
+function ensureEssenceDialog() {
+    let dlg = document.getElementById('essenceOfferDialog');
+    if (dlg) return dlg;
+    dlg = document.createElement('div');
+    dlg.id = 'essenceOfferDialog';
+    dlg.className = 'essence-offer-dialog';
+    dlg.innerHTML = `
+        <div class="essence-offer-card" role="dialog" aria-modal="true" aria-label="Offer Essence">
+            <div class="essence-offer-title">Offer Essence</div>
+            <div class="essence-offer-body">
+                Spend <b>${ESSENCE_SCAR_COST}</b> Essence for a <b>50%</b> chance to lift a random scar.
+                If you have no scars, it becomes a small growth blessing.
+            </div>
+            <div class="essence-offer-actions">
+                <button class="essence-offer-btn ghost" type="button" data-action="cancel">Cancel</button>
+                <button class="essence-offer-btn primary" type="button" data-action="spend">Spend ${ESSENCE_SCAR_COST}</button>
+            </div>
+        </div>
+    `;
+    dlg.addEventListener('click', (e) => {
+        const t = e.target;
+        if (!(t instanceof HTMLElement)) return;
+        if (t.id === 'essenceOfferDialog') closeEssenceDialog();
+        const act = t.getAttribute('data-action');
+        if (act === 'cancel') closeEssenceDialog();
+        if (act === 'spend') { closeEssenceDialog(); spendEssence(); }
+    });
+    document.body.appendChild(dlg);
+    return dlg;
+}
+
+function openEssenceDialog() {
+    if (!gardenState || !gardenState.isOpen) {
+        console.log('[Garden] openEssenceDialog: garden not open');
+        return;
+    }
+    console.log('[Garden] openEssenceDialog: opening dialog');
+    const dlg = ensureEssenceDialog();
+    dlg.classList.add('open');
+    // Keep UI in sync so the player sees current amount
+    try { if (typeof updateEssenceJarUI === 'function') updateEssenceJarUI(); } catch (_) {}
+}
+function closeEssenceDialog() {
+    const dlg = document.getElementById('essenceOfferDialog');
+    if (dlg) dlg.classList.remove('open');
+}
+
+
 // Musical notes for firefly chords (frequencies in Hz)
 const GARDEN_CHORDS = Object.freeze({
     0: [261.63, 329.63, 392.00],       // Ember - C major
@@ -108,6 +210,7 @@ function getNoiseBuffer(ctx, duration) {
  * Initialize the Midnight Garden
  */
 function initMidnightGarden() {
+    console.log('[Garden] initMidnightGarden called');
     createGardenStars();
     gardenState.elements = {
         overlay: document.getElementById('midnightGardenOverlay'),
@@ -118,6 +221,79 @@ function initMidnightGarden() {
         moon: document.getElementById('gardenMoon'),
         soundscapeIndicator: document.getElementById('soundscapeIndicator')
     };
+    
+    console.log('[Garden] Moon element found:', !!gardenState.elements.moon);
+
+    // Moon hold: open Essence dialog (touch + mouse)
+    const moon = gardenState.elements.moon;
+    if (moon && !moon._essenceHoldBound) {
+        console.log('[Garden] Binding moon hold events');
+        moon._essenceHoldBound = true;
+
+        let holdTimer = null;
+        const HOLD_MS = 520;
+
+        const clearHold = () => {
+            if (holdTimer) { 
+                clearTimeout(holdTimer);
+                holdTimer = null;
+            }
+        };
+
+        const startHold = () => {
+            console.log('[Garden] Moon hold started, gardenState.isOpen:', gardenState.isOpen);
+            if (!gardenState.isOpen) return;
+            clearHold();
+            holdTimer = setTimeout(() => {
+                console.log('[Garden] Hold timer complete, opening dialog');
+                holdTimer = null;
+                openEssenceDialog();
+            }, HOLD_MS);
+        };
+
+        // Prevent context menu on long press
+        moon.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            return false;
+        });
+
+        // Touch events (most reliable for mobile)
+        moon.addEventListener('touchstart', (e) => {
+            console.log('[Garden] Moon touchstart');
+            e.preventDefault();
+            startHold();
+        }, { passive: false });
+        
+        moon.addEventListener('touchend', (e) => {
+            console.log('[Garden] Moon touchend');
+            e.preventDefault();
+            clearHold();
+        }, { passive: false });
+        
+        moon.addEventListener('touchcancel', clearHold);
+        moon.addEventListener('touchmove', clearHold); // Cancel if finger moves
+        
+        // Mouse events for desktop
+        moon.addEventListener('mousedown', (e) => {
+            console.log('[Garden] Moon mousedown');
+            e.preventDefault();
+            startHold();
+        });
+        
+        moon.addEventListener('mouseup', clearHold);
+        moon.addEventListener('mouseleave', clearHold);
+
+        // Accessibility: Enter/Space opens dialog when focused
+        moon.setAttribute('tabindex', '0');
+        moon.setAttribute('role', 'button');
+        moon.setAttribute('aria-label', 'Hold to offer essence');
+        moon.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { 
+                e.preventDefault(); 
+                openEssenceDialog(); 
+            }
+        });
+    }
 }
 
 /**
@@ -160,6 +336,7 @@ function enterMidnightGarden() {
     const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
     
     document.body.classList.add('midnight-garden-active');
+    suspendMainEnvironmentVisuals();
     
     if (typeof audio !== 'undefined') {
         if (audio.stopRainSound) audio.stopRainSound();
@@ -193,7 +370,11 @@ function exitMidnightGarden() {
     const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
     
     stopAmbientSoundscape();
+    closeEssenceDialog();
     stopGardenFireflies(); // Stops the visual loop
+    
+    // CRITICAL FIX: Pause animations before transition to prevent flicker
+    document.body.classList.add('paused');
     
     transition.classList.add('active');
     
@@ -210,11 +391,22 @@ function exitMidnightGarden() {
             transition.classList.remove('active');
             gardenState.isOpen = false;
             
-            if (typeof render === 'function') render();
-            if (typeof updateUI === 'function') updateUI();
+            // CRITICAL FIX: Resume with proper sequencing
+            resumeMainEnvironmentVisuals();
             
-            if (typeof state !== 'undefined' && state.isRainOn && typeof audio !== 'undefined' && audio.startRainSound) audio.startRainSound();
-            if (typeof state !== 'undefined' && state.isMusicPlaying && typeof audio !== 'undefined' && audio.playBackgroundMusic) audio.playBackgroundMusic();
+            // Delay UI updates until after visuals are stable
+            setTimeout(() => {
+                if (typeof render === 'function') render();
+                if (typeof updateUI === 'function') updateUI();
+                
+                // Restart audio last
+                if (typeof state !== 'undefined' && state.isRainOn && typeof audio !== 'undefined' && audio.startRainSound) {
+                    audio.startRainSound();
+                }
+                if (typeof state !== 'undefined' && state.isMusicPlaying && typeof audio !== 'undefined' && audio.playBackgroundMusic) {
+                    audio.playBackgroundMusic();
+                }
+            }, 150);
         }, 300);
     }, 800);
 }
@@ -1221,3 +1413,4 @@ window.triggerWindGust = triggerWindGust;
 window.setGardenMood = setGardenMood;
 window.gardenState = gardenState;
 window.spendEssence = spendEssence;
+window.openEssenceDialog = openEssenceDialog;

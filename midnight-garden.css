@@ -130,6 +130,11 @@
     pointer-events: none;
 }
 
+/* Garden Moon must receive pointer events even though parent has pointer-events: none */
+.garden-sky .garden-moon {
+    pointer-events: auto;
+}
+
 /* Garden Stars */
 .garden-stars {
     position: absolute;
@@ -178,6 +183,11 @@
     overflow: hidden;
     cursor: pointer;
     pointer-events: auto;
+    /* Prevent mobile long-press interference */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
 }
 
 /* Full-moon tint overlay (activated after 3 same-color hits) */
@@ -213,6 +223,7 @@
     background: #050510;
     transform: translateX(var(--moon-phase, 0%));
     transition: transform 1s ease;
+    pointer-events: none; /* CRITICAL: Allow clicks to pass through to moon element */
 }
 
 .midnight-garden-overlay.open .garden-moon {
@@ -873,6 +884,7 @@ body.midnight-garden-active .firefly {
     opacity: 0;
     animation: moonHintAppear 2s ease-in-out 3s;
     animation-fill-mode: forwards;
+    pointer-events: none;
 }
 
 @keyframes moonHintAppear {
@@ -1232,4 +1244,194 @@ body.midnight-garden-active .firefly {
 .essence-spend-actions button:active{
     transform: scale(0.98);
     opacity: 0.9;
+}
+
+
+
+/* Essence offer dialog (moon long-press) */
+.essence-offer-dialog{
+  position:fixed;
+  inset:0;
+  z-index:520;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .25s ease;
+  background:rgba(0,0,0,.35);
+  backdrop-filter:blur(6px);
+}
+.essence-offer-dialog.open{opacity:1;pointer-events:auto}
+.essence-offer-card{
+  width:min(420px,92vw);
+  background:rgba(18,18,24,.96);
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:18px;
+  box-shadow:0 14px 60px rgba(0,0,0,.6);
+  padding:16px 16px 14px;
+}
+.essence-offer-title{
+  font-size:1.05rem;
+  letter-spacing:.02em;
+  margin:0 0 10px;
+}
+.essence-offer-body{
+  font-size:.9rem;
+  line-height:1.45;
+  opacity:.85;
+}
+.essence-offer-actions{
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  margin-top:14px;
+}
+.essence-offer-btn{
+  border:1px solid rgba(255,255,255,.14);
+  background:rgba(255,255,255,.06);
+  color:#fff;
+  border-radius:12px;
+  padding:10px 12px;
+  font-size:.9rem;
+  cursor:pointer;
+}
+.essence-offer-btn.primary{
+  background:linear-gradient(135deg, rgba(254,249,195,.25), rgba(254,249,195,.08));
+  border-color:rgba(254,249,195,.28);
+}
+.essence-offer-btn.ghost{opacity:.9}
+.essence-offer-btn:active{transform:translateY(1px)}
+/* ============================================
+   SOUND SEEDS (music tools)
+   ============================================ */
+
+.garden-seed-layer{
+    position:absolute;
+    inset:0;
+    z-index:407;
+    pointer-events:none;
+}
+.garden-seed{
+    position:absolute;
+    width:22px;
+    height:22px;
+    border-radius:50%;
+    transform:translate(-50%,-50%);
+    pointer-events:auto;
+    cursor:pointer;
+    opacity:0.9;
+    background:radial-gradient(circle at 35% 35%, rgba(254,249,195,0.55), rgba(254,249,195,0.14), rgba(0,0,0,0));
+    border:1px solid rgba(254,249,195,0.25);
+    box-shadow:0 0 14px rgba(254,249,195,0.12), inset 0 0 10px rgba(254,249,195,0.10);
+    transition:transform 220ms ease, opacity 220ms ease;
+}
+.garden-seed::after{
+    content:attr(data-icon);
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:12px;
+    opacity:0.9;
+    filter:drop-shadow(0 0 8px rgba(254,249,195,0.25));
+    transform:translateY(-1px);
+    user-select:none;
+    pointer-events:none;
+}
+.garden-seed.pulse{ animation: seedPulse 0.9s ease; }
+@keyframes seedPulse{
+    0%{ transform:translate(-50%,-50%) scale(1); }
+    35%{ transform:translate(-50%,-50%) scale(1.35); }
+    100%{ transform:translate(-50%,-50%) scale(1.0); }
+}
+
+.seed-pouch{
+    position:absolute;
+    right:16px;
+    bottom:108px;
+    z-index:410;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:10px 12px;
+    border-radius:999px;
+    border:1px solid rgba(254,249,195,0.18);
+    background:rgba(10, 14, 28, 0.55);
+    backdrop-filter: blur(8px);
+    color:rgba(254,249,195,0.95);
+    opacity:0.92;
+    cursor:pointer;
+    transition:transform 220ms ease, opacity 220ms ease;
+}
+.seed-pouch:hover{ opacity:1; transform:translateY(-1px); }
+.seed-pouch-icon{ font-size:14px; opacity:0.9; }
+.seed-pouch-label{ font-size:12px; letter-spacing:0.08em; text-transform:uppercase; opacity:0.85; }
+
+.seed-palette{
+    position:absolute;
+    right:16px;
+    bottom:168px;
+    z-index:411;
+    width:min(320px, calc(100vw - 32px));
+    padding:14px;
+    border-radius:16px;
+    border:1px solid rgba(254,249,195,0.15);
+    background:rgba(9, 12, 22, 0.68);
+    backdrop-filter: blur(10px);
+    box-shadow:0 18px 40px rgba(0,0,0,0.35);
+    transform:translateY(10px);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 220ms ease, transform 220ms ease;
+}
+.seed-palette.open{
+    opacity:1;
+    transform:translateY(0);
+    pointer-events:auto;
+}
+.seed-palette-title{
+    font-size:14px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:rgba(254,249,195,0.92);
+    margin-bottom:6px;
+}
+.seed-palette-sub{
+    font-size:12px;
+    opacity:0.75;
+    line-height:1.35;
+    margin-bottom:10px;
+}
+.seed-slot-row{
+    display:flex;
+    gap:10px;
+    align-items:stretch;
+    margin-bottom:10px;
+}
+.seed-slot{
+    flex:1;
+    padding:10px 10px;
+    border-radius:14px;
+    border:1px solid rgba(254,249,195,0.13);
+    background:rgba(254,249,195,0.05);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    cursor:grab;
+    user-select:none;
+    transition:transform 180ms ease, background 180ms ease, border-color 180ms ease;
+}
+.seed-slot:active{ cursor:grabbing; transform:scale(0.98); }
+.seed-slot:hover{ background:rgba(254,249,195,0.07); border-color:rgba(254,249,195,0.18); }
+.seed-icon{ font-size:18px; opacity:0.9; }
+.seed-name{ font-size:11px; opacity:0.78; text-transform:uppercase; letter-spacing:0.09em; }
+.seed-palette-hint{
+    font-size:11px;
+    opacity:0.65;
+    padding-top:8px;
+    border-top:1px solid rgba(254,249,195,0.10);
 }

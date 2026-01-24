@@ -258,6 +258,8 @@ function stopAmbientSoundscape() {
     stopWindSystem();
     // Stop any color melody loops (they are independent of the ambient timers)
     stopAllColorMelodies();
+    // Stop Sound Seeds
+    stopAllSoundSeeds();
     if (gardenState.ambientInterval) { clearInterval(gardenState.ambientInterval); gardenState.ambientInterval = null; }
     
     // Optimization: Suspend context to save battery when not in garden
@@ -506,4 +508,237 @@ function playWindSound() {
     windGain.gain.exponentialRampToValueAtTime(0.001, now + 30);
     noiseSource.connect(filter); filter.connect(windGain); windGain.connect(gardenState.ambienceGain || gardenState.gainNode);
     noiseSource.start(now); noiseSource.stop(now + gustDuration);
+}
+
+// ============================================
+// SOUND SEEDS (player-placed musical loops)
+// ============================================
+
+function _getGardenTransport() {
+    gardenState._gardenTransport = gardenState._gardenTransport || { bpm: (typeof GARDEN_TRANSPORT_BPM !== 'undefined' ? GARDEN_TRANSPORT_BPM : 38), startTime: 0 };
+    gardenState._gardenTransport.bpm = (typeof GARDEN_TRANSPORT_BPM !== 'undefined' ? GARDEN_TRANSPORT_BPM : (gardenState._gardenTransport.bpm || 38));
+    if (gardenState.audioContext && !gardenState._gardenTransport.startTime) {
+        gardenState._gardenTransport.startTime = gardenState.audioContext.currentTime;
+    }
+    return gardenState._gardenTransport;
+}
+
+function _quantizeTime(t) {
+    const tr = _getGardenTransport();
+    const beat = 60 / Math.max(20, tr.bpm);
+    const rel = Math.max(0, t - tr.startTime);
+    const q = Math.ceil(rel / beat) * beat;
+    return tr.startTime + q;
+}
+
+function _degreeToFreq(deg, octave) {
+    const base = 220; // A3
+    return base * Math.pow(2, (deg + (octave - 3) * 12) / 12);
+}
+
+function _seedParamsFromPosition(seed, typeInfo) {
+    const x = Math.max(0, Math.min(1, seed.x || 0.5));
+    const y = Math.max(0, Math.min(1, seed.y || 0.5));
+
+    const scaleOffsets = [0, -2, 2, 5, 7];
+    const scaleOffset = scaleOffsets[(seed.scaleIndex || 0) % scaleOffsets.length];
+
+    const pat = (typeInfo?.pattern || [0, 2, 4, 7, 9]).slice();
+    const idx = Math.max(0, Math.min(pat.length - 1, Math.floor(x * pat.length)));
+    const degree = pat[idx] + scaleOffset;
+
+    const octave = (typeInfo?.octave || 5) + (x > 0.75 ? 1 : (x < 0.25 ? -1 : 0));
+    const cutoff = 1200 - (y * 700);
+    const gain = 0.06 * (0.7 + (1 - y) * 0.6);
+
+    return { degree, octave, cutoff, gain };
+}
+
+function startSoundSeed(seed) {
+    if (!seed || !seed.id) return;
+    initGardenAudio();
+    if (!gardenState.audioContext) return;
+
+    if (gardenState.seedLoops && gardenState.seedLoops[seed.id]) return;
+
+    const ctx = gardenState.audioContext;
+    if (ctx.state === 'suspended') ctx.resume();
+
+    const typeInfo = (typeof SOUND_SEED_TYPES !== 'undefined') ? SOUND_SEED_TYPES.find(t => t.id === seed.type) : null;
+
+    const g = ctx.createGain();
+    g.gain.value = 0;
+
+    const f = ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.Q.value = 0.7;
+
+    const d = ctx.createDelay(0.06);
+    d.delayTime.value = 0.022 + Math.random() * 0.015;
+
+    const fb = ctx.createGain();
+    fb.gain.value = 0.18;
+    d.connect(fb);
+    fb.connect(d);
+
+    const out = (gardenState.musicalGain || gardenState.gainNode);
+    g.connect(f);
+    f.connect(out);
+    f.connect(d);
+    d.connect(out);
+
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.06, ctx.currentTime + 1.4);
+
+    const loop = { seedId: seed.id, type: seed.type, gain: g, filter: f, delay: d, feedback: fb, timer: null, stopped: false };
+    gardenState.seedLoops = gardenState.seedLoops || {};
+    gardenState.seedLoops[seed.id] = loop;
+
+    _scheduleNextSeedNote(seed, typeInfo);
+}
+
+function updateSoundSeed(seed) {
+    if (!seed || !seed.id) return;
+    const loop = gardenState.seedLoops ? gardenState.seedLoops[seed.id] : null;
+    if (!loop || !gardenState.audioContext) return;
+    const ctx = gardenState.audioContext;
+    const typeInfo = (typeof SOUND_SEED_TYPES !== 'undefined') ? SOUND_SEED_TYPES.find(t => t.id === seed.type) : null;
+    const p = _seedParamsFromPosition(seed, typeInfo);
+    loop.filter.frequency.setTargetAtTime(Math.max(220, p.cutoff), ctx.currentTime, 0.05);
+}
+
+function stopSoundSeed(seedId) {
+    const loop = gardenState.seedLoops ? gardenState.seedLoops[seedId] : null;
+    if (!loop || !gardenState.audioContext) return;
+    loop.stopped = true;
+    if (loop.timer) { clearTimeout(loop.timer); loop.timer = null; }
+    const ctx = gardenState.audioContext;
+    try {
+        loop.gain.gain.setValueAtTime(loop.gain.gain.value, ctx.currentTime);
+        loop.gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
+    } catch (e) {}
+    setTimeout(() => {
+        try { loop.gain.disconnect(); } catch (e) {}
+        try { loop.filter.disconnect(); } catch (e) {}
+        try { loop.delay.disconnect(); } catch (e) {}
+        try { loop.feedback.disconnect(); } catch (e) {}
+    }, 750);
+    delete gardenState.seedLoops[seedId];
+}
+
+function stopAllSoundSeeds() {
+    if (!gardenState.seedLoops) return;
+    Object.keys(gardenState.seedLoops).forEach(id => stopSoundSeed(id));
+    gardenState.seedLoops = {};
+}
+
+function _scheduleNextSeedNote(seed, typeInfo) {
+    if (!seed || !seed.id) return;
+    const loop = gardenState.seedLoops ? gardenState.seedLoops[seed.id] : null;
+    if (!loop || loop.stopped || !gardenState.audioContext) return;
+
+    const ctx = gardenState.audioContext;
+    const density = Math.max(0.2, Math.min(0.9, typeInfo?.density || 0.5));
+
+    if (Math.random() < density) _playSeedNote(seed, typeInfo);
+
+    const tr = _getGardenTransport();
+    const beat = 60 / Math.max(20, tr.bpm);
+    const step = (seed.type === 'chime') ? beat * 0.5 : beat;
+    const nextAt = _quantizeTime(ctx.currentTime + step * (0.9 + Math.random() * 0.35));
+    const delayMs = Math.max(25, (nextAt - ctx.currentTime) * 1000);
+
+    loop.timer = setTimeout(() => _scheduleNextSeedNote(seed, typeInfo), delayMs);
+}
+
+function _playSeedNote(seed, typeInfo) {
+    const ctx = gardenState.audioContext; if (!ctx) return;
+    const loop = gardenState.seedLoops ? gardenState.seedLoops[seed.id] : null;
+    if (!loop) return;
+
+    const p = _seedParamsFromPosition(seed, typeInfo);
+    const freq = _degreeToFreq(p.degree, p.octave);
+
+    loop.filter.frequency.setTargetAtTime(Math.max(260, p.cutoff), ctx.currentTime, 0.06);
+
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    osc1.type = (seed.type === 'pad') ? 'triangle' : 'sine';
+    osc2.type = (seed.type === 'pad') ? 'sine' : 'triangle';
+
+    osc1.frequency.value = freq;
+    osc2.frequency.value = freq * (seed.type === 'bell' ? 2 : 1.005);
+
+    const vGain = ctx.createGain();
+    const now = ctx.currentTime;
+    const a = (seed.type === 'pad') ? 0.25 : 0.01;
+    const d = (seed.type === 'pad') ? 1.9 : 0.55;
+    const s = (seed.type === 'pad') ? 0.25 : 0.06;
+    const r = (seed.type === 'pad') ? 2.2 : 1.1;
+
+    const g0 = Math.max(0.02, p.gain);
+    vGain.gain.setValueAtTime(0.0001, now);
+    vGain.gain.exponentialRampToValueAtTime(g0, now + a);
+    vGain.gain.exponentialRampToValueAtTime(Math.max(0.0001, g0 * s), now + a + d);
+    vGain.gain.exponentialRampToValueAtTime(0.0001, now + a + d + r);
+
+    osc1.connect(vGain); osc2.connect(vGain);
+    vGain.connect(loop.gain);
+
+    osc1.detune.value = (Math.random() - 0.5) * 6;
+    osc2.detune.value = (Math.random() - 0.5) * 8;
+
+    osc1.start(now);
+    osc2.start(now);
+    const stopAt = now + a + d + r + 0.1;
+    osc1.stop(stopAt);
+    osc2.stop(stopAt);
+    setTimeout(() => { try { vGain.disconnect(); } catch (e) {} }, (stopAt - now) * 1000 + 50);
+}
+
+// ============================================
+// GESTURE GLISS (soft harp run)
+// ============================================
+
+function playGestureGliss(points) {
+    if (!Array.isArray(points) || points.length < 2) return;
+    initGardenAudio(); if (!gardenState.audioContext) return;
+    const ctx = gardenState.audioContext;
+    if (ctx.state === 'suspended') ctx.resume();
+
+    const out = (gardenState.musicalGain || gardenState.gainNode);
+    const baseNow = _quantizeTime(ctx.currentTime + 0.02);
+
+    const count = Math.max(7, Math.min(11, Math.floor(points.length / 2)));
+    for (let i = 0; i < count; i++) {
+        const p = points[Math.floor(i * (points.length - 1) / (count - 1))];
+        const t = baseNow + i * 0.08;
+
+        const degs = [0,2,4,7,9,12,14];
+        const idx = Math.max(0, Math.min(degs.length - 1, Math.floor(p.x * degs.length)));
+        const degree = degs[idx];
+        const octave = 5 + (p.x > 0.7 ? 1 : (p.x < 0.3 ? -1 : 0));
+        const freq = _degreeToFreq(degree, octave);
+
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, t);
+        osc.detune.setValueAtTime((Math.random() - 0.5) * 10, t);
+
+        const f = ctx.createBiquadFilter();
+        f.type = 'lowpass';
+        f.Q.value = 0.8;
+        const cutoff = 1500 - (p.y * 900);
+        f.frequency.setValueAtTime(Math.max(260, cutoff), t);
+
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.06, t + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45 + Math.random() * 0.2);
+
+        osc.connect(f); f.connect(g); g.connect(out);
+        osc.start(t);
+        osc.stop(t + 0.7);
+        setTimeout(() => { try { g.disconnect(); f.disconnect(); } catch (e) {} }, 1000);
+    }
 }
