@@ -20,6 +20,11 @@ let gardenState = {
     plantDrones: [],
     // Audio Buffers Cache (New for optimization)
     audioBuffers: {},
+
+    // Sound Seeds (player placed)
+    soundSeedsAudio: {},
+    soundSeedsDom: {},
+    soundSeedsDragging: null,
     
     // Current mood
     currentMood: 'contemplative', // contemplative, mysterious, tender
@@ -53,6 +58,25 @@ const GARDEN_CHORDS = Object.freeze({
     6: [493.88, 622.25, 739.99],       // Rose - B major (loving)
     7: [277.18, 349.23, 415.30]        // Pearl - C# major (mysterious)
 });
+
+
+// Sound Seed definitions (12) - all share a compatible pentatonic palette.
+// These are intentionally gentle and sparse so layering many stays pleasant.
+const SOUND_SEEDS = Object.freeze([
+    { id: 0, name: 'Dew',    emoji: '💧', hue: 200, base: 220.00, pattern: [0, 3, 5, 7], rhythm: [0.0, 0.6, 1.2, 2.0] },
+    { id: 1, name: 'Ember',  emoji: '🔥', hue: 15,  base: 196.00, pattern: [0, 5, 7, 10], rhythm: [0.0, 0.7, 1.4, 2.4] },
+    { id: 2, name: 'Moss',   emoji: '🍃', hue: 120, base: 246.94, pattern: [0, 2, 5, 7], rhythm: [0.0, 0.5, 1.1, 2.1] },
+    { id: 3, name: 'Pearl',  emoji: '🤍', hue: 40,  base: 261.63, pattern: [0, 3, 7, 12], rhythm: [0.0, 0.9, 1.6, 2.6] },
+    { id: 4, name: 'Aster',  emoji: '⭐', hue: 270, base: 293.66, pattern: [0, 5, 7, 9],  rhythm: [0.0, 0.6, 1.3, 2.2] },
+    { id: 5, name: 'Breeze', emoji: '🌬️', hue: 210, base: 174.61, pattern: [0, 7, 10, 12], rhythm: [0.0, 0.8, 1.5, 2.3] },
+    { id: 6, name: 'Silt',   emoji: '🪨', hue: 25,  base: 233.08, pattern: [0, 2, 7, 9],  rhythm: [0.0, 0.55, 1.4, 2.35] },
+    { id: 7, name: 'Lumen',  emoji: '✨', hue: 55,  base: 329.63, pattern: [0, 3, 5, 10], rhythm: [0.0, 0.5, 1.0, 2.0] },
+    { id: 8, name: 'Nectar', emoji: '🍯', hue: 45,  base: 220.00, pattern: [0, 4, 7, 9],  rhythm: [0.0, 0.7, 1.3, 2.0] },
+    { id: 9, name: 'Glade',  emoji: '🌿', hue: 140, base: 261.63, pattern: [0, 5, 7, 14], rhythm: [0.0, 0.8, 1.6, 2.8] },
+    { id:10, name: 'Aurora', emoji: '🟩', hue: 165, base: 293.66, pattern: [0, 2, 5, 12], rhythm: [0.0, 0.6, 1.4, 2.4] },
+    { id:11, name: 'Bloom',  emoji: '🌸', hue: 320, base: 246.94, pattern: [0, 3, 7, 9],  rhythm: [0.0, 0.65, 1.45, 2.3] }
+]);
+
 
 // Firefly family timbres
 const FIREFLY_TIMBRES = Object.freeze({

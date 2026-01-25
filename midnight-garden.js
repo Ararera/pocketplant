@@ -171,7 +171,6 @@ function enterMidnightGarden() {
     setTimeout(() => {
         syncMoonPhase();
         renderGardenPlants();
-        if (typeof updateEssenceJarUI === 'function') updateEssenceJarUI();
         
         startGardenFireflies();
         overlay.classList.add('open');
@@ -454,7 +453,7 @@ function spawnGardenFirefly(familyIndex, container) {
     const startX = 10 + Math.random() * 80;
     const startY = 15 + Math.random() * 55;
     
-    ff.style.background = color;
+    // REMOVED: ff.style.background = color; - Visual is handled by ::before pseudo-element
     ff.style.setProperty('--ff-color', color);
     ff.style.setProperty('--glow-dur', `${2 + Math.random() * 2}s`);
     // Initialize transform for GPU-accelerated positioning
@@ -556,72 +555,69 @@ function updateFireflies(dt, now) {
             continue;
         }
         
-        // Movement Logic
+        // === ENHANCED MOVEMENT LOGIC ===
         f.timeToNewTarget -= dt;
+        
+        // Pick new target more frequently with larger movements
         if (f.timeToNewTarget <= 0) {
-            f.targetX = Math.max(5, Math.min(95, f.x + (Math.random() - 0.5) * 8));
-            f.targetY = Math.max(10, Math.min(65, f.y + (Math.random() - 0.5) * 5));
-            f.timeToNewTarget = 8 + Math.random() * 12;
+            // More dramatic target changes - fireflies dart around!
+            const wanderRadius = 15 + Math.random() * 20;
+            const angle = Math.random() * Math.PI * 2;
+            f.targetX = Math.max(5, Math.min(95, f.x + Math.cos(angle) * wanderRadius));
+            f.targetY = Math.max(10, Math.min(70, f.y + Math.sin(angle) * wanderRadius * 0.6));
+            
+            // Vary timing - sometimes quick darts, sometimes lazy drifts
+            f.timeToNewTarget = 2 + Math.random() * 6;
+            
+            // Occasionally do a big repositioning
+            if (Math.random() < 0.15) {
+                f.targetX = 10 + Math.random() * 80;
+                f.targetY = 15 + Math.random() * 50;
+                f.timeToNewTarget = 4 + Math.random() * 4;
+            }
         }
         
         const dx = f.targetX - f.x;
         const dy = f.targetY - f.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
         
-        // Wobble - use cached now value for consistency
-        const wobbleX = Math.sin(now * 0.0003 + f.phase) * 0.003;
-        const wobbleY = Math.cos(now * 0.00025 + f.phase) * 0.002;
+        // Multi-layered organic wobble for that firefly flutter
+        const time = now * 0.001;
+        const flutter1 = Math.sin(time * 3.5 + f.phase * 2) * 0.08;
+        const flutter2 = Math.cos(time * 5.2 + f.phase * 3) * 0.05;
+        const flutter3 = Math.sin(time * 1.8 + f.phase) * 0.03;
+        const wobbleX = flutter1 + flutter2 * 0.7;
+        const wobbleY = flutter2 + flutter3 * 0.8 + Math.sin(time * 2.1 + f.phase * 1.5) * 0.04;
         
-        f.velX += (dx * 0.0008 * dt + wobbleX);
-        f.velY += (dy * 0.0008 * dt + wobbleY);
+        // Stronger attraction when far, gentler when close
+        const attraction = dist > 10 ? 0.012 : 0.006;
         
-        // Stronger damping for smoother motion
-        f.velX *= 0.992;
-        f.velY *= 0.992;
+        f.velX += dx * attraction * dt + wobbleX * dt * 60;
+        f.velY += dy * attraction * dt + wobbleY * dt * 60;
         
-        // Cap speed
-        const maxSpeed = 0.05;
-        const speed = Math.abs(f.velX) + Math.abs(f.velY); 
+        // Light damping for smooth but active motion
+        f.velX *= 0.96;
+        f.velY *= 0.97;
+        
+        // Speed limits - allow faster movement
+        const maxSpeed = 0.4;
+        const speed = Math.sqrt(f.velX * f.velX + f.velY * f.velY);
         if (speed > maxSpeed) {
-            f.velX *= 0.9;
-            f.velY *= 0.9;
+            const scale = maxSpeed / speed;
+            f.velX *= scale;
+            f.velY *= scale;
         }
         
         f.x += f.velX;
         f.y += f.velY;
         
-        if (f.element) {
-            // OPTIMIZATION: Use translate3d for GPU acceleration
-            f.element.style.transform = `translate3d(${f.x}vw, ${f.y}vh, 0)`;
-        }
-        
-        active.push(f);
-    }
-    gardenState.fireflies = active;
-}
-        const wobbleX = Math.sin(now * 0.0003 + f.phase) * 0.003;
-        const wobbleY = Math.cos(now * 0.00025 + f.phase) * 0.002;
-        
-        f.velX += (dx * 0.0008 * dt + wobbleX);
-        f.velY += (dy * 0.0008 * dt + wobbleY);
-        
-        f.velX *= 0.995;
-        f.velY *= 0.995;
-        
-        // Cap speed
-        const maxSpeed = 0.05;
-        // Approximation of speed vector length
-        const speed = Math.abs(f.velX) + Math.abs(f.velY); 
-        if (speed > maxSpeed) {
-            f.velX *= 0.9;
-            f.velY *= 0.9;
-        }
-        
-        f.x += f.velX;
-        f.y += f.velY;
+        // Soft boundary bounce
+        if (f.x < 3) { f.x = 3; f.velX = Math.abs(f.velX) * 0.5; }
+        if (f.x > 97) { f.x = 97; f.velX = -Math.abs(f.velX) * 0.5; }
+        if (f.y < 8) { f.y = 8; f.velY = Math.abs(f.velY) * 0.5; }
+        if (f.y > 72) { f.y = 72; f.velY = -Math.abs(f.velY) * 0.5; }
         
         if (f.element) {
-            // OPTIMIZATION: Use translate3d for GPU acceleration
-            // Using vw/vh units in transform
             f.element.style.transform = `translate3d(${f.x}vw, ${f.y}vh, 0)`;
         }
         
@@ -1110,98 +1106,15 @@ function playWindSound() {
 }
 
 // ============================================
-// ESSENCE & GLOBAL EXPORTS
+// ESSENCE SYSTEM REMOVED
+// Keeping stub functions to prevent errors if called elsewhere
 // ============================================
 
-const ESSENCE_MAX = 10000;
-const ESSENCE_GAIN_PER_MOON = 100;
-const ESSENCE_SCAR_COST = 1000;
-
-function getEssence() {
-    if (typeof state === 'undefined') return 0;
-    if (typeof state.essence !== 'number') state.essence = 0;
-    return state.essence;
-}
-
-function updateEssenceJarUI() {
-    const amtEl = document.getElementById('essenceAmt');
-    const fillEl = document.getElementById('essenceJarFill');
-    const jar = document.getElementById('essenceJar');
-    if (!amtEl || !fillEl || !jar) return;
-    const v = Math.max(0, Math.min(ESSENCE_MAX, getEssence()));
-    amtEl.textContent = String(Math.floor(v));
-    fillEl.style.height = ((v / ESSENCE_MAX) * 100) + '%';
-    jar.style.opacity = v > 0 ? '1' : '0.85';
-}
-
-function addEssence(amount, colorCss) {
-    if (typeof state === 'undefined') return;
-    if (typeof state.essence !== 'number') state.essence = 0;
-    const before = state.essence;
-    const next = Math.max(0, Math.min(ESSENCE_MAX, before + (amount || 0)));
-    state.essence = next;
-    updateEssenceJarUI();
-    const jar = document.getElementById('essenceJar');
-    if (jar) {
-        jar.classList.remove('pulse');
-        void jar.offsetHeight;
-        jar.classList.add('pulse');
-    }
-    if (next > before && typeof spawnFloatingText === 'function') {
-        spawnFloatingText(`+${next - before} Essence`, colorCss || 'rgba(254,249,195,0.9)', 'good');
-    }
-    if (typeof saveState === 'function') saveState();
-}
-
-function startEssenceRain(colorCss) {
-    const overlay = document.getElementById('midnightGardenOverlay');
-    if (!overlay) return;
-    
-    // Optimization: Fragments + CSS Animation (no JS loop)
-    const fragment = document.createDocumentFragment();
-    for (let i = 0; i < 20; i++) { // Reduced count
-        const drop = document.createElement('div');
-        drop.className = 'essence-drop';
-        drop.style.setProperty('--drop-color', colorCss || 'rgba(254,249,195,0.85)');
-        drop.style.left = (55 + Math.random() * 40) + '%';
-        drop.style.top = (20 + Math.random() * 10) + '%';
-        drop.style.setProperty('--fall', (1.3 + Math.random() * 1.2) + 's');
-        fragment.appendChild(drop);
-        setTimeout(() => { if(drop.parentNode) drop.remove(); }, 2500);
-    }
-    overlay.appendChild(fragment);
-}
-
-function spendEssence() {
-    if (!gardenState || !gardenState.isOpen) return;
-    const have = getEssence();
-    if (have < ESSENCE_SCAR_COST) {
-        if (typeof spawnFloatingText === 'function') spawnFloatingText(`Need ${ESSENCE_SCAR_COST} Essence`, null, 'warn');
-        return;
-    }
-    state.essence = have - ESSENCE_SCAR_COST;
-    const hasScars = Array.isArray(state.scars) && state.scars.length > 0;
-    if (hasScars) {
-        if (Math.random() < 0.5) {
-            state.scars.splice(Math.floor(Math.random() * state.scars.length), 1);
-            if (typeof spawnFloatingText === 'function') spawnFloatingText('🫙 Scar lifted.', 'rgba(254,249,195,0.95)', 'good');
-            if (typeof renderPlant === 'function') { try { renderPlant('plantGroup', state.dna, state.stage); } catch(e) {} }
-            if (typeof updateMenuStats === 'function') updateMenuStats();
-            if (typeof updateUI === 'function') updateUI();
-        } else {
-            if (typeof spawnFloatingText === 'function') spawnFloatingText('🫙 The scar holds.', 'rgba(254,249,195,0.75)', 'warn');
-        }
-    } else {
-        let needed = (typeof STAGE_THRESHOLDS !== 'undefined') ? (STAGE_THRESHOLDS[state.stage] || 1000) : 1000;
-        if (typeof STAGE_THRESHOLDS !== 'undefined' && state.stage < 4) needed = STAGE_THRESHOLDS[state.stage + 1] - STAGE_THRESHOLDS[state.stage];
-        const boost = needed * 0.1;
-        state.growth += boost;
-        if (typeof spawnFloatingText === 'function') spawnFloatingText(`+${Math.floor(boost)} Growth`, '#4ade80', 'good');
-        if (typeof updateUI === 'function') updateUI();
-    }
-    updateEssenceJarUI();
-    if (typeof saveState === 'function') saveState();
-}
+function getEssence() { return 0; }
+function updateEssenceJarUI() { /* Removed */ }
+function addEssence(amount, colorCss) { /* Removed */ }
+function startEssenceRain(colorCss) { /* Removed */ }
+function spendEssence() { /* Removed */ }
 
 window.handleBackButtonGarden = function(e) {
     if (gardenState.isOpen) { exitMidnightGarden(); e.preventDefault(); return; }

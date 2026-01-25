@@ -193,185 +193,87 @@ playBackgroundMusic() {
         if (!this.bgFilter) {
             this.bgFilter = this.ctx.createBiquadFilter();
             this.bgFilter.type = 'lowpass';
-            this.bgFilter.frequency.value = 900;
-            this.bgFilter.Q.value = 0.5;
+            this.bgFilter.frequency.value = 2500;
+            this.bgFilter.Q.value = 0.7;
             this.bgFilter.connect(this.bgMasterGain);
         }
-        const LOOP_SECONDS = 360, CHORDS = [[48, 55, 62, 64], [45, 52, 59, 62], [41, 48, 55, 60], [43, 50, 57, 62], [38, 45, 52, 55, 60], [48, 55, 60, 64], [45, 52, 57, 62], [41, 48, 53, 60], [43, 50, 55, 62], [48, 55, 62, 64]];
-        const STEP = 14, STEPS = Math.floor(LOOP_SECONDS / STEP);
-
-        const SEASON_MELODIES = {
-            // Slow, simple piano phrases (less "pingy", more melodic). Notes are MIDI numbers.
-            // Each phrase slot describes what to play inside a STEP; null = rest.
-            // 0: Spring, 1: Summer, 2: Autumn, 3: Winter
-            0: { // Spring: C major, gentle stepwise motion
-                phrase: [
-                    { bass: 48, notes: [64] },   // C2 + E4
-                    { notes: [62] },             // D4
-                    { notes: [60] },             // C4
-                    { notes: [62] },             // D4
-                    { bass: 50, notes: [64] },   // D2 + E4
-                    { notes: [67] },             // G4
-                    { notes: [64] },             // E4
-                    { notes: [62] }              // D4
-                ],
-                amp: 0.020, bright: 0.92
-            },
-            1: { // Summer: a touch brighter, still restrained
-                phrase: [
-                    { bass: 50, notes: [67] },   // D2 + G4
-                    { notes: [69] },             // A4
-                    { notes: [67] },             // G4
-                    { notes: [64] },             // E4
-                    { bass: 48, notes: [62] },   // C2 + D4
-                    { notes: [64] },             // E4
-                    { notes: [67] },             // G4
-                    { notes: [69] }              // A4
-                ],
-                amp: 0.022, bright: 1.02
-            },
-            2: { // Autumn: warmer, a little lower in register (A minor flavor)
-                phrase: [
-                    { bass: 45, notes: [60] },   // A1 + C4
-                    { notes: [62] },             // D4
-                    { notes: [64] },             // E4
-                    { notes: [62] },             // D4
-                    { bass: 43, notes: [59] },   // G1 + B3
-                    { notes: [60] },             // C4
-                    { notes: [62] },             // D4
-                    { notes: [59] }              // B3
-                ],
-                amp: 0.018, bright: 0.86
-            },
-            3: { // Winter: sparse, minor-leaning, more air between notes
-                phrase: [
-                    { bass: 38, notes: [62] },   // D1 + D4
-                    null,
-                    { notes: [65] },             // F4
-                    null,
-                    { bass: 41, notes: [60] },   // F1 + C4
-                    null,
-                    { notes: [58] },             // Bb3
-                    { notes: [60] }              // C4
-                ],
-                amp: 0.016, bright: 0.78
-            }
-        };
-        const pickSeasonMelody = () => {
-            const si = this._getSeasonIndex();
-            return SEASON_MELODIES[si] || SEASON_MELODIES[0];
-        };
-        const makeEvents = (seed) => {
-            const rand = this._mulberry32(seed), ev = [];
-            for (let i = 0; i < STEPS; i++) {
-                const tt = i * STEP;
-                let stack = CHORDS[i % CHORDS.length].slice();
-                if (rand() < 0.35) stack = [...stack.slice(1), stack[0] + 12];
-                if (rand() < 0.12) stack = stack.concat([stack[stack.length - 1] + 7]);
-                ev.push({ t: tt, type: 'chord', midi: stack });
-
-                // Slow seasonal piano phrase (structured, with rests).
-                const melody = pickSeasonMelody();
-                const slot = melody.phrase[i % melody.phrase.length];
-                if (slot) {
-                    const baseAmp = melody.amp;
-                    const bright = melody.bright;
-
-                    // Place notes slightly off-grid for a more human feel.
-                    const o1 = 2.0 + rand() * 0.6;
-                    const o2 = 8.2 + rand() * 0.7;
-
-                    // Optional "left hand" bass note (very soft).
-                    if (Number.isFinite(slot.bass)) {
-                        ev.push({
-                            t: tt + 0.8 + rand() * 0.4,
-                            type: 'melody',
-                            midi: [slot.bass],
-                            amp: baseAmp * 0.55,
-                            bright: Math.max(0.6, bright - 0.25)
-                        });
-                    }
-
-                    // Main note(s).
-                    const notes = slot.notes || [];
-                    if (notes.length) {
-                        // Optional grace note (upper/lower neighbor), very soft and quick.
-                        if (rand() < 0.18) {
-                            const g = notes[0] + (rand() < 0.5 ? 2 : -2);
-                            ev.push({
-                                t: tt + o1 - (0.18 + rand() * 0.08),
-                                type: 'melody',
-                                midi: [g],
-                                amp: baseAmp * 0.35,
-                                bright: Math.max(0.65, bright - 0.15)
-                            });
-                        }
-                        ev.push({ t: tt + o1, type: 'melody', midi: [notes[0]], amp: baseAmp, bright });
-                        if (notes.length > 1) {
-                            ev.push({ t: tt + o2, type: 'melody', midi: [notes[1]], amp: baseAmp * 0.9, bright });
-                        }
-                    }
-                }
-
-                // Rare bell sparkles (keep these extra sparse so melody stays special).
-                if (rand() < 0.10) {
-                    const off = 2.5 + rand() * 7, bellPool = [72, 74, 76, 79, 81];
-                    ev.push({ t: tt + off, type: 'bell', midi: [bellPool[Math.floor(rand() * bellPool.length)]] });
-                }
-            }
-            return ev;
-        };
-        const playAmbientPad = (t, chordMidi) => {
-            const ctx = this.ctx, dur = 12;
-            chordMidi.forEach((m, i) => {
-                const o = ctx.createOscillator(), g = ctx.createGain();
-                o.type = 'sine'; o.frequency.setValueAtTime(this._midiToFreq(m), t);
-                o.detune.setValueAtTime((i - (chordMidi.length - 1) / 2) * 3 + (Math.random() - 0.5) * 5, t);
-                g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.07, t + 3);
-                g.gain.setValueAtTime(0.07, t + dur - 4); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-                o.connect(g); g.connect(this.bgFilter); o.start(t); o.stop(t + dur + 0.1);
-            });
-        };
-        const playAmbientBell = (t, midi) => {
-            const ctx = this.ctx, o = ctx.createOscillator(), g = ctx.createGain();
-            o.type = 'sine'; o.frequency.setValueAtTime(this._midiToFreq(midi), t);
-            g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.025, t + 0.4);
-            g.gain.exponentialRampToValueAtTime(0.001, t + 5);
-            o.connect(g); g.connect(this.bgFilter); o.start(t); o.stop(t + 5.5);
-        };
-        const scheduleLoop = () => {
-            if (!this.isMusicPlaying) return;
-            const events = makeEvents(1337), startAt = this.ctx.currentTime + 0.05;
-            for (const e of events) {
-                const when = startAt + e.t, delayMs = Math.max(0, (when - this.ctx.currentTime) * 1000);
-                const id = setTimeout(() => {
-                    if (!this.isMusicPlaying) return;
-                    try { if (e.type === 'chord') playAmbientPad(when, e.midi);
-                        else if (e.type === 'melody') this._playPianoDropletAt(when, e.midi[0], e.amp || 0.018, e.bright || 1.0);
-                        else playAmbientBell(when, e.midi[0]); } catch (_) { }
-                }, delayMs);
-                this.bgTimers.push(id);
-            }
-            const loopId = setTimeout(() => {
-                this.bgTimers.forEach(id => clearTimeout(id));
-                this.bgTimers = []; scheduleLoop();
-            }, (LOOP_SECONDS + 0.15) * 1000);
-            this.bgTimers.push(loopId);
-        };
-        scheduleLoop();
+        this._scheduleBackgroundMusic();
     },
     stopBackgroundMusic() {
         this.isMusicPlaying = false;
         this.bgTimers.forEach(id => clearTimeout(id));
         this.bgTimers = [];
+    },
+    _scheduleBackgroundMusic() {
+        if (!this.isMusicPlaying || !this.ctx) return;
+        const seasonIdx = this._getSeasonIndex();
+        const melody = this._getSeasonMelody(seasonIdx);
+        this._playSeasonMelody(melody);
+        const tid = setTimeout(() => this._scheduleBackgroundMusic(), melody.totalDuration * 1000 + 2000);
+        this.bgTimers.push(tid);
+    },
+    _getSeasonMelody(seasonIdx) {
+        const MELODIES = {
+            0: { baseNote: 60, scale: [0,2,4,5,7,9,11], feel: 'hopeful', tempo: 72 },
+            1: { baseNote: 62, scale: [0,2,4,7,9], feel: 'bright', tempo: 80 },
+            2: { baseNote: 57, scale: [0,2,3,5,7,8,10], feel: 'wistful', tempo: 66 },
+            3: { baseNote: 55, scale: [0,2,3,5,7,8,11], feel: 'sparse', tempo: 54 }
+        };
+        const cfg = MELODIES[seasonIdx] || MELODIES[0];
+        const rand = this._mulberry32(Date.now());
+        const phraseCount = 6;
+        const notesPerPhrase = 12;
+        const phrases = [];
+        for (let p = 0; p < phraseCount; p++) {
+            const notes = [];
+            let prevDeg = Math.floor(rand() * cfg.scale.length);
+            for (let n = 0; n < notesPerPhrase; n++) {
+                const jump = Math.floor(rand() * 5) - 2;
+                let deg = prevDeg + jump;
+                deg = Math.max(0, Math.min(cfg.scale.length - 1, deg));
+                const octaveShift = rand() < 0.2 ? (rand() < 0.5 ? -12 : 12) : 0;
+                const midi = cfg.baseNote + cfg.scale[deg] + octaveShift;
+                const dur = [0.5, 0.75, 1, 1.5][Math.floor(rand() * 4)] * (60 / cfg.tempo);
+                const vel = 0.5 + rand() * 0.3;
+                notes.push({ midi, dur, vel });
+                prevDeg = deg;
+            }
+            phrases.push(notes);
+        }
+        let totalDuration = 0;
+        phrases.forEach(ph => ph.forEach(n => totalDuration += n.dur));
+        return { phrases, tempo: cfg.tempo, totalDuration };
+    },
+    _playSeasonMelody(melody) {
+        if (!this.ctx || !this.isMusicPlaying) return;
+        const ctx = this.ctx;
+        let t = ctx.currentTime + 0.1;
+        melody.phrases.forEach((phrase, pi) => {
+            phrase.forEach((note, ni) => {
+                const brightness = 0.6 + (pi / melody.phrases.length) * 0.4;
+                this._playPianoDropletAt(t, note.midi, note.vel * 0.12, brightness);
+                t += note.dur;
+            });
+            t += 0.3;
+        });
     }
 };
 
 function initPatterns() {
     const defs = document.getElementById('plantDefs');
-    if (defs) {
-        defs.innerHTML += `<pattern id="patNone" width="10" height="10" patternUnits="userSpaceOnUse"></pattern><pattern id="patStripes" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="4" height="8" fill="var(--pot-pat-color)"/></pattern><pattern id="patHearts" width="16" height="16" patternUnits="userSpaceOnUse"><path d="M8 5C8 3 6 2 4 3 2 4 2 7 4 9L8 13 12 9C14 7 14 4 12 3 10 2 8 3 8 5" fill="var(--pot-pat-color)" transform="scale(0.8)translate(2,2)"/></pattern><pattern id="patWaves" width="20" height="10" patternUnits="userSpaceOnUse"><path d="M0 5Q5 0 10 5T20 5" fill="none" stroke="var(--pot-pat-color)" stroke-width="2"/></pattern><pattern id="patNotes" width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="6" cy="10" r="3" fill="var(--pot-pat-color)"/><path d="M9 10V3H14" fill="none" stroke="var(--pot-pat-color)" stroke-width="1.5"/></pattern><pattern id="patChecks" width="12" height="12" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="var(--pot-pat-color)"/><rect x="6" y="6" width="6" height="6" fill="var(--pot-pat-color)"/></pattern><pattern id="patStars" width="20" height="20" patternUnits="userSpaceOnUse"><polygon points="10,2 12,8 18,8 13,12 15,18 10,14 5,18 7,12 2,8 8,8" fill="var(--pot-pat-color)" transform="scale(0.7)translate(4,4)"/></pattern><pattern id="patDiamonds" width="14" height="14" patternUnits="userSpaceOnUse"><polygon points="7,1 13,7 7,13 1,7" fill="var(--pot-pat-color)" transform="scale(0.7)translate(3,3)"/></pattern><pattern id="patLeaves" width="14" height="14" patternUnits="userSpaceOnUse"><path d="M7 2Q10 5 7 11 4 5 7 2" fill="var(--pot-pat-color)"/></pattern><pattern id="patMoons" width="16" height="16" patternUnits="userSpaceOnUse"><path d="M10 3A5 5 0 1 1 10 13A4 4 0 1 0 10 3" fill="var(--pot-pat-color)"/></pattern>`;
-    }
+    if (!defs) return;
+    defs.innerHTML = `
+        <pattern id="patNone" patternUnits="userSpaceOnUse" width="10" height="10"><rect width="10" height="10" fill="transparent"/></pattern>
+        <pattern id="patStripes" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)"><rect width="3" height="6" fill="var(--pot-pat-color)"/></pattern>
+        <pattern id="patHearts" patternUnits="userSpaceOnUse" width="18" height="18"><path d="M9 5 C7 2,3 2,3 6 C3 9,9 14,9 14 C9 14,15 9,15 6 C15 2,11 2,9 5" fill="var(--pot-pat-color)"/></pattern>
+        <pattern id="patWaves" patternUnits="userSpaceOnUse" width="20" height="10"><path d="M0 5 Q5 0,10 5 T20 5" stroke="var(--pot-pat-color)" fill="none" stroke-width="2"/></pattern>
+        <pattern id="patNotes" patternUnits="userSpaceOnUse" width="16" height="18"><text x="3" y="14" font-size="12" fill="var(--pot-pat-color)">♪</text></pattern>
+        <pattern id="patChecks" patternUnits="userSpaceOnUse" width="10" height="10"><rect width="5" height="5" fill="var(--pot-pat-color)"/><rect x="5" y="5" width="5" height="5" fill="var(--pot-pat-color)"/></pattern>
+        <pattern id="patStars" patternUnits="userSpaceOnUse" width="18" height="18"><text x="3" y="14" font-size="12" fill="var(--pot-pat-color)">★</text></pattern>
+        <pattern id="patDiamonds" patternUnits="userSpaceOnUse" width="14" height="14"><path d="M7 0 L14 7 L7 14 L0 7 Z" fill="var(--pot-pat-color)"/></pattern>
+        <pattern id="patLeaves" patternUnits="userSpaceOnUse" width="18" height="18"><text x="2" y="14" font-size="11" fill="var(--pot-pat-color)">🌿</text></pattern>
+        <pattern id="patMoons" patternUnits="userSpaceOnUse" width="18" height="18"><text x="3" y="14" font-size="11" fill="var(--pot-pat-color)">☽</text></pattern>
+    `;
     ['previewDefs', 'harvestDefs', 'archiveDefs'].forEach(id => {
         const d = document.getElementById(id); if (d && defs) d.innerHTML = defs.innerHTML;
     });
@@ -409,9 +311,32 @@ function updateNightMotes(timeOfDay) {
     }
 }
 
+/**
+ * FIXED: Moon phase calculation using correct lunar cycle algorithm
+ * The issue was the Julian Date formula was incorrect.
+ * 
+ * This uses the standard synodic month (29.53058867 days) and a known
+ * new moon reference date (Jan 6, 2000 was a new moon).
+ */
 function getMoonPhase() {
-    const n = new Date(), jd = Math.floor(365.25 * n.getFullYear()) + Math.floor(30.6 * (n.getMonth() + 1)) + n.getDate() - 694039.09, p = jd / 29.53058867;
-    return MOON_PHASES[Math.floor((p - Math.floor(p)) * 8) % 8];
+    const now = new Date();
+    
+    // Known new moon: January 6, 2000, 18:14 UTC
+    const knownNewMoon = new Date(Date.UTC(2000, 0, 6, 18, 14, 0));
+    
+    // Synodic month in milliseconds
+    const synodicMonth = 29.53058867 * 24 * 60 * 60 * 1000;
+    
+    // Days since the known new moon
+    const daysSinceNewMoon = (now.getTime() - knownNewMoon.getTime()) / synodicMonth;
+    
+    // Get the fractional part (0 = new moon, 0.5 = full moon)
+    const lunarPhase = daysSinceNewMoon - Math.floor(daysSinceNewMoon);
+    
+    // Map to 8 phases (0-7)
+    const phaseIndex = Math.floor(lunarPhase * 8) % 8;
+    
+    return MOON_PHASES[phaseIndex];
 }
 
 function updateMoonPhase() {

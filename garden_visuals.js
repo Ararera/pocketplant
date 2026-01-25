@@ -12,11 +12,17 @@ function initMidnightGarden() {
         soundscapeIndicator: document.getElementById('soundscapeIndicator'),
         essenceJar: document.getElementById('essenceJar'),
         essenceAmt: document.getElementById('essenceAmt'),
-        essenceFill: document.getElementById('essenceJarFill')
+        essenceFill: document.getElementById('essenceJarFill'),
+        soundSeedsLayer: document.getElementById('gardenSoundSeedsLayer'),
+        soundSeedToggle: document.getElementById('soundSeedToggle'),
+        soundSeedDock: document.getElementById('soundSeedDock'),
+        soundSeedGrid: document.getElementById('soundSeedGrid'),
+        soundSeedDockClose: document.getElementById('soundSeedDockClose')
     };
 
     // Sync Essence jar immediately (if present)
     if (typeof updateEssenceJarUI === 'function') updateEssenceJarUI();
+    initSoundSeedsUI();
 }
 
 function createGardenStars() {
@@ -49,7 +55,7 @@ function enterMidnightGarden() {
         startGardenFireflies();
         overlay.classList.add('open');
         setTimeout(() => { transition.classList.remove('active'); }, 300);
-        setTimeout(() => { startAmbientSoundscape(); }, 1000);
+        setTimeout(() => { startAmbientSoundscape(); startSoundSeedsFromState(); }, 1000);
     }, 800);
     if (typeof pushHistoryState === 'function') pushHistoryState();
 }
@@ -59,6 +65,7 @@ function exitMidnightGarden() {
     const transition = gardenState.elements?.transition || document.getElementById('midnightTransition');
     const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
     stopAmbientSoundscape();
+    closeSoundSeedDock(true);
     stopGardenFireflies();
     transition.classList.add('active');
     setTimeout(() => {
@@ -586,3 +593,381 @@ function spendEssence() {
 // Expose for HTML onclick
 window.spendEssence = spendEssence;
 window.updateEssenceJarUI = updateEssenceJarUI;
+
+// ============================================
+// SOUND SEEDS (Midnight Garden interaction)
+// ============================================
+
+function _getGardenOverlayRect() {
+    const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
+    return overlay ? overlay.getBoundingClientRect() : null;
+}
+
+function _clientToGardenPercent(clientX, clientY) {
+    const r = _getGardenOverlayRect();
+    if (!r) return { x: 50, y: 60 };
+    const px = (clientX - r.left) / r.width;
+    const py = (clientY - r.top) / r.height;
+    return {
+        x: Math.max(3, Math.min(97, px * 100)),
+        y: Math.max(8, Math.min(92, py * 100))
+    };
+}
+
+function _isPointInGarden(clientX, clientY) {
+    const r = _getGardenOverlayRect();
+    if (!r) return false;
+    return clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom;
+}
+
+function _getSoundSeedsState() {
+    if (typeof state === 'undefined') return [];
+    if (!Array.isArray(state.gardenSoundSeeds)) state.gardenSoundSeeds = [];
+    return state.gardenSoundSeeds;
+}
+
+function _setSoundSeedsState(next) {
+    if (typeof state === 'undefined') return;
+    state.gardenSoundSeeds = Array.isArray(next) ? next : [];
+    if (typeof saveState === 'function') saveState();
+}
+
+function initSoundSeedsUI() {
+    if (gardenState._soundSeedsInited) return;
+    gardenState._soundSeedsInited = true;
+    const toggle = gardenState.elements?.soundSeedToggle || document.getElementById('soundSeedToggle');
+    const dock = gardenState.elements?.soundSeedDock || document.getElementById('soundSeedDock');
+    const closeBtn = gardenState.elements?.soundSeedDockClose || document.getElementById('soundSeedDockClose');
+
+    if (!toggle || !dock) return;
+
+    // Render grid once
+    renderSoundSeedDock();
+
+    toggle.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (!gardenState.isOpen) return;
+        if (dock.classList.contains('open')) closeSoundSeedDock(); else openSoundSeedDock();
+    });
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); closeSoundSeedDock(); });
+    }
+
+    // Close dock if user taps elsewhere (but not while dragging)
+    const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
+    if (overlay) {
+        overlay.addEventListener('pointerdown', (e) => {
+            if (!dock.classList.contains('open')) return;
+            if (gardenState.soundSeedsDragging) return;
+            const t = e.target;
+            if (t && (t.closest('#soundSeedDock') || t.closest('#soundSeedToggle'))) return;
+            closeSoundSeedDock();
+        }, { passive: true });
+    }
+
+    // Hydrate placed seeds DOM immediately (even before entering, harmless)
+    rebuildPlacedSoundSeedsDom();
+}
+
+function openSoundSeedDock() {
+    const dock = gardenState.elements?.soundSeedDock || document.getElementById('soundSeedDock');
+    if (!dock) return;
+    dock.classList.add('open');
+    // Keep grid state in sync (enabled / disabled)
+    renderSoundSeedDock();
+}
+
+function closeSoundSeedDock(force = false) {
+    const dock = gardenState.elements?.soundSeedDock || document.getElementById('soundSeedDock');
+    if (!dock) return;
+    if (force || dock.classList.contains('open')) dock.classList.remove('open');
+}
+
+function renderSoundSeedDock() {
+    const grid = gardenState.elements?.soundSeedGrid || document.getElementById('soundSeedGrid');
+    if (!grid || typeof SOUND_SEEDS === 'undefined') return;
+
+    const active = _getSoundSeedsState();
+    const usedTypes = new Set(active.map(s => s.type));
+
+    grid.innerHTML = '';
+    const frag = document.createDocumentFragment();
+
+    SOUND_SEEDS.forEach(seed => {
+        const card = document.createElement('div');
+        card.className = 'sound-seed-card';
+        card.dataset.seedType = String(seed.id);
+
+        const enabled = usedTypes.has(seed.id);
+        if (enabled) card.classList.add('enabled');
+
+        const dot = document.createElement('div'); dot.className = 'seed-dot'; card.appendChild(dot);
+
+        const emoji = document.createElement('div'); emoji.className = 'seed-emoji'; emoji.textContent = seed.emoji || '🎶';
+        const name = document.createElement('div'); name.className = 'seed-name'; name.textContent = seed.name || `Seed ${seed.id+1}`;
+        card.appendChild(emoji); card.appendChild(name);
+
+        // Create new placed seed by dragging from dock
+        const startFromDock = (e) => {
+            if (!gardenState.isOpen) return;
+            if (enabled) {
+                // Already placed: do a subtle cue instead of duplicating.
+                try { spawnFloatingText(`${seed.name} is already growing here.`, 'rgba(254,249,195,0.75)', 'info'); } catch (_) {}
+                return;
+            }
+            e.preventDefault();
+            e.stopPropagation();
+
+            // If audio context needs user gesture, this counts
+            try { if (gardenState.audioContext && gardenState.audioContext.state === 'suspended') gardenState.audioContext.resume(); } catch (_) {}
+
+            beginSeedDrag({
+                seedType: seed.id,
+                fromDock: true,
+                clientX: e.clientX,
+                clientY: e.clientY
+            });
+        };
+
+        card.addEventListener('pointerdown', startFromDock, { passive: false });
+
+        frag.appendChild(card);
+    });
+
+    grid.appendChild(frag);
+
+    // Update enabled/disabled styles
+    [...grid.querySelectorAll('.sound-seed-card')].forEach(card => {
+        const t = parseInt(card.dataset.seedType || '0', 10);
+        const isEnabled = usedTypes.has(t);
+        card.classList.toggle('enabled', isEnabled);
+        card.classList.toggle('disabled', false);
+    });
+}
+
+function _makeSeedInstanceId() {
+    return `seed_${Date.now().toString(36)}_${Math.floor(Math.random() * 1e6).toString(36)}`;
+}
+
+function rebuildPlacedSoundSeedsDom() {
+    const layer = gardenState.elements?.soundSeedsLayer || document.getElementById('gardenSoundSeedsLayer');
+    if (!layer) return;
+
+    layer.innerHTML = '';
+    gardenState.soundSeedsDom = gardenState.soundSeedsDom || {};
+
+    const seeds = _getSoundSeedsState();
+    const frag = document.createDocumentFragment();
+    seeds.forEach(seed => {
+        const el = createPlacedSeedElement(seed);
+        if (el) frag.appendChild(el);
+    });
+    layer.appendChild(frag);
+}
+
+function startSoundSeedsFromState() {
+    // Ensure DOM exists
+    rebuildPlacedSoundSeedsDom();
+
+    // Start audio loops for placed seeds
+    const seeds = _getSoundSeedsState();
+    seeds.forEach(seed => {
+        if (typeof startSoundSeedLoop === 'function') startSoundSeedLoop(seed.type, seed.instanceId);
+    });
+
+    // Reflect enabled state in dock
+    renderSoundSeedDock();
+}
+
+function createPlacedSeedElement(seed) {
+    const layer = gardenState.elements?.soundSeedsLayer || document.getElementById('gardenSoundSeedsLayer');
+    if (!layer || typeof SOUND_SEEDS === 'undefined') return null;
+
+    const def = SOUND_SEEDS.find(s => s.id === seed.type);
+    if (!def) return null;
+
+    const el = document.createElement('div');
+    el.className = 'sound-seed-placed pulse';
+    el.dataset.seedInstanceId = seed.instanceId;
+    el.dataset.seedType = String(seed.type);
+    el.style.left = `${seed.x}%`;
+    el.style.top = `${seed.y}%`;
+    el.style.setProperty('--seed-glow', `hsla(${def.hue || 45}, 85%, 70%, 0.26)`);
+
+    const emoji = document.createElement('div');
+    emoji.className = 'seed-emoji';
+    emoji.textContent = def.emoji || '🎶';
+    el.appendChild(emoji);
+
+    let lastTapAt = 0;
+
+    const onPointerDown = (e) => {
+        if (!gardenState.isOpen) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const now = Date.now();
+        const dt = now - lastTapAt;
+        lastTapAt = now;
+
+        // Double-tap removes
+        if (dt > 60 && dt < 340) {
+            removePlacedSeed(seed.instanceId);
+            return;
+        }
+
+        beginSeedDrag({
+            seedType: seed.type,
+            instanceId: seed.instanceId,
+            fromDock: false,
+            element: el,
+            clientX: e.clientX,
+            clientY: e.clientY
+        });
+    };
+
+    el.addEventListener('pointerdown', onPointerDown, { passive: false });
+
+    gardenState.soundSeedsDom[seed.instanceId] = el;
+    return el;
+}
+
+function removePlacedSeed(instanceId) {
+    const seeds = _getSoundSeedsState();
+    const idx = seeds.findIndex(s => s.instanceId === instanceId);
+    if (idx < 0) return;
+
+    const removed = seeds[idx];
+    seeds.splice(idx, 1);
+    _setSoundSeedsState(seeds);
+
+    // Stop audio
+    if (typeof stopSoundSeedLoop === 'function') stopSoundSeedLoop(instanceId);
+
+    // Remove DOM
+    const el = gardenState.soundSeedsDom && gardenState.soundSeedsDom[instanceId];
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+    if (gardenState.soundSeedsDom) delete gardenState.soundSeedsDom[instanceId];
+
+    // Update dock state
+    renderSoundSeedDock();
+
+    try { spawnFloatingText('Seed returned to the dock.', 'rgba(254,249,195,0.6)', 'info'); } catch (_) {}
+}
+
+function beginSeedDrag({ seedType, instanceId = null, fromDock = false, element = null, clientX = 0, clientY = 0 }) {
+    const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
+    const layer = gardenState.elements?.soundSeedsLayer || document.getElementById('gardenSoundSeedsLayer');
+    if (!overlay || !layer) return;
+
+    // Create a ghost if coming from dock
+    let el = element;
+    let tempCreated = false;
+
+    if (fromDock) {
+        if (typeof SOUND_SEEDS === 'undefined') return;
+        const def = SOUND_SEEDS.find(s => s.id === seedType);
+        const seed = {
+            type: seedType,
+            instanceId: _makeSeedInstanceId(),
+            x: 50,
+            y: 60
+        };
+        instanceId = seed.instanceId;
+        el = createPlacedSeedElement(seed);
+        if (!el) return;
+        tempCreated = true;
+        layer.appendChild(el);
+        el.classList.add('dragging');
+        el.classList.remove('pulse');
+    } else {
+        if (!el) return;
+        el.classList.add('dragging');
+        el.classList.remove('pulse');
+    }
+
+    gardenState.soundSeedsDragging = {
+        seedType,
+        instanceId,
+        el,
+        fromDock,
+        tempCreated,
+        startX: clientX,
+        startY: clientY
+    };
+
+
+    const move = (e) => {
+        if (!gardenState.soundSeedsDragging) return;
+        const pos = _clientToGardenPercent(e.clientX, e.clientY);
+        el.style.left = `${pos.x}%`;
+        el.style.top = `${pos.y}%`;
+    };
+
+    const up = (e) => {
+        const drag = gardenState.soundSeedsDragging;
+        gardenState.soundSeedsDragging = null;
+
+        document.removeEventListener('pointermove', move);
+        document.removeEventListener('pointerup', up);
+        document.removeEventListener('pointercancel', up);
+
+        if (!drag) return;
+
+        const droppedInGarden = _isPointInGarden(e.clientX, e.clientY);
+
+        // If it was a dock spawn and user released outside overlay, cancel it.
+        if (drag.fromDock && (!droppedInGarden)) {
+            if (drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el);
+            if (gardenState.soundSeedsDom) delete gardenState.soundSeedsDom[drag.instanceId];
+            return;
+        }
+
+        // Commit position
+        const pos = _clientToGardenPercent(e.clientX, e.clientY);
+        drag.el.style.left = `${pos.x}%`;
+        drag.el.style.top = `${pos.y}%`;
+
+        drag.el.classList.remove('dragging');
+        drag.el.classList.add('pulse');
+
+        // If came from dock, this is a new placement (one per type)
+        if (drag.fromDock) {
+            const seeds = _getSoundSeedsState();
+            if (seeds.some(s => s.type === drag.seedType)) {
+                // Already exists (shouldn't happen due to UI guard), just delete temp
+                if (drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el);
+                if (gardenState.soundSeedsDom) delete gardenState.soundSeedsDom[drag.instanceId];
+                return;
+            }
+            const next = seeds.concat([{ type: drag.seedType, instanceId: drag.instanceId, x: pos.x, y: pos.y }]);
+            _setSoundSeedsState(next);
+
+            // Start audio
+            if (typeof startSoundSeedLoop === 'function') startSoundSeedLoop(drag.seedType, drag.instanceId);
+
+            renderSoundSeedDock();
+            try { spawnFloatingText('A new melody takes root.', 'rgba(254,249,195,0.65)', 'info'); } catch (_) {}
+        } else {
+            // Existing seed moved
+            const seeds = _getSoundSeedsState();
+            const idx = seeds.findIndex(s => s.instanceId === drag.instanceId);
+            if (idx >= 0) {
+                seeds[idx].x = pos.x;
+                seeds[idx].y = pos.y;
+                _setSoundSeedsState(seeds);
+            }
+        }
+    };
+
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+    document.addEventListener('pointercancel', up);
+
+    // Immediate position update
+    const pos0 = _clientToGardenPercent(clientX, clientY);
+    el.style.left = `${pos0.x}%`;
+    el.style.top = `${pos0.y}%`;
+}
+

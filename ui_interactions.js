@@ -233,7 +233,8 @@ function spawnVisualFirefly(fam, isGuardian) {
     ff.className = 'firefly' + (isGuardian ? ' guardian' : '');
     ff.dataset.family = fam;
     ff.style.setProperty('--firefly-color', col);
-    ff.style.background = col;
+    // REMOVED: ff.style.background = col; - This was overriding CSS and making giant fireflies!
+    // The visual is now handled by ::before pseudo-element in CSS
     ff.style.left = (10 + Math.random() * 80) + '%';
     ff.style.top = (15 + Math.random() * 50) + '%';
     
@@ -609,7 +610,9 @@ function collectFirefly(fam, el) {
     el.style.transition = 'opacity 0.25s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 260); audio.chime();
     if (!state.fireflies[fam]) state.fireflies[fam] = 0;
     const _hadGuardian = (typeof hasGuardian === 'function') ? hasGuardian(fam) : (state.fireflies[fam] >= GUARDIAN_THRESHOLD);
-    if (state.fireflies[fam] < CONFIG.maxFireflyPerFamily) {
+    // Use a collection cap of 50 per family (CONFIG.maxFireflyPerFamily is for visual spawning, not collection)
+    const MAX_COLLECTIBLE_PER_FAMILY = 50;
+    if (state.fireflies[fam] < MAX_COLLECTIBLE_PER_FAMILY) {
         state.fireflies[fam]++; state.totalFireflies++;
         if (typeof unlockDiscovery === 'function') unlockDiscovery('first_firefly');
         // One of each family?

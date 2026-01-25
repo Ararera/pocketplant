@@ -58,6 +58,7 @@ function ensureStateDefaults() {
     if (!Array.isArray(state.noticeLog)) state.noticeLog = [];
     if (typeof state.nameSuggestion !== 'string') state.nameSuggestion = '';
     if (typeof state.lastWhisperText !== 'string') state.lastWhisperText = '';
+    if (!Array.isArray(state.gardenSoundSeeds)) state.gardenSoundSeeds = [];
 
     // Back-compat: older saves won't have the one-time Essence gift flag on ancestors.
     if (Array.isArray(state.history)) {
@@ -84,9 +85,9 @@ function resetGame(preserveHistory = true) {
             essenceFirstTapClaimed: false
         });
     }
-    const hist = preserveHistory ? state.history : [], tf = preserveHistory ? state.totalFireflies : 0, ff = preserveHistory ? state.fireflies : {}, it = preserveHistory ? state.inheritedTraits : [], gen = preserveHistory ? state.generation + 1 : 1;
+    const hist = preserveHistory ? state.history : [], tf = preserveHistory ? state.totalFireflies : 0, ff = preserveHistory ? state.fireflies : {}, it = preserveHistory ? state.inheritedTraits : [], gen = preserveHistory ? state.generation + 1 : 1, gSeeds = preserveHistory ? (state.gardenSoundSeeds || []) : [];
     state = {
-        water: 50, sun: 50, love: 50, growth: 0, stage: 1, isSunLampOn: false, isRainOn: false, day: 1, dayProgress: 0, generation: gen, name: "Sprout", nameSuggestion: '', season: state.season || 0, dna: generateDNA(), potColor: POT_COLORS[0], potPattern: 'patNone', potPatternColor: 'rgba(255,255,255,0.5)', timeAtZero: 0, isDead: false, history: hist, lastSave: Date.now(), growthMultiplier: 1, singCooldownUntil: 0, fertilizeCooldownUntil: 0, fireflies: ff, totalFireflies: tf, activeGuardians: [], buffs: [], scars: [], crisisCount: 0, inheritedTraits: it, lastDream: null, isMusicPlaying: false, neglect: { waterLowMs: 0, sunLowMs: 0, loveLowMs: 0, crisisMs: 0, partialDormant: false }, lastWhisperAt: 0, noticeLog: preserveHistory ? state.noticeLog : [], lastWhisperText: ''
+        water: 50, sun: 50, love: 50, growth: 0, stage: 1, isSunLampOn: false, isRainOn: false, day: 1, dayProgress: 0, generation: gen, name: "Sprout", nameSuggestion: '', season: state.season || 0, dna: generateDNA(), potColor: POT_COLORS[0], potPattern: 'patNone', potPatternColor: 'rgba(255,255,255,0.5)', timeAtZero: 0, isDead: false, history: hist, lastSave: Date.now(), growthMultiplier: 1, singCooldownUntil: 0, fertilizeCooldownUntil: 0, fireflies: ff, totalFireflies: tf, activeGuardians: [], buffs: [], scars: [], crisisCount: 0, inheritedTraits: it, lastDream: null, isMusicPlaying: false, neglect: { waterLowMs: 0, sunLowMs: 0, loveLowMs: 0, crisisMs: 0, partialDormant: false }, lastWhisperAt: 0, noticeLog: preserveHistory ? state.noticeLog : [], lastWhisperText: '', gardenSoundSeeds: gSeeds
     };
     els.deathOverlay.classList.remove('open'); els.plantHero.classList.remove('dead-plant', 'dormant-plant');
     audio.stopRainSound(); setupWorld(); renderPlant('plantGroup', state.dna, state.stage); renderPotPreview(); updateUI(); saveState();
