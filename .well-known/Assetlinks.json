@@ -3,6 +3,6 @@
   "target": {
     "namespace": "android_app",
     "package_name": "io.github.ararera.twa",
-    "sha256_cert_fingerprints": ["49:6E:9A:5B:59:63:F0:20:0D:AD:E3:78:27:81:DF:09:E7:05:B1:71:D3:79:FA:48:06:09:12:0C:FB:19:99:97"]
+    "sha256_cert_fingerprints": ["06:AF:0D:0E:FB:97:23:7C:8A:E0:3D:E3:7E:2F:18:4D:A6:C6:C5:EB:BB:C3:A4:94:1E:0C:23:10:74:97:CF:CE"]
   }
 }]
