@@ -43,6 +43,25 @@
     <!-- Ambient Fireflies Container -->
     <div class="garden-fireflies" id="gardenFireflies"></div>
 
+    <!-- Sound Seeds (player-placed musical seeds) -->
+    <div class="sound-seeds-layer" id="gardenSoundSeedsLayer" aria-hidden="false"></div>
+
+    <!-- Sound Seed Dock Toggle -->
+    <button class="sound-seed-toggle" id="soundSeedToggle" aria-label="Sound seeds" title="Sound seeds">
+        <span class="seed-icon" aria-hidden="true">🎶</span>
+    </button>
+
+    <!-- Sound Seed Dock -->
+    <div class="sound-seed-dock" id="soundSeedDock" aria-label="Sound seed dock">
+        <div class="sound-seed-dock-header">
+            <div class="dock-title">Sound Seeds</div>
+            <button class="dock-close" id="soundSeedDockClose" aria-label="Close sound seeds">✕</button>
+        </div>
+        <div class="sound-seed-grid" id="soundSeedGrid" aria-label="Available sound seeds"></div>
+        <div class="sound-seed-hint" aria-hidden="true">Drag a seed into the garden • Double‑tap a placed seed to remove</div>
+    </div>
+
+
     <!-- Forest Background -->
     <div class="garden-forest" id="gardenForest">
         <div class="forest-layer forest-back"></div>
