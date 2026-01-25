@@ -697,6 +697,11 @@ function renderSoundSeedDock() {
     SOUND_SEEDS.forEach(seed => {
         const card = document.createElement('div');
         card.className = 'sound-seed-card';
+
+        // Mobile: prevent scroll/zoom gestures from stealing the drag.
+        // Pointer Events on Android require touch-action: none to reliably deliver pointermove.
+        card.style.touchAction = 'none';
+        card.style.webkitTouchCallout = 'none';
         card.dataset.seedType = String(seed.id);
 
         const enabled = usedTypes.has(seed.id);
@@ -719,6 +724,9 @@ function renderSoundSeedDock() {
             e.preventDefault();
             e.stopPropagation();
 
+
+            // Capture pointer so we keep receiving movement even if the finger drifts.
+            try { if (typeof e.pointerId === 'number' && card.setPointerCapture) card.setPointerCapture(e.pointerId); } catch (_) {}
             // If audio context needs user gesture, this counts
             try { if (gardenState.audioContext && gardenState.audioContext.state === 'suspended') gardenState.audioContext.resume(); } catch (_) {}
 
@@ -726,7 +734,8 @@ function renderSoundSeedDock() {
                 seedType: seed.id,
                 fromDock: true,
                 clientX: e.clientX,
-                clientY: e.clientY
+                clientY: e.clientY,
+                pointerId: (typeof e.pointerId === 'number' ? e.pointerId : null)
             });
         };
 
@@ -789,6 +798,10 @@ function createPlacedSeedElement(seed) {
 
     const el = document.createElement('div');
     el.className = 'sound-seed-placed pulse';
+
+    // Mobile: prevent the page/overlay from interpreting seed drags as scroll gestures.
+    el.style.touchAction = 'none';
+    el.style.webkitTouchCallout = 'none';
     el.dataset.seedInstanceId = seed.instanceId;
     el.dataset.seedType = String(seed.type);
     el.style.left = `${seed.x}%`;
@@ -807,6 +820,9 @@ function createPlacedSeedElement(seed) {
         e.preventDefault();
         e.stopPropagation();
 
+        // Capture pointer to keep drag stable on Android.
+        try { if (typeof e.pointerId === 'number' && el.setPointerCapture) el.setPointerCapture(e.pointerId); } catch (_) {}
+
         const now = Date.now();
         const dt = now - lastTapAt;
         lastTapAt = now;
@@ -823,7 +839,8 @@ function createPlacedSeedElement(seed) {
             fromDock: false,
             element: el,
             clientX: e.clientX,
-            clientY: e.clientY
+            clientY: e.clientY,
+            pointerId: (typeof e.pointerId === 'number' ? e.pointerId : null)
         });
     };
 
@@ -856,7 +873,7 @@ function removePlacedSeed(instanceId) {
     try { spawnFloatingText('Seed returned to the dock.', 'rgba(254,249,195,0.6)', 'info'); } catch (_) {}
 }
 
-function beginSeedDrag({ seedType, instanceId = null, fromDock = false, element = null, clientX = 0, clientY = 0 }) {
+function beginSeedDrag({ seedType, instanceId = null, fromDock = false, element = null, clientX = 0, clientY = 0, pointerId = null }) {
     const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
     const layer = gardenState.elements?.soundSeedsLayer || document.getElementById('gardenSoundSeedsLayer');
     if (!overlay || !layer) return;
@@ -894,12 +911,14 @@ function beginSeedDrag({ seedType, instanceId = null, fromDock = false, element 
         fromDock,
         tempCreated,
         startX: clientX,
-        startY: clientY
+        startY: clientY,
+        pointerId: (typeof event !== 'undefined' && event && typeof event.pointerId === 'number') ? event.pointerId : null
     };
 
 
     const move = (e) => {
         if (!gardenState.soundSeedsDragging) return;
+        if (gardenState.soundSeedsDragging.pointerId != null && typeof e.pointerId === 'number' && e.pointerId !== gardenState.soundSeedsDragging.pointerId) return;
         const pos = _clientToGardenPercent(e.clientX, e.clientY);
         el.style.left = `${pos.x}%`;
         el.style.top = `${pos.y}%`;
@@ -907,11 +926,18 @@ function beginSeedDrag({ seedType, instanceId = null, fromDock = false, element 
 
     const up = (e) => {
         const drag = gardenState.soundSeedsDragging;
+        if (drag && drag.pointerId != null && typeof e.pointerId === 'number' && e.pointerId !== drag.pointerId) return;
         gardenState.soundSeedsDragging = null;
 
         document.removeEventListener('pointermove', move);
         document.removeEventListener('pointerup', up);
         document.removeEventListener('pointercancel', up);
+
+        try {
+            if (drag && drag.el && typeof drag.pointerId === 'number' && drag.el.releasePointerCapture) {
+                drag.el.releasePointerCapture(drag.pointerId);
+            }
+        } catch (_) {}
 
         if (!drag) return;
 
