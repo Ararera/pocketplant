@@ -1,7 +1,3 @@
-// logic.js - Core Simulation Logic
-// Optimized for battery efficiency and performance
-
-// Cache Date object for heavy loops
 const _dateCache = new Date();
 
 function getHealMod(v) {
@@ -11,7 +7,6 @@ function getHealMod(v) {
 }
 
 function applyHeal(stat, base) {
-    // Optimization: Early exit if full
     if (state[stat] >= 100) return 0;
     
     const m = getHealMod(state[stat]);
@@ -22,13 +17,11 @@ function applyHeal(stat, base) {
 
 function computeGrowthFactor() {
     const w = state.water, s = state.sun, l = state.love;
-    // Optimization: Simple math is fast, but we can avoid some ops
     const min = Math.min(w, s, l);
     
-    // Most common case first to branch predict
     if (min > 75) return 1.0;
     
-    const avg = (w + s + l) * 0.3333; // mult is faster than div
+    const avg = (w + s + l) * 0.3333;
     if (min < 10) return 0.05;
     if (avg < 30) return 0.12;
     if (avg < 60) return 0.45;
@@ -41,16 +34,11 @@ function simulateStep(dtSeconds, mode = 'online') {
     const changes = { growth: 0, scarsAdded: [], died: false };
     const isOffline = mode === 'offline';
     
-    // Optimization: Cache deeply nested properties
     const res = state.dna?.resilience || 1;
-    // .includes is O(N), but array is tiny so it's fine.
-    const slowGuardian = state.activeGuardians.includes(4) ? 0.7 : 1;
+    const slowGuardian = state.activeGuardians && state.activeGuardians.includes(4) ? 0.7 : 1;
     
-    // Pre-calculate factors
     const dayFactor = isOffline ? 0.85 : (isDaytime() ? 1 : 0.7);
     
-    // Apply Decay
-    // Optimization: Combine multiplications
     const decayBase = (1 / res) * slowGuardian * dtSeconds;
     
     if (isOffline) {
@@ -63,10 +51,8 @@ function simulateStep(dtSeconds, mode = 'online') {
         state.love = Math.max(0, state.love - (CONFIG.decayRate.love * decayBase));
     }
 
-    // Active Recovery Logic
     const recoveryFactor = isOffline ? 0.6 : 1;
     
-    // Optimization: Only run recovery math if active
     if (state.isRainOn && state.water < 100) {
         const preWater = state.water;
         state.water = Math.min(100, state.water + CONFIG.recoveryRate.water * dtSeconds * recoveryFactor * getHealMod(state.water));
@@ -74,7 +60,6 @@ function simulateStep(dtSeconds, mode = 'online') {
         if (!isOffline && preWater < 100 && state.water >= 100) {
             state.rainRestUntil = Date.now() + CONFIG.rainRestCooldown;
             state.isRainOn = false;
-            // Optimization: Defer UI updates or limit them
             if (typeof spawnFloatingText === 'function') spawnFloatingText("💧 Fully hydrated! Resting...", "var(--accent-water)", "good");
             if (typeof applyTheme === 'function') applyTheme();
         }
@@ -93,7 +78,6 @@ function simulateStep(dtSeconds, mode = 'online') {
         }
     }
 
-    // Neglect & Death Checks
     const neglectChanges = updateNeglectTimers(dtSeconds * 1000, isOffline);
     if (neglectChanges.scarsAdded.length > 0) changes.scarsAdded.push(...neglectChanges.scarsAdded);
     
@@ -101,32 +85,26 @@ function simulateStep(dtSeconds, mode = 'online') {
     if (deathResult.scarsAdded.length > 0) changes.scarsAdded.push(...deathResult.scarsAdded);
     changes.died = deathResult.died;
 
-    // Growth Logic
     if (!changes.died) {
-        // Optimization: Cache lookup
         const currentSeason = SEASONS[state.season % 4];
         const seasonG = currentSeason ? currentSeason.growth : 1;
         const bloom = state.dna?.bloomSpeed || 1;
         
-        // Optimization: Use boolean flags or cached checks for scars
+        if (!state.scars) state.scars = [];
         const hasDormant = state.scars.includes('dormant');
         const dormantPen = hasDormant ? 0.5 : 1;
         const partialPen = (state.neglect && state.neglect.partialDormant) ? 0.75 : 1;
         
         const careMult = computeGrowthFactor();
         
-        // Consolidated multiplication
         const growthGained = CONFIG.growthRate * state.growthMultiplier * seasonG * bloom * dormantPen * partialPen * careMult * dtSeconds;
         
         state.growth += growthGained;
         changes.growth = growthGained;
 
-        // Stage Evolution Check (Optimized: Avoid loop if growth is low)
-        // Most ticks don't evolve, so we can do a quick check
         const currentThreshold = STAGE_THRESHOLDS[state.stage] || 99999;
         if (state.growth >= currentThreshold) {
             let next = 1;
-            // Only loop when we know we've crossed a threshold
             for (let i = 1; i < STAGE_THRESHOLDS.length; i++) {
                 if (state.growth >= STAGE_THRESHOLDS[i]) next = i + 1;
             }
@@ -135,7 +113,6 @@ function simulateStep(dtSeconds, mode = 'online') {
                 state.stage = next;
                 changes.evolved = true;
                 
-                // Safe UI updates
                 try {
                     if (typeof unlockDiscovery === 'function') {
                         if (state.stage >= 5) unlockDiscovery('reached_bloom');
@@ -144,16 +121,15 @@ function simulateStep(dtSeconds, mode = 'online') {
                     if (!isOffline && els.plantHero) {
                         els.plantHero.classList.add('evolving');
                         setTimeout(() => { if (els.plantHero) els.plantHero.classList.remove('evolving'); }, 2000);
-                        renderPlant('plantGroup', state.dna, state.stage);
+                        if (typeof renderPlant === 'function') renderPlant('plantGroup', state.dna, state.stage);
                         spawnFloatingText("✨ Evolved.", null, 'good');
-                        if (audio && audio.chime) audio.chime();
+                        if (typeof audio !== 'undefined' && audio.chime) audio.chime();
                     }
                 } catch (e) { console.warn("Evolution UI error", e); }
             }
         }
         
         state.dayProgress = (state.dayProgress || 0) + dtSeconds;
-        // While loop is fine here, usually only runs 0 or 1 times
         while (state.dayProgress >= CONFIG.daySeconds) {
             state.dayProgress -= CONFIG.daySeconds;
             state.day++;
@@ -164,15 +140,15 @@ function simulateStep(dtSeconds, mode = 'online') {
 
 function updateNeglectTimers(dtMs, offline = false) {
     if (!state.neglect) state.neglect = { waterLowMs: 0, sunLowMs: 0, loveLowMs: 0, crisisMs: 0, partialDormant: false };
+    if (!state.scars) state.scars = [];
+
     const result = { scarsAdded: [] };
     const res = state.dna?.resilience || 1;
     
-    // Optimization: Pre-calculate efficiency
     const eff = dtMs / Math.max(0.6, res);
     const t = CONFIG.neglectThreshold;
     const rec = CONFIG.neglectRecoveryRate;
     
-    // Logic updates
     if (state.water < t) state.neglect.waterLowMs += eff; 
     else if (state.neglect.waterLowMs > 0) state.neglect.waterLowMs = Math.max(0, state.neglect.waterLowMs - dtMs * rec);
     
@@ -182,27 +158,21 @@ function updateNeglectTimers(dtMs, offline = false) {
     if (state.love < t) state.neglect.loveLowMs += eff; 
     else if (state.neglect.loveLowMs > 0) state.neglect.loveLowMs = Math.max(0, state.neglect.loveLowMs - dtMs * rec);
 
-    // UI Updates - Optimization: Throttle these DOM touches!
-    // We only need to check these boundaries occasionally, or when values cross specific thresholds.
-    // For now, we wrap in !offline check, but ideally this runs only once per second in gameTick.
     const warnMs = CONFIG.neglectWarnHours * 3600000;
     const scarMs = CONFIG.neglectScarHours * 3600000;
 
     if (!offline && els.plantHero) {
-        // Optimization: ClassList.toggle is reasonably fast, but checking the condition first saves a DOM write
-        // if the state hasn't changed. However, toggle is optimized in modern browsers.
         els.plantHero.classList.toggle('droop-plant', state.neglect.waterLowMs >= warnMs);
         els.plantHero.classList.toggle('shade-plant', state.neglect.sunLowMs >= warnMs);
         els.plantHero.classList.toggle('quiet-plant', state.neglect.loveLowMs >= warnMs);
     }
     
-    // Scars
     if (state.neglect.waterLowMs >= scarMs && !state.scars.includes('wilt')) {
         state.scars.push('wilt');
         result.scarsAdded.push('wilt');
         if (!offline) { 
             if (typeof spawnFloatingText === 'function') spawnFloatingText('Thirst left a trace.', null, 'bad'); 
-            renderPlant('plantGroup', state.dna, state.stage); 
+            if (typeof renderPlant === 'function') renderPlant('plantGroup', state.dna, state.stage); 
         }
     }
     if (state.neglect.sunLowMs >= scarMs && !state.scars.includes('pale')) {
@@ -210,15 +180,13 @@ function updateNeglectTimers(dtMs, offline = false) {
         result.scarsAdded.push('pale');
         if (!offline) { 
              if (typeof spawnFloatingText === 'function') spawnFloatingText('Light faded.', null, 'bad'); 
-             renderPlant('plantGroup', state.dna, state.stage); 
+             if (typeof renderPlant === 'function') renderPlant('plantGroup', state.dna, state.stage); 
         }
     }
     
-    // Partial Dormant
     if (state.neglect.loveLowMs >= scarMs) state.neglect.partialDormant = true;
     if (state.love >= 35 && state.neglect.partialDormant) state.neglect.partialDormant = false;
 
-    // Crisis
     const inCrisis = state.water < CONFIG.crisisThreshold && state.sun < CONFIG.crisisThreshold && state.love < CONFIG.crisisThreshold;
     if (inCrisis) state.neglect.crisisMs += eff; 
     else if (state.neglect.crisisMs > 0) state.neglect.crisisMs = Math.max(0, state.neglect.crisisMs - dtMs * rec);
@@ -230,28 +198,27 @@ function updateNeglectTimers(dtMs, offline = false) {
 function checkCrisisAndDeath(offline = false) {
     const result = { scarsAdded: [], died: false };
     if (state.isDead) return result;
+    if (!state.scars) state.scars = [];
     
-    // Optimization: Early exit if no crisis
     if ((state.neglect?.crisisMs || 0) <= 0) return result;
 
     const cMs = state.neglect.crisisMs;
     const hrs = cMs / 3600000;
 
-    // Scars logic (same as before, mostly condition checks)
     if (hrs >= CONFIG.crisisDormantHours && !state.scars.includes('dormant')) {
         state.scars.push('dormant'); result.scarsAdded.push('dormant');
         if (els.plantHero) els.plantHero.classList.add('dormant-plant');
         if (!offline && typeof spawnFloatingText === 'function') spawnFloatingText('It withdrew into stillness.', null, 'warn');
-        renderPlant('plantGroup', state.dna, state.stage);
+        if (typeof renderPlant === 'function') renderPlant('plantGroup', state.dna, state.stage);
     }
     if (hrs >= CONFIG.crisisScar1Hours && !state.scars.includes('wilt')) {
         state.scars.push('wilt'); result.scarsAdded.push('wilt');
         if (!offline && typeof spawnFloatingText === 'function') spawnFloatingText('Crisis left a scar.', null, 'bad');
-        renderPlant('plantGroup', state.dna, state.stage);
+        if (typeof renderPlant === 'function') renderPlant('plantGroup', state.dna, state.stage);
     }
     if (hrs >= CONFIG.crisisScar2Hours && !state.scars.includes('bend')) {
         state.scars.push('bend'); result.scarsAdded.push('bend');
-        renderPlant('plantGroup', state.dna, state.stage);
+        if (typeof renderPlant === 'function') renderPlant('plantGroup', state.dna, state.stage);
     }
     if (hrs >= CONFIG.crisisDeathHours) {
         triggerDeath(); result.died = true;
@@ -260,43 +227,31 @@ function checkCrisisAndDeath(offline = false) {
 }
 
 function generateDNA(parent = null) {
-    // Optimization: Removed inner helper function definitions from inside the function scope.
-    // They are now defined once at module level or inline to save allocation.
-    
     const wild = Math.random() > 0.75;
     const baseH = wild ? Math.random() * 360 : 80 + Math.random() * 80; 
 
-    // Inline helpers for speed
     const lerpHue = (a, b, t) => {
         const d = ((((b - a) % 360) + 540) % 360) - 180;
         return (a + d * t + 360) % 360;
     };
     const clamp = (v, lo, hi) => (v < lo ? lo : (v > hi ? hi : v));
     
-    // --- Core palette ---
     const coreH = parent ? lerpHue(parent.colorH, baseH, 0.30) : baseH;
     const coreS = clamp((parent ? lerp(parent.colorS, 50 + Math.random() * 35, 0.25) : (45 + Math.random() * 35)), 25, 85);
     const coreL = clamp((parent ? lerp(parent.colorL, 30 + Math.random() * 25, 0.25) : (35 + Math.random() * 20)), 18, 70);
 
-    // --- Flower palette ---
     let flowerH0 = Math.random() * 360;
-    // Optimized avoid logic
     let safe = false;
     let attempts = 0;
     while (!safe && attempts < 10) {
-        // avoid 75-165
         if (flowerH0 < 75 || flowerH0 > 165) safe = true;
         else flowerH0 = Math.random() * 360;
         attempts++;
     }
-    if (!safe) flowerH0 = 180; // Fallback
+    if (!safe) flowerH0 = 180;
 
     const flowerH = parent ? lerpHue(parent.flowerH ?? flowerH0, flowerH0, 0.55) : flowerH0;
 
-    // --- Static Arrays moved out of function scope for memory optimization ---
-    
-    // Flower Archetypes
-    // Optimized: Manual Weighted Pick
     let flowerType = 'simple';
     const r = Math.random() * 100;
     if (r < 42) flowerType = 'simple';
@@ -306,7 +261,6 @@ function generateDNA(parent = null) {
     else if (r < 98) flowerType = 'rose';
     else flowerType = 'orchid';
 
-    // Petal counts
     let petalCount0 = 5;
     if (flowerType === 'tulip') petalCount0 = 6;
     else if (flowerType === 'bell' || flowerType === 'orchid') petalCount0 = 5;
@@ -371,7 +325,6 @@ function generateDNA(parent = null) {
 
     dna.leafSizeVar = 0.22 + Math.random() * 0.26;
 
-    // Traits
     if (state.inheritedTraits) {
         state.inheritedTraits.forEach(tid => {
             if (tid === 'resilience') dna.resilience = Math.min(2, (dna.resilience || 1) + 0.2);
@@ -390,7 +343,6 @@ function generateDNA(parent = null) {
     return dna;
 }
 
-// Move these OUT of the function so they are created only once in memory
 const DNA_OPTIONS = {
     leafShapes: ['round', 'oval', 'lanceolate', 'pointed', 'teardrop', 'heart', 'spade', 'oak', 'lobed', 'maple', 'fern', 'needle', 'eucalyptus', 'banana'],
     leafEdges: ['smooth', 'serrated', 'lobed'],
@@ -412,7 +364,6 @@ function triggerDeath() {
 }
 
 function processBuffs() {
-    // Optimization: Don't filter/reallocate array every tick if empty
     if (!state.buffs || state.buffs.length === 0) return;
     
     let dirty = false;
@@ -420,7 +371,6 @@ function processBuffs() {
         const b = state.buffs[i];
         b.remaining--;
         
-        // Direct assignment is faster than ifs if we have a map, but small switch/if is fine here
         if (b.type === 'water') state.water = Math.min(100, state.water + b.strength);
         else if (b.type === 'sun') state.sun = Math.min(100, state.sun + b.strength);
         else if (b.type === 'love') state.love = Math.min(100, state.love + b.strength);
@@ -442,9 +392,6 @@ function processBuffs() {
 function processGuardians() {
     if (!state.activeGuardians || state.activeGuardians.length === 0) return;
     
-    // Optimization: Cache family lookups? 
-    // Actually this loop is small (max 8 items), optimization gain is minimal.
-    // Just ensure we don't do heavy work inside.
     state.activeGuardians.forEach(i => {
         const f = FIREFLY_FAMILIES[i];
         if (!f) return;
@@ -464,10 +411,6 @@ function processGuardians() {
 function lerp(a, b, t) { return a + (b - a) * t; }
 
 function getTimeOfDay() {
-    // Optimization: Date creation is slow. 
-    // We already cached a date object at top of file, but we need current time.
-    // Using Date.now() is faster than new Date().getHours() if we track offset?
-    // For simplicity, just use new Date() but throttle calls to this function via logic loop.
     const h = new Date().getHours();
     if (h >= 5 && h < 7) return 'dawn';
     if (h >= 7 && h < 10) return 'morning';
@@ -479,26 +422,21 @@ function getTimeOfDay() {
 }
 
 function isDaytime() { 
-    // Simple hour check is faster than string comparison
     const h = new Date().getHours();
     return (h >= 5 && h < 20);
 }
 
 function startGameLoop() { 
-    // Optimization: Clear existing interval
     if (window.gameInterval) clearInterval(window.gameInterval);
     window.gameInterval = setInterval(gameTick, CONFIG.tickRate); 
 }
 
-// Global throttles
 let _lastRenderTime = 0;
 let _lastTimeOfDayCheck = 0;
-const RENDER_THROTTLE_MS = 1000; // Only update UI once per second (battery saver!)
-const TIME_CHECK_THROTTLE_MS = 30000; // Check time of day every 30 seconds
+const RENDER_THROTTLE_MS = 1000;
+const TIME_CHECK_THROTTLE_MS = 30000;
 
 function gameTick() {
-    // CRITICAL BATTERY SAVER:
-    // If tab is hidden, do NOT run the loop logic or rendering.
     if (document.visibilityState !== 'visible') return;
 
     if (state.isDead) return;
@@ -506,13 +444,11 @@ function gameTick() {
     const now = Date.now();
     lastTickTime = now;
     
-    // Logic always runs
     simulateStep(CONFIG.tickRate / 1000, 'online');
     processBuffs();
     processGuardians();
-    attemptSpawnFirefly();
+    if (typeof attemptSpawnFirefly === 'function') attemptSpawnFirefly();
     
-    // Save logic (Debounced - every 5 seconds)
     if (!saveDebounceTimer) {
         saveDebounceTimer = setTimeout(() => { 
             if (typeof saveState === 'function') saveState(); 
@@ -520,13 +456,11 @@ function gameTick() {
         }, 5000);
     }
     
-    // UI Rendering - Throttled to 1fps for battery
     if (now - _lastRenderTime > RENDER_THROTTLE_MS) {
         if (typeof render === 'function') render();
         _lastRenderTime = now;
     }
     
-    // Time of day check - very infrequent
     if (now - _lastTimeOfDayCheck > TIME_CHECK_THROTTLE_MS) {
         if (typeof updateTimeOfDay === 'function') updateTimeOfDay();
         _lastTimeOfDayCheck = now;

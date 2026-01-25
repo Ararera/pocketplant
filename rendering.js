@@ -1,25 +1,35 @@
-// rendering.js - SVG Generation and Main UI Updates
+function createSVGElement(tag) {
+    return document.createElementNS('http://www.w3.org/2000/svg', tag);
+}
 
 function renderPlant(containerId, dna, stage, scarsOverride = null) {
     const g = document.getElementById(containerId);
     if (!g || !dna) return;
     g.innerHTML = '';
+    
     const scars = scarsOverride || state.scars || [];
     const hasWilt = scars.includes('wilt'), hasBend = scars.includes('bend'), hasPale = scars.includes('pale');
+    
     let cH = dna.colorH, cS = dna.colorS, cL = dna.colorL;
     if (hasPale) { cS = Math.max(20, cS - 30); cL = Math.min(70, cL + 15); }
+    
     const stemHue = ((cH + (dna.stemHueOffset || 0)) % 360 + 360) % 360;
     const stemColor = `hsl(${stemHue},${cS}%,${cL}%)`;
+    
     const lh = ((cH + (dna.leafHueOffset || 0)) % 360 + 360) % 360;
     const ls = Math.max(15, Math.min(90, cS + (dna.leafSatOffset || 0)));
     const ll = Math.max(10, Math.min(90, (cL + 10) + (dna.leafLightOffset || 0)));
     const leafBaseColor = `hsl(${lh},${ls}%,${ll}%)`;
+    
     const flowerColor = dna.flowerColor;
+    
     const stemsG = createSVGElement('g'), leavesG = createSVGElement('g'), flowersG = createSVGElement('g');
     g.appendChild(stemsG); g.appendChild(leavesG); g.appendChild(flowersG);
+    
     const lean = dna.leanDirection || 1, bendOff = hasBend ? lean * 15 : 0, wiltAng = hasWilt ? 20 : 0, baseY = 189;
     const stemH = dna.stemHeight * (0.3 + stage * 0.175), curve = (dna.stemCurve || 0) + bendOff;
     const stemStartX = 100, stemStartY = baseY, stemCtrlX = 100 + curve, stemCtrlY = baseY - stemH / 2, stemEndX = 100 + curve / 2, stemEndY = baseY - stemH;
+    
     const seed = (dna.seed || 0) + stage * 101;
     const rand = (function () {
         let a = (seed >>> 0) || 1;
@@ -39,93 +49,91 @@ function renderPlant(containerId, dna, stage, scarsOverride = null) {
     }
 
     if (stage >= 1) {
-    const sw = Math.max(2.6, (dna.stemWidth || 3.5) + stage * 0.25);
-    const stemPathD = `M${stemStartX} ${stemStartY} Q${stemCtrlX} ${stemCtrlY} ${stemEndX} ${stemEndY}`;
+        const sw = Math.max(2.6, (dna.stemWidth || 3.5) + stage * 0.25);
+        const stemPathD = `M${stemStartX} ${stemStartY} Q${stemCtrlX} ${stemCtrlY} ${stemEndX} ${stemEndY}`;
 
-    const stem = createSVGElement('path');
-    stem.setAttribute('d', stemPathD);
-    stem.setAttribute('stroke', stemColor);
-    stem.setAttribute('stroke-width', sw);
-    stem.setAttribute('fill', 'none');
-    stem.setAttribute('stroke-linecap', 'round');
-    stemsG.appendChild(stem);
+        const stem = createSVGElement('path');
+        stem.setAttribute('d', stemPathD);
+        stem.setAttribute('stroke', stemColor);
+        stem.setAttribute('stroke-width', sw);
+        stem.setAttribute('fill', 'none');
+        stem.setAttribute('stroke-linecap', 'round');
+        stemsG.appendChild(stem);
 
-    // Subtle highlight / ridges (keeps stems from feeling flat)
-    const tex = dna.stemTexture || 'smooth';
-    if (tex === 'ridged' || tex === 'striped') {
-        const hl = createSVGElement('path');
-        hl.setAttribute('d', stemPathD);
-        hl.setAttribute('stroke', `rgba(255,255,255,${tex === 'ridged' ? 0.14 : 0.10})`);
-        hl.setAttribute('stroke-width', Math.max(1.2, sw * 0.35));
-        hl.setAttribute('fill', 'none');
-        hl.setAttribute('stroke-linecap', 'round');
-        hl.style.filter = 'blur(0.2px)';
-        if (tex === 'striped') {
-            hl.setAttribute('stroke-dasharray', `${6 + rand() * 6} ${6 + rand() * 6}`);
-            hl.setAttribute('stroke-dashoffset', `${rand() * 10}`);
+        const tex = dna.stemTexture || 'smooth';
+        if (tex === 'ridged' || tex === 'striped') {
+            const hl = createSVGElement('path');
+            hl.setAttribute('d', stemPathD);
+            hl.setAttribute('stroke', `rgba(255,255,255,${tex === 'ridged' ? 0.14 : 0.10})`);
+            hl.setAttribute('stroke-width', Math.max(1.2, sw * 0.35));
+            hl.setAttribute('fill', 'none');
+            hl.setAttribute('stroke-linecap', 'round');
+            hl.style.filter = 'blur(0.2px)';
+            if (tex === 'striped') {
+                hl.setAttribute('stroke-dasharray', `${6 + rand() * 6} ${6 + rand() * 6}`);
+                hl.setAttribute('stroke-dashoffset', `${rand() * 10}`);
+            }
+            stemsG.appendChild(hl);
         }
-        stemsG.appendChild(hl);
-    }
 
-    // Speckles (bark freckles / texture)
-    const sp = dna.stemSpeckleStrength || 0;
-    if (sp > 0 && stage >= 2) {
-        const n = Math.floor(3 + sp * 18);
-        for (let i = 0; i < n; i++) {
-            const t = 0.15 + rand() * 0.75;
-            const pt = getPointOnStem(t);
-            const c = createSVGElement('circle');
-            c.setAttribute('cx', pt.x + (rand() * 6 - 3));
-            c.setAttribute('cy', pt.y + (rand() * 6 - 3));
-            c.setAttribute('r', 0.6 + rand() * 1.4);
-            c.setAttribute('fill', `rgba(255,255,255,${0.06 + sp * 0.10})`);
-            stemsG.appendChild(c);
+        const sp = dna.stemSpeckleStrength || 0;
+        if (sp > 0 && stage >= 2) {
+            const n = Math.floor(3 + sp * 18);
+            for (let i = 0; i < n; i++) {
+                const t = 0.15 + rand() * 0.75;
+                const pt = getPointOnStem(t);
+                const c = createSVGElement('circle');
+                c.setAttribute('cx', pt.x + (rand() * 6 - 3));
+                c.setAttribute('cy', pt.y + (rand() * 6 - 3));
+                c.setAttribute('r', 0.6 + rand() * 1.4);
+                c.setAttribute('fill', `rgba(255,255,255,${0.06 + sp * 0.10})`);
+                stemsG.appendChild(c);
+            }
         }
-    }
 
-    // Surface features: nodes / thorns / hairs (rare, but adds character)
-    const surf = dna.stemSurface || 'none';
-    if (surf === 'nodes' && stage >= 3) {
-        const n = 2 + Math.floor(rand() * 2);
-        for (let i = 0; i < n; i++) {
-            const t = 0.25 + (i / n) * 0.5 + (rand() * 0.08 - 0.04);
-            const pt = getPointOnStem(t);
-            const node = createSVGElement('circle');
-            node.setAttribute('cx', pt.x);
-            node.setAttribute('cy', pt.y);
-            node.setAttribute('r', 1.4 + rand() * 1.2);
-            node.setAttribute('fill', `rgba(0,0,0,0.10)`);
-            stemsG.appendChild(node);
-        }
-    } else if (surf === 'thorns' && stage >= 4) {
-        const n = 2 + Math.floor(rand() * 3);
-        for (let i = 0; i < n; i++) {
-            const t = 0.28 + rand() * 0.55;
-            const pt = getPointOnStem(t);
-            const side = rand() > 0.5 ? 1 : -1;
-            const thorn = createSVGElement('path');
-            const len = 6 + rand() * 6;
-            const w = 2.2 + rand() * 1.6;
-            thorn.setAttribute('d', `M${pt.x} ${pt.y} L${pt.x + side * len} ${pt.y - w} L${pt.x + side * len} ${pt.y + w} Z`);
-            thorn.setAttribute('fill', `rgba(0,0,0,0.10)`);
-            stemsG.appendChild(thorn);
-        }
-    } else if (surf === 'hairs' && stage >= 2) {
-        const n = 6 + Math.floor(rand() * 8);
-        for (let i = 0; i < n; i++) {
-            const t = 0.18 + rand() * 0.75;
-            const pt = getPointOnStem(t);
-            const side = rand() > 0.5 ? 1 : -1;
-            const hair = createSVGElement('path');
-            hair.setAttribute('d', `M${pt.x} ${pt.y} Q${pt.x + side * (4 + rand() * 4)} ${pt.y - (3 + rand() * 6)} ${pt.x + side * (7 + rand() * 6)} ${pt.y - (2 + rand() * 5)}`);
-            hair.setAttribute('stroke', `rgba(255,255,255,0.18)`);
-            hair.setAttribute('stroke-width', 0.7);
-            hair.setAttribute('fill', 'none');
-            hair.setAttribute('stroke-linecap', 'round');
-            stemsG.appendChild(hair);
+        const surf = dna.stemSurface || 'none';
+        if (surf === 'nodes' && stage >= 3) {
+            const n = 2 + Math.floor(rand() * 2);
+            for (let i = 0; i < n; i++) {
+                const t = 0.25 + (i / n) * 0.5 + (rand() * 0.08 - 0.04);
+                const pt = getPointOnStem(t);
+                const node = createSVGElement('circle');
+                node.setAttribute('cx', pt.x);
+                node.setAttribute('cy', pt.y);
+                node.setAttribute('r', 1.4 + rand() * 1.2);
+                node.setAttribute('fill', `rgba(0,0,0,0.10)`);
+                stemsG.appendChild(node);
+            }
+        } else if (surf === 'thorns' && stage >= 4) {
+            const n = 2 + Math.floor(rand() * 3);
+            for (let i = 0; i < n; i++) {
+                const t = 0.28 + rand() * 0.55;
+                const pt = getPointOnStem(t);
+                const side = rand() > 0.5 ? 1 : -1;
+                const thorn = createSVGElement('path');
+                const len = 6 + rand() * 6;
+                const w = 2.2 + rand() * 1.6;
+                thorn.setAttribute('d', `M${pt.x} ${pt.y} L${pt.x + side * len} ${pt.y - w} L${pt.x + side * len} ${pt.y + w} Z`);
+                thorn.setAttribute('fill', `rgba(0,0,0,0.10)`);
+                stemsG.appendChild(thorn);
+            }
+        } else if (surf === 'hairs' && stage >= 2) {
+            const n = 6 + Math.floor(rand() * 8);
+            for (let i = 0; i < n; i++) {
+                const t = 0.18 + rand() * 0.75;
+                const pt = getPointOnStem(t);
+                const side = rand() > 0.5 ? 1 : -1;
+                const hair = createSVGElement('path');
+                hair.setAttribute('d', `M${pt.x} ${pt.y} Q${pt.x + side * (4 + rand() * 4)} ${pt.y - (3 + rand() * 6)} ${pt.x + side * (7 + rand() * 6)} ${pt.y - (2 + rand() * 5)}`);
+                hair.setAttribute('stroke', `rgba(255,255,255,0.18)`);
+                hair.setAttribute('stroke-width', 0.7);
+                hair.setAttribute('fill', 'none');
+                hair.setAttribute('stroke-linecap', 'round');
+                stemsG.appendChild(hair);
+            }
         }
     }
-}
+    
     if (stage >= 2) {
         const lc = Math.min(dna.leafCount || 3, stage);
         const shapes = (dna.leafShapes && dna.leafShapes.length ? dna.leafShapes : [dna.leafShape || 'round']);
@@ -137,6 +145,7 @@ function renderPlant(containerId, dna, stage, scarsOverride = null) {
             renderLeaf(leavesG, pt.x, pt.y, ang, sz, leafBaseColor, shape, { dna, rand });
         }
     }
+    
     if (stage === 3) {
         const bud = createSVGElement('ellipse');
         bud.setAttribute('cx', stemEndX); bud.setAttribute('cy', stemEndY);
@@ -144,6 +153,7 @@ function renderPlant(containerId, dna, stage, scarsOverride = null) {
         bud.setAttribute('fill', `hsl(${dna.flowerH},${dna.flowerS * 0.5}%,${dna.flowerL - 10}%)`);
         flowersG.appendChild(bud);
     }
+    
     if (stage >= 4) {
         const flowerScale = stage >= 5 ? 1.3 : 1;
         renderFlower(flowersG, stemEndX, stemEndY - 5, dna.petalCount || 5, dna.petalShape || 'round', flowerColor, flowerScale, dna, rand);
@@ -176,7 +186,6 @@ function renderLeaf(g, x, y, angle, scale, color, shape, opts = null) {
 
     const edge = dna.leafEdge || 'smooth';
 
-    // More botanical silhouettes (still stylized)
     const paths = {
         pointed: `M0,0 Q${-sz * 0.55},${-sz} 0,${-sz * 1.6} Q${sz * 0.55},${-sz} 0,0`,
         oval: `M0,0 Q${-sz * 0.65},${-sz * 0.75} 0,${-sz * 1.55} Q${sz * 0.65},${-sz * 0.75} 0,0`,
@@ -194,13 +203,10 @@ function renderLeaf(g, x, y, angle, scale, color, shape, opts = null) {
         needle: `M0,0 Q${-sz * 0.18},${-sz * 0.7} 0,${-sz * 1.9} Q${sz * 0.18},${-sz * 0.7} 0,0`
     };
 
-    // A lightly serrated variant for narrow leaves (keeps it "real" without becoming spiky sci-fi)
     const serrate = (baseD) => {
         if (edge !== 'serrated') return baseD;
-        // Only apply to a subset of shapes where it reads correctly
         const allow = ['oval', 'lanceolate', 'pointed', 'teardrop', 'eucalyptus'];
         if (!allow.includes(shape)) return baseD;
-        // Fake serration by adding tiny "teeth" bumps along the sides (simple but effective)
         const t = 0.10 + rand() * 0.10;
         return `M0,0 
             Q${-sz * (0.45 + t)},${-sz * 0.45} ${-sz * (0.55 + t)},${-sz * 0.65}
@@ -214,17 +220,14 @@ function renderLeaf(g, x, y, angle, scale, color, shape, opts = null) {
     const d0 = paths[shape] || paths.round;
     const d = serrate(d0);
 
-    // Wrap in a group so we can layer veins / texture cleanly
     const grp = createSVGElement('g');
     grp.setAttribute('transform', `translate(${x},${y}) rotate(${angle})`);
     g.appendChild(grp);
 
-    // Per-leaf color jitter (size/texture variance looks better with slight color variance too)
     const hueJ = (dna.leafHueOffset || 0) + (rand() * 6 - 3);
     const satJ = (dna.leafSatOffset || 0) + (rand() * 8 - 4);
     const litJ = (dna.leafLightOffset || 0) + (rand() * 8 - 4);
 
-    // If "color" is an hsl string, keep it; otherwise fallback.
     const baseFill = (typeof color === 'string' ? color : '#5aa469');
     const main = createSVGElement('path');
     main.setAttribute('d', d);
@@ -232,7 +235,6 @@ function renderLeaf(g, x, y, angle, scale, color, shape, opts = null) {
     main.style.filter = `hue-rotate(${hueJ}deg) saturate(${1 + satJ / 60}) brightness(${1 + litJ / 80})`;
     grp.appendChild(main);
 
-    // Variegation: soft inner patch
     const varg = dna.leafVariegation || 0;
     if (varg > 0 && (dna.leafTexture === 'variegated' || rand() < 0.45)) {
         const patch = createSVGElement('path');
@@ -244,7 +246,6 @@ function renderLeaf(g, x, y, angle, scale, color, shape, opts = null) {
         grp.appendChild(patch);
     }
 
-    // Veins: midrib + side veins (subtle)
     const veinStrength = dna.leafVeinStrength || 0;
     if ((dna.leafTexture === 'veined' || veinStrength > 0.18) && shape !== 'needle') {
         const veinOpacity = Math.min(0.22, 0.08 + veinStrength * 0.35);
@@ -272,7 +273,6 @@ function renderLeaf(g, x, y, angle, scale, color, shape, opts = null) {
         }
     }
 
-    // Speckles: dew / freckles
     const sp = dna.leafSpeckleStrength || 0;
     if (dna.leafTexture === 'speckled' || (sp > 0 && rand() < 0.75)) {
         const n = Math.floor(3 + sp * 14);
@@ -297,7 +297,6 @@ function renderFlower(g, x, y, count, shape, color, scale, dna = null, randFn = 
 
     const sz = 12 * scale;
 
-    // Petal primitives
     const petalPaths = {
         pointed: `M0,0 Q${sz * 0.3},${-sz * 0.75} 0,${-sz * 1.05} Q${-sz * 0.3},${-sz * 0.75} 0,0`,
         wavy: `M0,0 C${sz * 0.45},${-sz * 0.35} ${sz * 0.2},${-sz * 0.8} 0,${-sz * 1.05} C${-sz * 0.2},${-sz * 0.8} ${-sz * 0.45},${-sz * 0.35} 0,0`,
@@ -314,7 +313,6 @@ function renderFlower(g, x, y, count, shape, color, scale, dna = null, randFn = 
     };
 
     if (type === 'daisy') {
-        // Many thin ray petals + stronger center
         const rays = Math.max(10, Math.min(28, count));
         const d = `M0,0 Q${sz * 0.18},${-sz * 0.55} 0,${-sz * 1.25} Q${-sz * 0.18},${-sz * 0.55} 0,0`;
         for (let i = 0; i < rays; i++) makePetal((360 / rays) * i, d, 0.82, 0.95 + rand() * 0.12);
@@ -325,7 +323,6 @@ function renderFlower(g, x, y, count, shape, color, scale, dna = null, randFn = 
         c.style.opacity = '0.95';
         fg.appendChild(c);
     } else if (type === 'tulip') {
-        // Cup: 6 petals, taller and closer
         const petals = 6;
         const d = `M0,0 C${sz * 0.35},${-sz * 0.25} ${sz * 0.25},${-sz * 0.95} 0,${-sz * 1.25} C${-sz * 0.25},${-sz * 0.95} ${-sz * 0.35},${-sz * 0.25} 0,0`;
         for (let i = 0; i < petals; i++) makePetal((360 / petals) * i, d, 0.85, 1.05);
@@ -336,7 +333,6 @@ function renderFlower(g, x, y, count, shape, color, scale, dna = null, randFn = 
         c.style.opacity = '0.9';
         fg.appendChild(c);
     } else if (type === 'bell') {
-        // Drooping bell with a simple lip
         fg.setAttribute('transform', `translate(${x},${y}) rotate(${(rand() * 10 - 5)})`);
         const bell = createSVGElement('path');
         bell.setAttribute('d', `M0,0 C${sz * 0.75},${-sz * 0.35} ${sz * 0.55},${-sz * 1.35} 0,${-sz * 1.45} C${-sz * 0.55},${-sz * 1.35} ${-sz * 0.75},${-sz * 0.35} 0,0`);
@@ -359,7 +355,6 @@ function renderFlower(g, x, y, count, shape, color, scale, dna = null, randFn = 
         c.style.opacity = '0.8';
         fg.appendChild(c);
     } else if (type === 'rose') {
-        // Layered petals (stylized rosette)
         const layers = 3;
         for (let l = 0; l < layers; l++) {
             const n = 6 + l * 3;
@@ -373,7 +368,6 @@ function renderFlower(g, x, y, count, shape, color, scale, dna = null, randFn = 
         c.setAttribute('fill', `rgba(0,0,0,0.08)`);
         fg.appendChild(c);
     } else if (type === 'orchid') {
-        // 5 petals with a larger "lip" (very simplified)
         const base = petalPaths[shape] || petalPaths.round;
         for (let i = 0; i < 5; i++) {
             const sc = (i === 2) ? 1.25 : (0.95 + rand() * 0.12);
@@ -386,7 +380,6 @@ function renderFlower(g, x, y, count, shape, color, scale, dna = null, randFn = 
         c.style.opacity = '0.9';
         fg.appendChild(c);
     } else {
-        // "simple" flower (original style)
         const d = petalPaths[shape] || petalPaths.round;
         for (let i = 0; i < count; i++) {
             makePetal((360 / count) * i, d, 0.9, 1);

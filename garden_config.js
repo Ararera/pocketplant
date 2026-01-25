@@ -1,39 +1,25 @@
-// garden_config.js - State, Constants, and Utilities
-// Optimized: Frozen constants, efficient color parsing, better state management
-
-let gardenState = {
+window.gardenState = Object.assign(window.gardenState || {}, {
     isOpen: false,
     fireflies: [],
-    // fireflySpawnInterval: null, // Managed via master loop now
     ambientInterval: null,
     windInterval: null,
     soundscapeActive: false,
     audioContext: null,
     gainNode: null,
-    // Audio layer nodes
     ambienceGain: null,
     musicalGain: null,
     plantGain: null,
-    // Ambient sound timers
     ambientTimers: {},
-    // Plant drone oscillators
     plantDrones: [],
-    // Audio Buffers Cache (New for optimization)
     audioBuffers: {},
-
-    // Sound Seeds (player placed)
     soundSeedsAudio: {},
     soundSeedsDom: {},
     soundSeedsDragging: null,
-    
-    // Current mood
-    currentMood: 'contemplative', // contemplative, mysterious, tender
+    currentMood: 'contemplative',
     moodTransitionTimer: null,
     plantBreathTimer: null,
     entryTime: null,
-    maxFireflies: 15, // Reduced from 20 for battery safety
-
-    // Firefly -> Moon interaction
+    maxFireflies: 15,
     moonFlightActive: false,
     moonStreakKey: null,
     moonStreakCount: 0,
@@ -42,26 +28,20 @@ let gardenState = {
     moonHitFadeTimer: null,
     _moonBaseBoxShadow: null,
     _moonBaseBackground: null,
-    
-    // Performance: Master Animation Loop ID
     visualLoopId: null
-};
-
-// Musical notes for firefly chords (frequencies in Hz)
-const GARDEN_CHORDS = Object.freeze({
-    0: [261.63, 329.63, 392.00],       // Ember - C major (warm)
-    1: [293.66, 369.99, 440.00],       // Citrine - D major (bright)
-    2: [329.63, 415.30, 493.88],       // Verdant - E major (vital)
-    3: [349.23, 440.00, 523.25],       // Aqua - F major (flowing)
-    4: [392.00, 493.88, 587.33],       // Azure - G major (calm)
-    5: [440.00, 554.37, 659.25],       // Violet - A major (dreamy)
-    6: [493.88, 622.25, 739.99],       // Rose - B major (loving)
-    7: [277.18, 349.23, 415.30]        // Pearl - C# major (mysterious)
 });
 
+const GARDEN_CHORDS = Object.freeze({
+    0: [261.63, 329.63, 392.00],
+    1: [293.66, 369.99, 440.00],
+    2: [329.63, 415.30, 493.88],
+    3: [349.23, 440.00, 523.25],
+    4: [392.00, 493.88, 587.33],
+    5: [440.00, 554.37, 659.25],
+    6: [493.88, 622.25, 739.99],
+    7: [277.18, 349.23, 415.30]
+});
 
-// Sound Seed definitions (12) - all share a compatible pentatonic palette.
-// These are intentionally gentle and sparse so layering many stays pleasant.
 const SOUND_SEEDS = Object.freeze([
     { id: 0, name: 'Dew',    emoji: '💧', hue: 200, base: 220.00, pattern: [0, 3, 5, 7], rhythm: [0.0, 0.6, 1.2, 2.0] },
     { id: 1, name: 'Ember',  emoji: '🔥', hue: 15,  base: 196.00, pattern: [0, 5, 7, 10], rhythm: [0.0, 0.7, 1.4, 2.4] },
@@ -77,8 +57,6 @@ const SOUND_SEEDS = Object.freeze([
     { id:11, name: 'Bloom',  emoji: '🌸', hue: 320, base: 246.94, pattern: [0, 3, 7, 9],  rhythm: [0.0, 0.65, 1.45, 2.3] }
 ]);
 
-
-// Firefly family timbres
 const FIREFLY_TIMBRES = Object.freeze({
     0: { type: 'sawtooth', filterFreq: 800, attack: 0.08, decay: 1.5, detune: 5 },
     1: { type: 'sine', filterFreq: 2000, attack: 0.02, decay: 1.2, detune: 0 },
@@ -111,10 +89,6 @@ const AMBIENT_SOUNDS = Object.freeze({
     fenceCreak: { minInterval: 25000, maxInterval: 60000, chance: 0.4 }
 });
 
-// Utilities
-// Optimization: REMOVED the DOM creation fallback. 
-// Creating a DIV, adding to body, and getting computed style is extremely slow.
-// If regex fails, we now return a default rather than thrashing the layout.
 function _parseColorToRgb(col) {
     if (!col) return { r: 254, g: 249, b: 195 };
     col = String(col).trim();
@@ -126,19 +100,18 @@ function _parseColorToRgb(col) {
     }
     let m = col.match(/^rgba?\(([^)]+)\)$/i);
     if (m) {
-        const parts = m[1].split(',').map(s => s.trim());
+        const parts = m[1].split(/[\s,]+/).filter(Boolean);
         return { r: Math.round(parseFloat(parts[0] || '255')), g: Math.round(parseFloat(parts[1] || '255')), b: Math.round(parseFloat(parts[2] || '255')) };
     }
     m = col.match(/^hsla?\(([^)]+)\)$/i);
     if (m) {
-        const parts = m[1].split(',').map(s => s.trim());
+        const parts = m[1].split(/[\s,]+/).filter(Boolean);
         const h = parseFloat(parts[0] || '0'), s = (parseFloat((parts[1] || '0').replace('%', '')) || 0) / 100, l = (parseFloat((parts[2] || '0').replace('%', '')) || 0) / 100;
         const c = (1 - Math.abs(2 * l - 1)) * s, hh = ((h % 360) + 360) % 360, x = c * (1 - Math.abs(((hh / 60) % 2) - 1)), m0 = l - c / 2;
         let r1 = 0, g1 = 0, b1 = 0;
         if (hh < 60) { r1 = c; g1 = x; b1 = 0; } else if (hh < 120) { r1 = x; g1 = c; b1 = 0; } else if (hh < 180) { r1 = 0; g1 = c; b1 = x; } else if (hh < 240) { r1 = 0; g1 = x; b1 = c; } else if (hh < 300) { r1 = x; g1 = 0; b1 = c; } else { r1 = c; g1 = 0; b1 = x; }
         return { r: Math.round((r1 + m0) * 255), g: Math.round((g1 + m0) * 255), b: Math.round((b1 + m0) * 255) };
     }
-    // Optimization: Fallback color instead of expensive DOM calculation
     return { r: 254, g: 249, b: 195 };
 }
 

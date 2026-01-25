@@ -1,12 +1,15 @@
-// config.js - Constants, Configuration, and State
-// Optimized for performance and memory usage
+const POT_COLORS = Object.freeze([
+    '#e07a5f', '#d4a373', '#8d99ae', '#ef476f', '#118ab2', '#06d6a0', 
+    '#ffd166', '#a8dadc', '#457b9d', '#e63946', '#f1faee', '#2a9d8f', 
+    '#264653', '#f4a261', '#e76f51', '#cdb4db', '#ffc8dd', '#ffafcc', 
+    '#bde0fe', '#a2d2ff', '#606c38', '#283618', '#fefae0', '#dda15e', 
+    '#bc6c25', '#333333'
+]);
 
-// Use Object.freeze to hint to the engine that these strictly won't change,
-// allowing for better memory optimization and reducing GC pressure.
-
-const POT_COLORS = Object.freeze(['#e07a5f', '#d4a373', '#8d99ae', '#ef476f', '#118ab2', '#06d6a0', '#ffd166', '#a8dadc', '#457b9d', '#e63946', '#f1faee', '#2a9d8f', '#264653', '#f4a261', '#e76f51', '#cdb4db', '#ffc8dd', '#ffafcc', '#bde0fe', '#a2d2ff', '#606c38', '#283618', '#fefae0', '#dda15e', '#bc6c25', '#333333']);
-
-const PATTERN_COLORS = Object.freeze(['rgba(255,255,255,0.5)', 'rgba(255,255,255,0.3)', 'rgba(0,0,0,0.2)', '#ffd700', '#c0c0c0', '#cd7f32', '#f472b6', '#60a5fa', '#4ade80']);
+const PATTERN_COLORS = Object.freeze([
+    'rgba(255,255,255,0.5)', 'rgba(255,255,255,0.3)', 'rgba(0,0,0,0.2)', 
+    '#ffd700', '#c0c0c0', '#cd7f32', '#f472b6', '#60a5fa', '#4ade80'
+]);
 
 const PATTERNS = Object.freeze([
     { id: 'patNone', name: 'None', unlockAt: 0 },
@@ -60,7 +63,7 @@ const MOODS = Object.freeze({
     thriving: { text: 'basking contentedly', color: '#4ade80', threshold: 75 },
     content: { text: 'swaying gently', color: '#a3e635', threshold: 55 },
     restless: { text: 'reaching for light', color: '#facc15', threshold: 35 },
-    struggling: { text: 'wilting slowly', color: '#fb923c', threshold: 15 },
+    strained: { text: 'wilting slowly', color: '#fb923c', threshold: 15 },
     dormant: { text: 'in deep slumber', color: '#f87171', threshold: 0 }
 });
 
@@ -82,14 +85,12 @@ const INHERITABLE_TRAITS = Object.freeze([
 ]);
 
 const CONFIG = {
-    // Logic Settings
     decayRate: { water: 0.023, sun: 0.025, love: 0.018 },
     offlineDecayMult: { water: 1.3, sun: 1.3, love: 2.0 },
     recoveryRate: { water: 0.18, sunDay: 0.32, sunNight: 0.22 },
     growthRate: 0.35,
-    tickRate: 1000, // Logic tick rate (1s is good for battery)
+    tickRate: 1000,
     
-    // Thresholds
     healThreshold1: 30,
     healThreshold2: 10,
     healMod1: 0.5,
@@ -105,7 +106,6 @@ const CONFIG = {
     crisisDeathHours: 14,
     daySeconds: 86400,
     
-    // Interactions
     debugTapThreshold: 20,
     singCooldown: 300000,
     fertilizeCooldown: 180000,
@@ -113,22 +113,15 @@ const CONFIG = {
     sunRestCooldown: 480000,
     loveRestCooldown: 180000,
     
-    // Performance & Visual Limits
-    // CRITICAL OPTIMIZATION: Reduced max fireflies significantly. 
-    // 50 per family * 8 families = 400 entities. 
-    // 12 per family * 8 families = 96 entities (Much friendlier for battery)
     maxFireflyPerFamily: 12, 
     offlineChunkSize: 60,
     
-    // Performance configuration
     performance: {
         enableParticles: true,
-        lowPowerMode: false, // Can be toggled by user or auto-detected
+        lowPowerMode: false,
         maxParticlesLowPower: 5,
-        // Tick rates (ms)
         normalTickRate: 1000,
         lowPowerTickRate: 2000,
-        // Visual update throttling
         renderThrottleMs: 1000,
         lowPowerRenderThrottleMs: 2000
     }
@@ -142,45 +135,34 @@ const DREAMS = Object.freeze([
     "dreamed of butterfly wings", "whispered secrets to the moon"
 ]);
 
-// Global State
-// Initial state object. 
-// Note: Ensure deep clones are used if resetting state to avoid reference issues.
 let state = {
-    // Stats
     water: 50, sun: 50, love: 50, growth: 0, stage: 1,
     
-    // Environment
     isSunLampOn: false, isRainOn: false,
     day: 1, dayProgress: 0, generation: 1,
     name: "Sprout", season: 0, dna: null,
     
-    // Visuals
     potColor: POT_COLORS[0], 
     potPattern: 'patNone', 
     potPatternColor: 'rgba(255,255,255,0.5)',
     
-    // Lifecycle
     timeAtZero: 0, isDead: false, history: [],
     lastSave: Date.now(), growthMultiplier: 1,
     
-    // Cooldowns
     singCooldownUntil: 0, fertilizeCooldownUntil: 0,
     rainRestUntil: 0, sunRestUntil: 0, loveRestUntil: 0,
     
-    // Entities (Optimization: fireflies object structure remains, but counts are limited by CONFIG)
     fireflies: {}, 
     totalFireflies: 0, 
     activeGuardians: [],
     
-    // Status
     buffs: [], scars: [], crisisCount: 0, inheritedTraits: [],
     lastDream: null, isMusicPlaying: false,
     neglect: { waterLowMs: 0, sunLowMs: 0, loveLowMs: 0, crisisMs: 0, partialDormant: false },
     lastWhisperAt: 0
 };
 
-// Global Cache
-let els = {}; // Element cache
+let els = {};
 let selectedFamily = null;
 let activeBigFireflies = [];
 let lastTickTime = Date.now();

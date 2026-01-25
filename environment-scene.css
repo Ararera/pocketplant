@@ -1,20 +1,14 @@
-/* ============================================
-   ENVIRONMENT SCENE - Immersive CSS Background
-   Adds depth, grass, clouds, and atmosphere
-   ============================================ */
-
-/* Scene Container - sits behind everything */
 .environment-scene {
     position: fixed;
     inset: 0;
     z-index: 1;
     overflow: hidden;
     pointer-events: none;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    contain: layout paint;
+    isolation: isolate;
 }
-
-/* ============================================
-   GROUND & GRASS LAYERS
-   ============================================ */
 
 .ground-layer {
     position: absolute;
@@ -34,7 +28,6 @@
     transform-origin: bottom center;
 }
 
-/* Grass texture overlay */
 .grass-texture {
     position: absolute;
     bottom: 0;
@@ -42,7 +35,6 @@
     width: 170%;
     height: 50%;
     background-image: 
-        /* Dense grass blades - foreground */
         repeating-linear-gradient(
             85deg,
             transparent 0px,
@@ -57,7 +49,6 @@
             rgba(70, 110, 70, 0.3) 3px,
             rgba(70, 110, 70, 0.3) 4px
         ),
-        /* Grass variation */
         repeating-linear-gradient(
             88deg,
             transparent 0px,
@@ -75,7 +66,6 @@
     50% { transform: skewX(0.5deg); }
 }
 
-/* Individual grass blade clusters */
 .grass-blade-cluster {
     position: absolute;
     bottom: 0;
@@ -94,7 +84,6 @@
     height: 100%;
 }
 
-/* Foreground grass (taller, more detail) */
 .grass-blade-cluster::before {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60'%3E%3Cpath d='M5 60 Q6 40 8 35 Q7 40 5 60' fill='%23426b42'/%3E%3Cpath d='M12 60 Q14 30 18 20 Q16 35 12 60' fill='%233d633d'/%3E%3Cpath d='M22 60 Q23 45 26 38 Q24 45 22 60' fill='%23486e48'/%3E%3Cpath d='M30 60 Q33 25 38 15 Q35 30 30 60' fill='%23436843'/%3E%3Cpath d='M42 60 Q43 50 46 42 Q44 48 42 60' fill='%233f653f'/%3E%3Cpath d='M50 60 Q52 35 56 25 Q54 38 50 60' fill='%23456a45'/%3E%3Cpath d='M58 60 Q60 42 63 35 Q61 42 58 60' fill='%23416641'/%3E%3Cpath d='M68 60 Q70 30 75 18 Q72 35 68 60' fill='%233c623c'/%3E%3Cpath d='M78 60 Q79 48 82 40 Q80 46 78 60' fill='%23476c47'/%3E%3Cpath d='M88 60 Q90 38 94 28 Q92 40 88 60' fill='%23426942'/%3E%3C/svg%3E");
     background-size: 80px 50px;
@@ -103,7 +92,6 @@
     animation: grassBladesSway 6s ease-in-out infinite;
 }
 
-/* Background grass (shorter, lighter) */
 .grass-blade-cluster::after {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 40'%3E%3Cpath d='M4 40 Q5 30 7 25 Q6 32 4 40' fill='%235a855a' opacity='0.7'/%3E%3Cpath d='M15 40 Q16 28 19 22 Q17 30 15 40' fill='%23558055' opacity='0.6'/%3E%3Cpath d='M28 40 Q29 32 32 26 Q30 32 28 40' fill='%235c875c' opacity='0.7'/%3E%3Cpath d='M40 40 Q42 25 46 18 Q44 28 40 40' fill='%23578257' opacity='0.6'/%3E%3Cpath d='M55 40 Q56 30 59 24 Q57 30 55 40' fill='%235a855a' opacity='0.7'/%3E%3Cpath d='M68 40 Q70 28 74 20 Q72 30 68 40' fill='%23558055' opacity='0.6'/%3E%3C/svg%3E");
     background-size: 60px 35px;
@@ -118,7 +106,6 @@
     50% { transform: translateX(2px) skewX(1deg); }
 }
 
-/* Distant grass (horizon) */
 .grass-horizon {
     position: absolute;
     bottom: 38%;
@@ -134,10 +121,6 @@
     filter: blur(2px);
 }
 
-/* ============================================
-   CLOUD LAYERS
-   ============================================ */
-
 .cloud-layer {
     position: absolute;
     top: 0;
@@ -147,9 +130,9 @@
     pointer-events: none;
     overflow: hidden;
     z-index: 2;
+    will-change: transform, opacity;
 }
 
-/* Wispy high clouds */
 .cloud-wispy {
     position: absolute;
     width: 200%;
@@ -160,9 +143,9 @@
         radial-gradient(ellipse 160px 45px at 70% 35%, rgba(255,255,255,0.11), transparent 70%),
         radial-gradient(ellipse 200px 55px at 90% 25%, rgba(255,255,255,0.09), transparent 70%);
     animation: cloudDriftSlow 120s linear infinite;
+    will-change: transform, opacity;
 }
 
-/* Fluffy mid clouds */
 .cloud-fluffy {
     position: absolute;
     width: 200%;
@@ -177,9 +160,9 @@
         radial-gradient(ellipse 110px 75px at 88% 35%, rgba(255,255,255,0.15), transparent 60%);
     filter: blur(3px);
     animation: cloudDriftMed 90s linear infinite;
+    will-change: transform, opacity;
 }
 
-/* Low atmospheric haze */
 .cloud-haze {
     position: absolute;
     bottom: 20%;
@@ -193,6 +176,7 @@
         transparent 100%
     );
     filter: blur(20px);
+    will-change: transform, opacity;
 }
 
 @keyframes cloudDriftSlow {
@@ -205,10 +189,6 @@
     to { transform: translateX(-50%); }
 }
 
-/* ============================================
-   RAIN CLOUDS - Dark, heavy clouds when raining
-   ============================================ */
-
 .rain-clouds {
     position: absolute;
     top: 0;
@@ -220,7 +200,6 @@
     z-index: 3;
     transition: opacity 2s ease;
     background-image:
-        /* Heavy storm clouds */
         radial-gradient(ellipse 200px 100px at 5% 25%, rgba(80, 85, 95, 0.9), transparent 65%),
         radial-gradient(ellipse 180px 90px at 8% 30%, rgba(70, 75, 85, 0.85), transparent 60%),
         radial-gradient(ellipse 220px 110px at 20% 20%, rgba(85, 90, 100, 0.88), transparent 65%),
@@ -234,6 +213,9 @@
         radial-gradient(ellipse 195px 98px at 95% 20%, rgba(85, 90, 100, 0.86), transparent 65%);
     filter: blur(8px);
     animation: rainCloudDrift 60s linear infinite;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    will-change: transform, opacity;
 }
 
 .rain-clouds.active {
@@ -245,7 +227,6 @@
     to { transform: translateX(-50%); }
 }
 
-/* Darken sky during rain */
 .environment-scene.raining::before {
     content: '';
     position: absolute;
@@ -261,18 +242,12 @@
     pointer-events: none;
 }
 
-/* Hide normal clouds during rain, show rain clouds */
 .environment-scene.raining .cloud-wispy,
 .environment-scene.raining .cloud-fluffy {
     opacity: 0.3;
     filter: blur(5px) brightness(0.6);
 }
 
-/* ============================================
-   ATMOSPHERIC EFFECTS
-   ============================================ */
-
-/* Depth fog near horizon */
 .atmosphere-fog {
     position: absolute;
     bottom: 35%;
@@ -289,7 +264,6 @@
     mix-blend-mode: lighten;
 }
 
-/* Distant hill silhouettes */
 .distant-hills {
     position: absolute;
     bottom: 40%;
@@ -302,11 +276,6 @@
     opacity: 0.7;
 }
 
-/* ============================================
-   NIGHT FOG & AMBIENCE
-   Atmospheric effects for nighttime
-   ============================================ */
-
 .night-fog {
     position: absolute;
     inset: 0;
@@ -314,6 +283,9 @@
     opacity: 0;
     transition: opacity 2s ease;
     z-index: 5;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    will-change: transform, opacity;
 }
 
 .night-fog-layer {
@@ -349,7 +321,6 @@
     100% { transform: translateX(-8%) scale(1.02); }
 }
 
-/* Night motes - floating dust particles */
 .night-motes {
     position: absolute;
     inset: 0;
@@ -357,6 +328,9 @@
     opacity: 0;
     transition: opacity 2s ease;
     z-index: 6;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    will-change: transform, opacity;
 }
 
 .night-mote {
@@ -384,7 +358,6 @@
     }
 }
 
-/* Show night effects only at night/evening */
 body.time-night .night-fog,
 body.time-evening .night-fog {
     opacity: 1;
@@ -395,11 +368,6 @@ body.time-evening .night-motes {
     opacity: 1;
 }
 
-/* ============================================
-   TIME OF DAY ADAPTATIONS
-   ============================================ */
-
-/* Night mode */
 body.time-night .ground-layer {
     background: linear-gradient(
         to top,
@@ -440,7 +408,6 @@ body.time-night .distant-hills {
     filter: brightness(0.4) blur(2px);
 }
 
-/* Dawn mode - warm pink/orange tones */
 body.time-dawn .ground-layer {
     background: linear-gradient(
         to top,
@@ -467,7 +434,6 @@ body.time-dawn .cloud-haze {
     );
 }
 
-/* Dusk mode - purple/orange tones */
 body.time-dusk .cloud-wispy,
 body.time-dusk .cloud-fluffy {
     filter: blur(3px) sepia(0.15) hue-rotate(-10deg);
@@ -488,7 +454,6 @@ body.time-dusk .grass-blade-cluster::after {
     filter: brightness(0.85) saturate(0.9);
 }
 
-/* Evening mode */
 body.time-evening .ground-layer {
     background: linear-gradient(
         to top,
@@ -511,16 +476,10 @@ body.time-evening .cloud-fluffy {
     filter: brightness(0.5) blur(4px);
 }
 
-/* ============================================
-   SEASONAL ADAPTATIONS
-   ============================================ */
-
-/* Spring - fresh greens */
 body[data-season="Spring"] .ground-layer {
     filter: saturate(1.1) brightness(1.05);
 }
 
-/* Summer - vibrant */
 body[data-season="Summer"] .ground-layer {
     filter: saturate(1.15) brightness(1.1);
 }
@@ -534,7 +493,6 @@ body[data-season="Summer"] .cloud-haze {
     );
 }
 
-/* Autumn - warm browns */
 body[data-season="Autumn"] .ground-layer {
     background: linear-gradient(
         to top,
@@ -553,7 +511,6 @@ body[data-season="Autumn"] .grass-blade-cluster::after {
     filter: sepia(0.2) saturate(0.85) hue-rotate(-15deg);
 }
 
-/* Winter - muted, cool */
 body[data-season="Winter"] .ground-layer {
     background: linear-gradient(
         to top,
@@ -586,18 +543,10 @@ body[data-season="Winter"] .cloud-haze {
     );
 }
 
-/* ============================================
-   HIDE DURING MIDNIGHT GARDEN
-   ============================================ */
-
 body.midnight-garden-active .environment-scene {
     opacity: 0;
     transition: opacity 0.8s ease;
 }
-
-/* ============================================
-   RESPONSIVE ADJUSTMENTS
-   ============================================ */
 
 @media (max-width: 480px) {
     .grass-blade-cluster::before {
@@ -613,7 +562,6 @@ body.midnight-garden-active .environment-scene {
     }
 }
 
-/* Reduce motion for accessibility */
 @media (prefers-reduced-motion: reduce) {
     .grass-texture,
     .grass-blade-cluster::before,
@@ -624,18 +572,10 @@ body.midnight-garden-active .environment-scene {
     }
 }
 
-/* ============================================
-   Z-INDEX OVERRIDES FOR WEATHER EFFECTS
-   Ensure rain, sun beams, and seasonal effects 
-   appear above the environment scene
-   ============================================ */
-
-/* Seasonal container needs to be above environment */
 .seasonal-container {
     z-index: 25 !important;
 }
 
-/* Rain needs to be clearly visible */
 .rain-container {
     z-index: 30 !important;
 }
@@ -644,26 +584,22 @@ body.midnight-garden-active .environment-scene {
     opacity: 0.75;
 }
 
-/* Make raindrops more visible against the background */
 .raindrop {
     height: 22px;
     opacity: 0.65;
     background: linear-gradient(to bottom, transparent, rgba(96, 165, 250, 0.8));
 }
 
-/* Rainbow above rain */
 .rainbow {
     z-index: 28 !important;
 }
 
-/* Seasonal beams (summer sun rays) need higher z-index */
 .seasonal-beam {
     z-index: 26 !important;
     opacity: 0;
     will-change: opacity;
 }
 
-/* Make summer beams much more visible */
 body.time-day .seasonal-beam,
 body.time-afternoon .seasonal-beam,
 body.time-morning .seasonal-beam {
@@ -678,7 +614,6 @@ body.time-morning .seasonal-beam {
     80% { opacity: 0.45; }
 }
 
-/* Active sun lamp beam enhancement */
 .seasonal-beam.sun-active {
     opacity: 0.6 !important;
     animation: sunBeamActive 4s ease-in-out infinite !important;
@@ -689,33 +624,27 @@ body.time-morning .seasonal-beam {
     50% { opacity: 0.7; filter: blur(8px) brightness(1.2); }
 }
 
-/* Heatwave effect enhancement */
 .seasonal-heatwave {
     z-index: 24 !important;
 }
 
-/* Snow, blossoms, and leaves */
 .seasonal-snow,
 .seasonal-blossom,
 .seasonal-leaf {
     z-index: 27;
 }
 
-/* Moonlight beam visibility */
 .moonlight-beam {
     z-index: 22 !important;
+    transform: translateZ(0);
+    backface-visibility: hidden;
 }
 
-/* Grass sway enhancement during rain */
 .environment-scene.raining .grass-texture,
 .environment-scene.raining .grass-blade-cluster::before,
 .environment-scene.raining .grass-blade-cluster::after {
     animation-duration: 4s;
 }
-
-/* ============================================
-   SUN RAYS - Visible when sun lamp is on
-   ============================================ */
 
 .sun-rays-container {
     position: fixed;
@@ -726,12 +655,8 @@ body.time-morning .seasonal-beam {
     pointer-events: none;
     z-index: 23;
     overflow: hidden;
-
-    /* Default off state */
     opacity: 0;
     filter: brightness(1);
-
-    /* Transition both opacity + filter to avoid snap/blink */
     transition: opacity 1.8s ease, filter 1.8s ease;
     will-change: opacity, filter;
 }
@@ -768,7 +693,6 @@ body.time-morning .seasonal-beam {
     }
 }
 
-/* Individual ray variations */
 .sun-ray:nth-child(1) { animation-delay: 0s; }
 .sun-ray:nth-child(2) { animation-delay: -1s; width: 120px; }
 .sun-ray:nth-child(3) { animation-delay: -2s; width: 160px; }
@@ -776,7 +700,6 @@ body.time-morning .seasonal-beam {
 .sun-ray:nth-child(5) { animation-delay: -4s; width: 130px; }
 .sun-ray:nth-child(6) { animation-delay: -5s; width: 110px; }
 
-/* Extra brightness during day */
 body.time-day .sun-rays-container.active .sun-ray,
 body.time-morning .sun-rays-container.active .sun-ray,
 body.time-afternoon .sun-rays-container.active .sun-ray {
@@ -790,16 +713,24 @@ body.time-afternoon .sun-rays-container.active .sun-ray {
     );
 }
 
+.environment-scene * {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
 
-/* --- Compositing stability (reduce flicker) --- */
-.environment-scene,.environment-scene *,.sky-layer,.stars-container,.moon,#moonElement,.moonlight-beam,#nightFog,#nightMotes,#rainClouds{
-  transform:translateZ(0);
-  backface-visibility:hidden;
+.sky-layer {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    contain: layout paint;
+    isolation: isolate;
 }
-.environment-scene,.sky-layer{
-  contain:layout paint;
-  isolation:isolate;
-}
-.cloud-layer,.cloud-wispy,.cloud-fluffy,.cloud-haze,.rain-clouds,.night-fog,.night-motes{
-  will-change:transform,opacity;
+
+.stars-container,
+.moon,
+#moonElement,
+#nightFog,
+#nightMotes,
+#rainClouds {
+    transform: translateZ(0);
+    backface-visibility: hidden;
 }

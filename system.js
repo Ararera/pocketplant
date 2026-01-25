@@ -1,9 +1,39 @@
-// system.js - Lifecycle, Offline Logic, and Debug Tools
+window.forceStopAllAudio = function() {
+    const mediaElements = document.querySelectorAll('audio, video');
+    mediaElements.forEach(el => {
+        try {
+            el.pause();
+            el.muted = true;
+            el.autoplay = false;
+            el.loop = false;
+            el.src = "";
+            el.load();
+            if (el.parentNode) el.remove();
+        } catch (e) {
+            console.warn("Error killing audio tag:", e);
+        }
+    });
+
+    try {
+        const potentialAudioNames = ['bgm', 'music', 'backgroundMusic', 'audio', 'player', 'sound', 'bgAudio', 'midnightMusic'];
+        potentialAudioNames.forEach(name => {
+            const obj = window[name];
+            if (obj && typeof obj.pause === 'function') {
+                obj.pause();
+                if (typeof obj.muted !== 'undefined') obj.muted = true;
+            }
+        });
+    } catch (e) {}
+
+    if (typeof window.Howler !== 'undefined' && window.Howler.unload) {
+        window.Howler.unload();
+    }
+};
 
 function processOfflineProgress() {
     const now = Date.now(), diffSec = (now - state.lastSave) / 1000;
     if (diffSec < 60) return;
-    const w0 = state.water, s0 = state.sun, l0 = state.love, g0 = state.growth, scars0 = [...state.scars], chunkSize = CONFIG.offlineChunkSize;
+    const w0 = state.water, s0 = state.sun, l0 = state.love, scars0 = [...state.scars], chunkSize = CONFIG.offlineChunkSize;
     let totalGrowth = 0, allScars = [];
     for (let elapsed = 0; elapsed < diffSec && !state.isDead; elapsed += chunkSize) {
         const dt = Math.min(chunkSize, diffSec - elapsed), result = simulateStep(dt, 'offline');
@@ -43,10 +73,36 @@ function closeToast() { els.welcomeToast.classList.remove('visible'); }
 function handleVisibility() {
     if (document.visibilityState === 'visible') {
         processOfflineProgress(); saveState(); lastTickTime = Date.now();
-        if (state.isRainOn) audio.startRainSound(); if (state.isMusicPlaying) audio.playBackgroundMusic();
+        
+        if (typeof audio !== 'undefined' && audio.ctx && audio.ctx.state === 'suspended') {
+            audio.ctx.resume().then(() => {
+                restoreAudioState();
+            });
+        } else {
+            restoreAudioState();
+        }
     } else {
         if (typeof saveDebounceTimer !== 'undefined' && saveDebounceTimer) { try { clearTimeout(saveDebounceTimer); } catch (e) { } saveDebounceTimer = null; }
-        saveState(); audio.stopRainSound(); audio.stopBackgroundMusic();
+        stopAudioForBackground();
+        saveState(); 
+    }
+}
+
+function restoreAudioState() {
+    if (state.isRainOn && typeof audio !== 'undefined') audio.startRainSound(); 
+    if (state.isMusicPlaying && typeof audio !== 'undefined') audio.playBackgroundMusic();
+}
+
+function stopAudioForBackground() {
+    if (typeof audio !== 'undefined') {
+        audio.stopRainSound();
+        audio.stopBackgroundMusic();
+        if (audio.ctx && audio.ctx.state === 'running') {
+            audio.ctx.suspend();
+        }
+    }
+    if (typeof window.forceStopAllAudio === 'function') {
+        window.forceStopAllAudio();
     }
 }
 
@@ -60,7 +116,6 @@ function ensureStateDefaults() {
     if (typeof state.lastWhisperText !== 'string') state.lastWhisperText = '';
     if (!Array.isArray(state.gardenSoundSeeds)) state.gardenSoundSeeds = [];
 
-    // Back-compat: older saves won't have the one-time Essence gift flag on ancestors.
     if (Array.isArray(state.history)) {
         for (const h of state.history) {
             if (h && typeof h === 'object' && typeof h.essenceFirstTapClaimed !== 'boolean') {
@@ -85,7 +140,15 @@ function resetGame(preserveHistory = true) {
             essenceFirstTapClaimed: false
         });
     }
-    const hist = preserveHistory ? state.history : [], tf = preserveHistory ? state.totalFireflies : 0, ff = preserveHistory ? state.fireflies : {}, it = preserveHistory ? state.inheritedTraits : [], gen = preserveHistory ? state.generation + 1 : 1, gSeeds = preserveHistory ? (state.gardenSoundSeeds || []) : [];
+    const hist = preserveHistory ? state.history : [];
+    const tf = preserveHistory ? state.totalFireflies : 0;
+    const ff = preserveHistory ? state.fireflies : {};
+    const it = preserveHistory ? state.inheritedTraits : [];
+    const gen = preserveHistory ? state.generation + 1 : 1;
+    const gSeeds = preserveHistory ? (state.gardenSoundSeeds || []) : [];
+    
+    if (!preserveHistory) state.inheritedTraits = [];
+
     state = {
         water: 50, sun: 50, love: 50, growth: 0, stage: 1, isSunLampOn: false, isRainOn: false, day: 1, dayProgress: 0, generation: gen, name: "Sprout", nameSuggestion: '', season: state.season || 0, dna: generateDNA(), potColor: POT_COLORS[0], potPattern: 'patNone', potPatternColor: 'rgba(255,255,255,0.5)', timeAtZero: 0, isDead: false, history: hist, lastSave: Date.now(), growthMultiplier: 1, singCooldownUntil: 0, fertilizeCooldownUntil: 0, fireflies: ff, totalFireflies: tf, activeGuardians: [], buffs: [], scars: [], crisisCount: 0, inheritedTraits: it, lastDream: null, isMusicPlaying: false, neglect: { waterLowMs: 0, sunLowMs: 0, loveLowMs: 0, crisisMs: 0, partialDormant: false }, lastWhisperAt: 0, noticeLog: preserveHistory ? state.noticeLog : [], lastWhisperText: '', gardenSoundSeeds: gSeeds
     };
@@ -157,6 +220,13 @@ function debugSim6hThirst() { state.water = 15; state.sun = 60; state.love = 50;
 function debugSim16hCrisis() { state.water = 5; state.sun = 5; state.love = 5; state.lastSave = Date.now() - 16 * 3600 * 1000; processOfflineProgress(); debugLog('Sim 16h Crisis'); }
 
 function init() {
+    if (typeof window.forceStopAllAudio === 'function') window.forceStopAllAudio();
+    
+    const ghostCheck = setInterval(() => {
+        if (!state.isMusicPlaying && typeof window.forceStopAllAudio === 'function') window.forceStopAllAudio();
+    }, 800);
+    setTimeout(() => clearInterval(ghostCheck), 8000);
+
     cacheElements(); loadState();
     if (!state.dna) state.dna = generateDNA();
     initPatterns(); setupWorld(); setupWeather();
@@ -175,7 +245,12 @@ function cacheElements() {
 }
 
 function setupEventListeners() {
-    document.addEventListener("visibilitychange", handleVisibility); window.addEventListener("pagehide", saveState); window.addEventListener("beforeunload", () => saveState());
+    document.addEventListener("visibilitychange", handleVisibility);
+    
+    window.addEventListener("blur", stopAudioForBackground);
+    window.addEventListener("pagehide", () => { stopAudioForBackground(); saveState(); }); 
+    window.addEventListener("beforeunload", () => { stopAudioForBackground(); saveState(); });
+    
     const pot = document.getElementById('potGroup');
     if (pot) {
         pot.addEventListener('mousedown', () => handlePress(true)); pot.addEventListener('mouseup', () => handlePress(false)); pot.addEventListener('mouseleave', () => handlePress(false));

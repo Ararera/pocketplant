@@ -1,5 +1,3 @@
-// ui_interactions.js - Menus, Dialogs, and Game Interaction
-
 function updateMenuStats() {
     if (els.nameInput && document.activeElement !== els.nameInput) els.nameInput.value = (state.name && state.name.toLowerCase() !== 'sprout') ? state.name : getNameSuggestion();
     if (els.menuGen) els.menuGen.textContent = state.generation;
@@ -43,7 +41,6 @@ function interact(type, e) {
     if (state.isDead) return;
     if (e) e.stopPropagation();
     if (type === 'rain') {
-        // Check if rain is on cooldown (can always turn OFF, but not ON)
         if (!state.isRainOn && Date.now() < state.rainRestUntil) {
             const remaining = Math.ceil((state.rainRestUntil - Date.now()) / 1000);
             const mins = Math.floor(remaining / 60);
@@ -56,7 +53,6 @@ function interact(type, e) {
         spawnFloatingText(state.isRainOn ? "☁️ Rain ON" : "☁️ Rain OFF", "var(--accent-water)");
         applyTheme();
     } else if (type === 'sun') {
-        // Check if sun is on cooldown (can always turn OFF, but not ON)
         if (!state.isSunLampOn && Date.now() < state.sunRestUntil) {
             const remaining = Math.ceil((state.sunRestUntil - Date.now()) / 1000);
             const mins = Math.floor(remaining / 60);
@@ -79,7 +75,6 @@ function interact(type, e) {
         audio.sun(); applyTheme();
         if (state.isRainOn && state.isSunLampOn && typeof unlockDiscovery === 'function') unlockDiscovery('made_rainbow');
     } else if (type === 'love') {
-        // Check if love is on cooldown
         if (Date.now() < state.loveRestUntil) {
             const remaining = Math.ceil((state.loveRestUntil - Date.now()) / 1000);
             const mins = Math.floor(remaining / 60);
@@ -96,7 +91,6 @@ function interact(type, e) {
         void els.plantHero.offsetWidth;
         els.plantHero.classList.add('plant-bloop');
         setTimeout(() => els.plantHero.classList.remove('plant-bloop'), 500);
-        // Check if love just hit 100
         if (loveWasBelow100 && state.love >= 100) {
             state.loveRestUntil = Date.now() + CONFIG.loveRestCooldown;
             spawnFloatingText("💕 Fully loved! Resting...", "var(--accent-love)", "good");
@@ -111,42 +105,34 @@ function applyTheme() {
     audio.toggleRainSound(state.isRainOn);
     const beam = document.getElementById('moonlightBeam'); if (beam && !isDaytime()) beam.classList.toggle('active', state.isSunLampOn);
     
-    // Toggle rain clouds and environment raining state
     const envScene = document.getElementById('environmentScene');
     const rainClouds = document.getElementById('rainClouds');
     if (envScene) envScene.classList.toggle('raining', state.isRainOn);
     if (rainClouds) rainClouds.classList.toggle('active', state.isRainOn);
     
-    // Toggle sun rays when sun lamp is on during daytime
     updateSunRays();
 }
 
 function updateSunRays() {
-    // Robust, repeatable toggle: cancel any pending removal when turning back on.
     let container = document.getElementById('sunRaysContainer');
     const shouldShow = !!(state.isSunLampOn && isDaytime());
 
-    // If a previous fade-out scheduled a removal, cancel it when we want to show rays again.
     if (shouldShow && container && container._sunRemoveTimer) {
         try { clearTimeout(container._sunRemoveTimer); } catch (_) {}
         container._sunRemoveTimer = null;
     }
 
-    // Hide path: fade out, then remove (but don't let old timers kill a newly-reactivated container).
     if (!shouldShow) {
         if (container) {
-            // Cancel any prior timer and schedule a fresh one.
             if (container._sunRemoveTimer) {
                 try { clearTimeout(container._sunRemoveTimer); } catch (_) {}
                 container._sunRemoveTimer = null;
             }
             container.classList.remove('active');
 
-            // Remove only if it's still the same node we scheduled against.
             const scheduledNode = container;
             scheduledNode._sunRemoveTimer = setTimeout(() => {
                 try {
-                    // If it was re-activated, don't remove.
                     if (scheduledNode.classList.contains('active')) return;
                     if (scheduledNode.parentNode) scheduledNode.remove();
                 } catch (_) {}
@@ -156,29 +142,22 @@ function updateSunRays() {
         return;
     }
 
-    // Show path: create if missing, then activate.
     if (!container) {
         container = document.createElement('div');
         container.id = 'sunRaysContainer';
         container.className = 'sun-rays-container';
 
-        // Create multiple sun rays with small variations so it doesn't look like six identical bars.
         for (let i = 0; i < 6; i++) {
             const ray = document.createElement('div');
             ray.className = 'sun-ray';
-
-            const left = 8 + i * 16 + (Math.random() * 6 - 3); // +/- 3%
+            const left = 8 + i * 16 + (Math.random() * 6 - 3); 
             ray.style.left = left + '%';
-
             ray.style.animationDelay = ((i * 0.9) + (Math.random() * 1.2)) + 's';
-
-            const rot = (-10 + i * 4) + (Math.random() * 6 - 3); // +/- 3deg
+            const rot = (-10 + i * 4) + (Math.random() * 6 - 3);
             ray.style.setProperty('--ray-rot', rot + 'deg');
-
             container.appendChild(ray);
         }
 
-        // Insert after seasonal container if possible, else append to body.
         const seasonalContainer = document.getElementById('seasonalContainer');
         if (seasonalContainer && seasonalContainer.parentNode) {
             seasonalContainer.parentNode.insertBefore(container, seasonalContainer.nextSibling);
@@ -186,10 +165,8 @@ function updateSunRays() {
             document.body.appendChild(container);
         }
 
-        // Force a clean transition: start inactive, then flip active next frame.
         container.classList.remove('active');
         requestAnimationFrame(() => {
-            // It might have been removed before the frame fires.
             const c = document.getElementById('sunRaysContainer');
             if (c) c.classList.add('active');
         });
@@ -197,7 +174,6 @@ function updateSunRays() {
         container.classList.add('active');
     }
 }
-
 
 function animateJiggle() {
     els.plantHero.classList.remove('plant-jiggle');
@@ -233,8 +209,6 @@ function spawnVisualFirefly(fam, isGuardian) {
     ff.className = 'firefly' + (isGuardian ? ' guardian' : '');
     ff.dataset.family = fam;
     ff.style.setProperty('--firefly-color', col);
-    // REMOVED: ff.style.background = col; - This was overriding CSS and making giant fireflies!
-    // The visual is now handled by ::before pseudo-element in CSS
     ff.style.left = (10 + Math.random() * 80) + '%';
     ff.style.top = (15 + Math.random() * 50) + '%';
     
@@ -246,7 +220,6 @@ function spawnVisualFirefly(fam, isGuardian) {
     ff.addEventListener('touchend', handleTap, { passive: false });
     document.body.appendChild(ff);
     
-    // Fade-in: Wait for next frame to apply visible class (ensures transition triggers)
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
             ff.classList.add('visible');
@@ -256,7 +229,6 @@ function spawnVisualFirefly(fam, isGuardian) {
     const life = 11000;
     setTimeout(() => {
         if (ff.parentNode && !ff.classList.contains('guardian-active')) {
-            // Remove visible, add fadeout for smooth transition
             ff.classList.remove('visible');
             ff.classList.add('fadeout');
             setTimeout(() => { if (ff.parentNode) ff.remove(); }, 1200);
@@ -378,7 +350,7 @@ function closeHarvestModal() { els.harvestOverlay.classList.remove('open'); els.
 function confirmHarvest() {
     const _wasWinter = (state.season === 3);
 
-    state.history.push({ name: state.name, gen: state.generation, days: state.day, dna: { ...state.dna }, stage: state.stage, scars: [...state.scars], potColor: state.potColor, potPattern: state.potPattern });
+    state.history.push({ name: state.name, gen: state.generation, days: state.day, dna: { ...state.dna }, stage: state.stage, scars: [...state.scars], potColor: state.potColor, potPattern: state.potPattern, essenceFirstTapClaimed: false });
     const tid = document.getElementById('inheritedTraitDisplay').dataset.traitId;
     if (!state.inheritedTraits.includes(tid)) state.inheritedTraits.push(tid);
     const oldName = state.name;
@@ -484,7 +456,6 @@ function checkRestCooldowns() {
     const btnSun = document.getElementById('btnSun');
     const now = Date.now();
     
-    // Rain cooldown
     if (rainCooldown && btnRain) {
         const rainRemaining = state.rainRestUntil - now;
         if (rainRemaining > 0) {
@@ -500,7 +471,6 @@ function checkRestCooldowns() {
         }
     }
     
-    // Sun cooldown
     if (sunCooldown && btnSun) {
         const sunRemaining = state.sunRestUntil - now;
         if (sunRemaining > 0) {
@@ -516,16 +486,37 @@ function checkRestCooldowns() {
         }
     }
     
-    // Love cooldown (no visual indicator, just clear when expired)
     if (state.loveRestUntil > 0 && now >= state.loveRestUntil) {
         state.loveRestUntil = 0;
     }
 }
 
 function toggleBackgroundMusic() {
+    if (typeof audio !== 'undefined' && audio.ctx && audio.ctx.state === 'suspended') {
+        audio.ctx.resume().then(() => {
+            toggleMusicLogic();
+        });
+    } else {
+        toggleMusicLogic();
+    }
+}
+
+function toggleMusicLogic() {
     state.isMusicPlaying = !state.isMusicPlaying;
-    if (state.isMusicPlaying) { audio.playBackgroundMusic(); els.btnMusic.classList.add('active'); els.btnMusic.textContent = '🎶 Music ON'; }
-    else { audio.stopBackgroundMusic(); els.btnMusic.classList.remove('active'); els.btnMusic.textContent = '🎶 Background Music'; }
+
+    if (typeof window.forceStopAllAudio === 'function') {
+        window.forceStopAllAudio();
+    }
+
+    if (state.isMusicPlaying) { 
+        audio.playBackgroundMusic(); 
+        els.btnMusic.classList.add('active'); 
+        els.btnMusic.textContent = '🎶 Music ON'; 
+    } else { 
+        audio.stopBackgroundMusic(); 
+        els.btnMusic.classList.remove('active'); 
+        els.btnMusic.textContent = '🎶 Background Music'; 
+    }
 }
 
 function toggleMenu() {
@@ -567,7 +558,7 @@ function renderFireflyLog() {
         els.detailFireflyCount.textContent = 'You have ' + cnt + ' fireflies';
         const btn = els.releaseBtn; btn.disabled = cnt < 1; btn.textContent = cnt >= 1 ? 'Release One' : 'No fireflies';
         const gt = els.guardianProgressText;
-        const unlocked = hasGuardian(i);
+        const unlocked = hasGuardian(selectedFamily);
         gt.textContent = unlocked ? `Guardian unlocked. Tap a Guardian in the sky to invoke it (costs ${GUARDIAN_INVOKE_COST} fireflies).` : `Collect ${Math.max(0, GUARDIAN_THRESHOLD - cnt)} more for a Guardian.`;
     } else if (det) det.style.display = 'none';
 }
@@ -579,9 +570,6 @@ function releaseFirefly() {
     state.fireflies[i] = cnt - 1; state.totalFireflies = Math.max(0, (state.totalFireflies || 0) - 1);
     const f = FIREFLY_FAMILIES[i]; const col = getFireflyColor(i);
     
-    // Store the firefly color for visual feedback
-    const buffDuration = (f.effect === 'slow' || f.effect === 'luck') ? 30 : 15;
-    
     if (f.effect === 'water') state.buffs.push({ type: 'water', strength: 2, remaining: 15, color: col, familyIndex: i });
     else if (f.effect === 'sun') state.buffs.push({ type: 'sun', strength: 2, remaining: 15, color: col, familyIndex: i });
     else if (f.effect === 'love') state.buffs.push({ type: 'love', strength: 2, remaining: 15, color: col, familyIndex: i });
@@ -591,7 +579,6 @@ function releaseFirefly() {
     else if (f.effect === 'luck') state.buffs.push({ type: 'luck', strength: 1, remaining: 30, color: col, familyIndex: i });
     else if (f.effect === 'random') { const types = ['water', 'sun', 'love', 'growth', 'health']; const rt = types[Math.floor(Math.random() * types.length)]; state.buffs.push({ type: rt, strength: 3, remaining: 20, color: col, familyIndex: i }); }
     
-    // Apply visual feedback immediately
     applyBuffVisualFeedback(col);
     
     spawnFloatingText(f.name + ' released! ' + f.desc, col, 'good'); renderFireflyLog(); saveState();
@@ -601,7 +588,6 @@ function applyBuffVisualFeedback(color) {
     const plantHero = document.getElementById('plantHero');
     if (!plantHero) return;
     
-    // Parse the HSL color and create a semi-transparent version
     plantHero.style.setProperty('--buff-color', color.replace(')', ', 0.35)').replace('hsl(', 'hsla('));
     plantHero.classList.add('buff-active');
 }
@@ -610,12 +596,11 @@ function collectFirefly(fam, el) {
     el.style.transition = 'opacity 0.25s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 260); audio.chime();
     if (!state.fireflies[fam]) state.fireflies[fam] = 0;
     const _hadGuardian = (typeof hasGuardian === 'function') ? hasGuardian(fam) : (state.fireflies[fam] >= GUARDIAN_THRESHOLD);
-    // Use a collection cap of 50 per family (CONFIG.maxFireflyPerFamily is for visual spawning, not collection)
+    
     const MAX_COLLECTIBLE_PER_FAMILY = 50;
     if (state.fireflies[fam] < MAX_COLLECTIBLE_PER_FAMILY) {
         state.fireflies[fam]++; state.totalFireflies++;
         if (typeof unlockDiscovery === 'function') unlockDiscovery('first_firefly');
-        // One of each family?
         try {
             const families = FIREFLY_FAMILIES.length || 0;
             let haveAll = families > 0;
@@ -625,7 +610,7 @@ function collectFirefly(fam, el) {
             }
             if (haveAll) unlockDiscovery('all_families');
         } catch (_) {}
- spawnFloatingText('+' + FIREFLY_FAMILIES[fam].name + '!', getFireflyColor(fam), 'good');
+        spawnFloatingText('+' + FIREFLY_FAMILIES[fam].name + '!', getFireflyColor(fam), 'good');
         if (((typeof hasGuardian === 'function') ? hasGuardian(fam) : (state.fireflies[fam] >= GUARDIAN_THRESHOLD)) && !_hadGuardian && typeof unlockDiscovery === 'function') unlockDiscovery('first_guardian');
         if (state.fireflies[fam] % GUARDIAN_THRESHOLD === 0) spawnFloatingText('🏆 Guardian ready.', getFireflyColor(fam), 'good');
     } else spawnFloatingText('Max collected.', null, 'warn');

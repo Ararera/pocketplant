@@ -234,15 +234,26 @@ function spawnGardenFirefly(familyIndex, container) {
     const handleTap = (e) => {
         e.preventDefault(); e.stopPropagation();
         if (!gardenState.isOpen) return;
+
+        // If a previous flight ever strands the lock, this watchdog will recover it.
+        // (The flight function also has its own watchdog.)
         if (gardenState.moonFlightActive) return;
+
         if (animationId) cancelAnimationFrame(animationId);
         if (lifeTimer) clearTimeout(lifeTimer);
         if (fadeoutTimer) clearTimeout(fadeoutTimer);
+
         playFireflyChord(familyIndex);
         if (typeof markGardenActivity === 'function') markGardenActivity();
-        ff.removeEventListener('click', handleTap);
-        ff.removeEventListener('touchend', handleTap);
-        flyFireflyToMoon(ff, familyIndex, color);
+
+        const started = flyFireflyToMoonVisual(ff, familyIndex, color);
+        if (started) {
+            ff.removeEventListener('click', handleTap);
+            ff.removeEventListener('touchend', handleTap);
+        } else {
+            // Flight failed to start (missing overlay/moon, etc). Keep the firefly clickable.
+            console.warn('[Garden] Firefly flight failed to start; keeping input enabled.');
+        }
     };
     ff.addEventListener('click', handleTap);
     ff.addEventListener('touchend', handleTap, { passive: false });
@@ -332,24 +343,73 @@ function _applyMoonHitGlow(colorCss) {
     });
 }
 
+function _restoreMoonBaseAppearance(moonEl) {
+    if (!moonEl) return;
+    // Return to CSS defaults by removing inline overrides.
+    moonEl.style.removeProperty('--moon-tint-opacity');
+    moonEl.style.removeProperty('--moon-tint-color');
+    moonEl.style.removeProperty('box-shadow');
+    moonEl.style.removeProperty('transition');
+}
+
 function _applyMoonFullTint(colorCss, durationMs) {
     const moon = _ensureMoonBaseStyles(); if (!moon) return;
-    if (gardenState.moonTintTimer) clearTimeout(gardenState.moonTintTimer);
+
+    // Tokenize so older timers can't fight newer tints.
+    gardenState._moonTintToken = (gardenState._moonTintToken || 0) + 1;
+    const token = gardenState._moonTintToken;
+
+    // Clear prior timers.
+    if (gardenState.moonTintTimer) { clearTimeout(gardenState.moonTintTimer); gardenState.moonTintTimer = null; }
+    if (gardenState.moonTintHardResetTimer) { clearTimeout(gardenState.moonTintHardResetTimer); gardenState.moonTintHardResetTimer = null; }
+
+    const total = Math.max(800, Number(durationMs) || 7000);
+    const fadeMs = 2200; // matches CSS transition on ::before opacity
+
     const base = { r: 254, g: 249, b: 195 }, rgb = _parseColorToRgb(colorCss);
     const soft = _mixRgb(base, rgb, 0.55), deep = _mixRgb(base, rgb, 0.70);
     const tintGradient = `radial-gradient(circle at 30% 30%, ${_rgbToCss(soft, 0.95)}, ${_rgbToCss(deep, 0.95)}, ${_rgbToCss(deep, 0.80)})`;
-    moon.style.setProperty('--moon-tint-color', tintGradient);
-    moon.style.boxShadow = `0 0 60px rgba(254, 249, 195, 0.5), 0 0 120px rgba(254, 249, 195, 0.3), 0 0 200px rgba(254, 249, 195, 0.15), 0 0 85px ${_rgbToCss(soft, 0.45)}, 0 0 170px ${_rgbToCss(soft, 0.28)}`;
-    requestAnimationFrame(() => { moon.style.setProperty('--moon-tint-opacity', '1'); });
-    
-    // Spawn colored motes during moon tint phase
-    spawnColoredMoteRain(colorCss, durationMs || 7000);
 
-    // Essence harvest happens *with* the motes (the rain is the feedback).
-    if (typeof addEssence === 'function') addEssence(ESSENCE_GAIN_PER_MOON, colorCss);
-    
-    gardenState.moonTintTimer = setTimeout(() => { moon.style.setProperty('--moon-tint-opacity', '0'); moon.style.boxShadow = gardenState._moonBaseBoxShadow; }, durationMs || 7000);
+    // Start from a known base each time so we never "accumulate" styles.
+    _restoreMoonBaseAppearance(moon);
+
+    moon.style.setProperty('--moon-tint-color', tintGradient);
+    moon.style.setProperty('--moon-tint-opacity', '0');
+    moon.style.transition = `box-shadow 2.8s ease`;
+    moon.style.boxShadow = `0 0 60px rgba(254, 249, 195, 0.5), 0 0 120px rgba(254, 249, 195, 0.3), 0 0 200px rgba(254, 249, 195, 0.15), 0 0 85px ${_rgbToCss(soft, 0.45)}, 0 0 170px ${_rgbToCss(soft, 0.28)}`;
+
+    // Fade in on next frame (forces transition to actually run).
+    requestAnimationFrame(() => {
+        if (gardenState._moonTintToken !== token) return;
+        moon.style.setProperty('--moon-tint-opacity', '1');
+    });
+
+    // Spawn colored motes during moon tint phase.
+    spawnColoredMoteRain(colorCss, total);
+
+    // Essence harvest happens with the motes; guard so it can't break cleanup.
+    try { if (typeof addEssence === 'function') addEssence(ESSENCE_GAIN_PER_MOON, colorCss); } catch (e) { console.warn('[Garden] addEssence failed:', e); }
+
+    // Begin fade out after hold.
+    gardenState.moonTintTimer = setTimeout(() => {
+        if (gardenState._moonTintToken !== token) return;
+        moon.style.setProperty('--moon-tint-opacity', '0');
+        // Also restore box shadow after fade completes.
+        setTimeout(() => {
+            if (gardenState._moonTintToken !== token) return;
+            moon.style.boxShadow = gardenState._moonBaseBoxShadow;
+        }, fadeMs + 50);
+    }, total);
+
+    // Hard reset: even if timers/frames are throttled, we still recover.
+    gardenState.moonTintHardResetTimer = setTimeout(() => {
+        if (gardenState._moonTintToken !== token) return;
+        _restoreMoonBaseAppearance(moon);
+        // Re-apply base shadow from CSS computed earlier.
+        moon.style.boxShadow = gardenState._moonBaseBoxShadow;
+    }, total + fadeMs + 600);
 }
+
 
 // ============================================
 // COLORED MOTE RAIN EFFECT
@@ -443,43 +503,86 @@ function _updateMoonStreak(key, colorCss) {
     if (gardenState.moonStreakCount >= 3) { gardenState.moonStreakCount = 0; gardenState.moonStreakKey = null; _applyMoonFullTint(colorCss, 7000); }
 }
 
-function flyFireflyToMoon(fireflyEl, familyIndex, colorCss) {
+
+function flyFireflyToMoonVisual(fireflyEl, familyIndex, colorCss) {
+    // Visual flight implementation (element-based). Kept local and uniquely named to avoid global collisions.
     if (!fireflyEl || gardenState.moonFlightActive) return false;
+
     const overlay = gardenState.elements?.overlay || document.getElementById('midnightGardenOverlay');
     const moon = gardenState.elements?.moon || document.getElementById('gardenMoon');
     if (!overlay || !moon) return false;
+
     gardenState.moonFlightActive = true;
-    const tracked = gardenState.fireflies.find(f => f.element === fireflyEl);
+
+    // Safety watchdog: never allow the input lock to persist if RAF/timers get throttled.
+    const flightWatchdog = setTimeout(() => {
+        try { gardenState.moonFlightActive = false; } catch (e) {}
+        try { if (flight && flight.parentNode) flight.parentNode.removeChild(flight); } catch (e) {}
+    }, 3500);
+
+    // Remove from the tracked list and stop its drift animation if present
+    const tracked = (gardenState.fireflies || []).find(f => f && f.element === fireflyEl);
     if (tracked) {
-        if (tracked.animationId) try { cancelAnimationFrame(tracked.animationId); } catch (e) {}
-        if (tracked.lifeTimer) clearTimeout(tracked.lifeTimer);
-        gardenState.fireflies = gardenState.fireflies.filter(f => f.element !== fireflyEl);
+        if (tracked.animationId) { try { cancelAnimationFrame(tracked.animationId); } catch (e) {} }
+        if (tracked.lifeTimer) { try { clearTimeout(tracked.lifeTimer); } catch (e) {} }
+        gardenState.fireflies = (gardenState.fireflies || []).filter(f => f.element !== fireflyEl);
     }
-    const startRect = fireflyEl.getBoundingClientRect(), overlayRect = overlay.getBoundingClientRect(), moonRect = moon.getBoundingClientRect();
-    const startX = (startRect.left - overlayRect.left) + startRect.width / 2, startY = (startRect.top - overlayRect.top) + startRect.height / 2;
-    const endX = (moonRect.left - overlayRect.left) + moonRect.width / 2, endY = (moonRect.top - overlayRect.top) + moonRect.height / 2;
-    
-    const flight = document.createElement('div'); flight.className = 'moon-flight-firefly';
-    flight.style.setProperty('--ff-color', colorCss); flight.style.left = `${startX}px`; flight.style.top = `${startY}px`;
+
+    const startRect = fireflyEl.getBoundingClientRect();
+    const overlayRect = overlay.getBoundingClientRect();
+    const moonRect = moon.getBoundingClientRect();
+
+    const startX = (startRect.left - overlayRect.left) + startRect.width / 2;
+    const startY = (startRect.top - overlayRect.top) + startRect.height / 2;
+    const endX = (moonRect.left - overlayRect.left) + moonRect.width / 2;
+    const endY = (moonRect.top - overlayRect.top) + moonRect.height / 2;
+
+    const flight = document.createElement('div');
+    flight.className = 'moon-flight-firefly';
+    flight.style.setProperty('--ff-color', colorCss);
+    flight.style.left = `${startX}px`;
+    flight.style.top = `${startY}px`;
     overlay.appendChild(flight);
+
     try { fireflyEl.style.pointerEvents = 'none'; fireflyEl.style.opacity = '0'; } catch (e) {}
-    if (fireflyEl.parentNode) fireflyEl.parentNode.removeChild(fireflyEl);
-    
-    const dur = 1600, startT = performance.now(), dx = endX - startX, dy = endY - startY;
+    try { if (fireflyEl.parentNode) fireflyEl.parentNode.removeChild(fireflyEl); } catch (e) {}
+
+    const dur = 1600;
+    const startT = performance.now();
+    const dx = endX - startX;
+    const dy = endY - startY;
     const ease = (t) => t * t * (3 - 2 * t);
+
     const step = (now) => {
-        const t = Math.min(1, (now - startT) / dur), tt = ease(t);
-        const arc = Math.sin(Math.PI * tt) * -45, x = startX + dx * tt, y = startY + dy * tt + arc;
-        const fade = (t < 0.75) ? 1 : (1 - (t - 0.75) / 0.25), scale = 1 - 0.35 * tt;
+        const t = Math.min(1, (now - startT) / dur);
+        const tt = ease(t);
+        const arc = Math.sin(Math.PI * tt) * -45;
+        const x = startX + dx * tt;
+        const y = startY + dy * tt + arc;
+        const fade = (t < 0.75) ? 1 : (1 - (t - 0.75) / 0.25);
+        const scale = 1 - 0.35 * tt;
+
         flight.style.transform = `translate(-50%, -50%) translate3d(${x - startX}px, ${y - startY}px, 0) scale(${scale})`;
         flight.style.opacity = String(Math.max(0, fade));
-        if (t < 1) requestAnimationFrame(step);
-        else {
-            _applyMoonHitGlow(colorCss); _updateMoonStreak(String(familyIndex), colorCss);
-            if (flight.parentNode) flight.parentNode.removeChild(flight);
+
+        if (t < 1) {
+            requestAnimationFrame(step);
+            return;
+        }
+
+        // Completion: never allow exceptions to strand the input lock
+        try {
+            if (typeof _applyMoonHitGlow === 'function') _applyMoonHitGlow(colorCss);
+            if (typeof _updateMoonStreak === 'function') _updateMoonStreak(String(familyIndex), colorCss);
+        } catch (err) {
+            console.warn('[Garden] moon flight completion error:', err);
+        } finally {
+            try { clearTimeout(flightWatchdog); } catch (e) {}
+            try { if (flight.parentNode) flight.parentNode.removeChild(flight); } catch (e) {}
             setTimeout(() => { gardenState.moonFlightActive = false; }, 260);
         }
     };
+
     requestAnimationFrame(step);
     return true;
 }

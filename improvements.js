@@ -1,10 +1,3 @@
-/* ============================================
-   POCKET SPROUT - v1.2 Improvements
-   New features and fixes
-   Optimized for Performance
-   ============================================ */
-
-// Optimization: UI Cache to prevent repeated DOM queries
 const uiCache = {
     ringWater: null, ringSun: null, ringLove: null,
     urgencyWarning: null, urgencyText: null,
@@ -13,13 +6,12 @@ const uiCache = {
     plantHero: null, genBadge: null,
     discoveriesList: null, fireflyFamilyGrid: null,
     hintBubble: null, hintContent: null,
-    genBadge: null, detailOrb: null, detailFamilyName: null,
+    detailOrb: null, detailFamilyName: null,
     detailFamilyPower: null, detailFireflyCount: null,
     guardianBarFill: null, guardianBarLabel: null, releaseBtn: null,
     familyDetailPanel: null, quickStatsTooltip: null, quickStatsContent: null
 };
 
-// Helper to get cached element
 function getEl(id) {
     if (uiCache[id]) return uiCache[id];
     const el = document.getElementById(id);
@@ -27,12 +19,7 @@ function getEl(id) {
     return el;
 }
 
-// ============================================
-// MENU TABS SYSTEM
-// ============================================
-
 function switchMenuTab(tabName) {
-    // Update tab buttons
     document.querySelectorAll('.menu-tab').forEach(tab => {
         const isActive = tab.dataset.tab === tabName;
         if (tab.classList.contains('active') !== isActive) {
@@ -42,7 +29,6 @@ function switchMenuTab(tabName) {
     
     const tabId = 'tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1);
     
-    // Update tab content
     document.querySelectorAll('.menu-tab-content').forEach(content => {
         const isActive = content.id === tabId;
         if (content.classList.contains('active') !== isActive) {
@@ -51,12 +37,7 @@ function switchMenuTab(tabName) {
     });
 }
 
-// Make available globally immediately
 window.switchMenuTab = switchMenuTab;
-
-// ============================================
-// DISCOVERIES SYSTEM
-// ============================================
 
 const DISCOVERIES = Object.freeze([
     { id: 'first_water', name: 'First Rain', desc: 'Watered your plant for the first time', icon: '💧' },
@@ -118,7 +99,6 @@ function renderDiscoveries() {
     
     if (!state.discoveries) state.discoveries = [];
     
-    // Optimization: Use DocumentFragment to batch inserts
     const fragment = document.createDocumentFragment();
     
     DISCOVERIES.forEach(d => {
@@ -139,10 +119,6 @@ function renderDiscoveries() {
     list.appendChild(fragment);
 }
 
-// ============================================
-// DIAGNOSTIC MOODS
-// ============================================
-
 const DIAGNOSTIC_MOODS = Object.freeze({
     crisis_water: { text: 'desperately thirsty...', color: '#f87171', class: 'crisis' },
     crisis_sun: { text: 'fading in darkness...', color: '#f87171', class: 'crisis' },
@@ -161,7 +137,7 @@ const DIAGNOSTIC_MOODS = Object.freeze({
 });
 
 function getDiagnosticMood() {
-    const w = state.water, s = state.sun, l = state.love;
+    const w = state.water || 0, s = state.sun || 0, l = state.love || 0;
     const min = Math.min(w, s, l);
     const avg = (w + s + l) / 3;
     
@@ -189,20 +165,14 @@ function getDiagnosticMood() {
     return DIAGNOSTIC_MOODS.growing;
 }
 
-// ============================================
-// URGENCY INDICATORS
-// ============================================
-
 function updateUrgencyIndicators() {
     const w = state.water, s = state.sun, l = state.love;
     const min = Math.min(w, s, l);
     
-    // Optimization: Use cached elements
     const ringWater = getEl('ringWater');
     const ringSun = getEl('ringSun');
     const ringLove = getEl('ringLove');
     
-    // Toggle class is efficient, only touches DOM if changed
     if (ringWater) ringWater.classList.toggle('urgent', w < 20);
     if (ringSun) ringSun.classList.toggle('urgent', s < 20);
     if (ringLove) ringLove.classList.toggle('urgent', l < 20);
@@ -222,22 +192,13 @@ function updateUrgencyIndicators() {
     }
 }
 
-// ============================================
-// ACTIVE MODIFIERS DISPLAY
-// ============================================
-
 function updateActiveModifiers() {
     const modifiers = getEl('modifierList');
     const container = getEl('activeModifiers');
     if (!modifiers || !container) return;
     
-    // Optimization: Check if rebuild is necessary could be added,
-    // but building small strings is generally fast enough in JS.
-    // The previous implementation is fine, just using cached DOM now.
-    
     const mods = [];
     
-    // Season modifier
     if (typeof SEASONS !== 'undefined' && typeof state !== 'undefined') {
         const season = SEASONS[state.season % 4];
         if (season && season.growth !== 1) {
@@ -249,7 +210,6 @@ function updateActiveModifiers() {
         }
     }
     
-    // Guardian effects
     if (state.activeGuardians && typeof FIREFLY_FAMILIES !== 'undefined') {
         state.activeGuardians.forEach(i => {
             const fam = FIREFLY_FAMILIES[i];
@@ -262,7 +222,6 @@ function updateActiveModifiers() {
         });
     }
     
-    // Active buffs
     if (state.buffs) {
         state.buffs.forEach(buff => {
             if (buff.remaining > 0) {
@@ -274,7 +233,6 @@ function updateActiveModifiers() {
         });
     }
     
-    // Fertilizer
     if (state.growthMultiplier > 1) {
         mods.push({
             text: '🌿 Fertilized (2x growth)',
@@ -284,16 +242,11 @@ function updateActiveModifiers() {
     
     container.classList.toggle('has-modifiers', mods.length > 0);
     
-    // Only update innerHTML if it's actually different (saves layout/paint)
     const newHTML = mods.map(m => `<span class="modifier-tag ${m.class}">${m.text}</span>`).join('');
     if (modifiers.innerHTML !== newHTML) {
         modifiers.innerHTML = newHTML;
     }
 }
-
-// ============================================
-// QUICK STATS TOOLTIP
-// ============================================
 
 function showQuickStats(x, y) {
     const tooltip = getEl('quickStatsTooltip');
@@ -344,10 +297,6 @@ function hideQuickStats() {
     if (tooltip) tooltip.classList.remove('visible');
 }
 
-// ============================================
-// HINTS SYSTEM
-// ============================================
-
 const HINTS = {
     first_visit: {
         content: '👋 Welcome to Pocket Sprout! Toggle rain ☁️ and sun ☀️ to care for your plant. Tap the pot to show love, or hold it to see vitality rings!'
@@ -393,15 +342,10 @@ function dismissHint() {
     if (bubble) bubble.classList.remove('visible');
 }
 
-// ============================================
-// FIREFLY SANCTUARY IMPROVEMENTS
-// ============================================
-
 function renderFireflyLogImproved() {
     const grid = getEl('fireflyFamilyGrid');
     if (!grid || typeof FIREFLY_FAMILIES === 'undefined') return;
     
-    // Optimization: Fragments again
     const fragment = document.createDocumentFragment();
     
     FIREFLY_FAMILIES.forEach((f, i) => {
@@ -424,7 +368,6 @@ function renderFireflyLogImproved() {
             <div class="family-mini-progress" style="width:${progress}%;background:${col}"></div>
         `;
         
-        // Note: Event delegation is better, but this is acceptable for small lists (8 items)
         card.onclick = () => {
             selectedFamily = i;
             renderFireflyLogImproved();
@@ -489,10 +432,6 @@ function renderFamilyDetail() {
     }
 }
 
-// ============================================
-// DISCOVERABILITY
-// ============================================
-
 function checkGardenDiscoverability() {
     if (state.history && state.history.length > 0 && (!state.hintsShown || !state.hintsShown.includes('midnight_garden'))) {
         const entry = document.getElementById('midnightGardenEntry');
@@ -521,10 +460,6 @@ function showGardenFireflyHint() {
     }
 }
 
-// ============================================
-// VOCABULARY FIXES
-// ============================================
-
 function updateGenBadgeText() {
     const genBadge = getEl('genBadge');
     if (genBadge && typeof state !== 'undefined') {
@@ -532,12 +467,7 @@ function updateGenBadgeText() {
     }
 }
 
-// ============================================
-// ENHANCED RENDER
-// ============================================
-
 function enhancedRender() {
-    // Call original render if exists
     if (typeof window._originalRender === 'function') {
         window._originalRender();
     }
@@ -547,11 +477,9 @@ function enhancedRender() {
     updateAscensionGlow();
     updateBuffVisuals();
     
-    // Update mood with diagnostic version
     const plantMoodDisplay = getEl('plantMoodDisplay');
     if (plantMoodDisplay && typeof state !== 'undefined') {
         const mood = getDiagnosticMood();
-        // Optimization: check text content first
         if (plantMoodDisplay.textContent !== mood.text) {
             plantMoodDisplay.textContent = mood.text;
             plantMoodDisplay.style.color = mood.color;
@@ -559,7 +487,6 @@ function enhancedRender() {
         }
     }
     
-    // Update stage label
     const stageLabel = getEl('stageLabel');
     if (stageLabel && typeof STAGES !== 'undefined' && typeof state !== 'undefined') {
         const txt = STAGES[state.stage - 1] || 'Seed';
@@ -569,45 +496,32 @@ function enhancedRender() {
     }
 }
 
-// ============================================
-// ASCENSION GLOW & HINT
-// ============================================
-
 function updateAscensionGlow() {
     const plantHero = getEl('plantHero');
     if (!plantHero || typeof state === 'undefined') return;
     
     const isReady = state.stage >= 5 && !state.isDead;
-    // toggle handles boolean check internally
     plantHero.classList.toggle('ascension-ready', isReady);
     
-    // Show hint if ready and not shown before
     if (isReady && (!state.hintsShown || !state.hintsShown.includes('ascension_ready'))) {
         showHint('ascension_ready');
     }
 }
 
-// ============================================
-// BUFF VISUAL FEEDBACK
-// ============================================
-
 function updateBuffVisuals() {
     const plantHero = getEl('plantHero');
     if (!plantHero || typeof state === 'undefined') return;
     
-    // Check for active buffs with color
     const activeBuff = state.buffs && state.buffs.find(b => b.remaining > 0);
     
     if (activeBuff) {
         plantHero.classList.add('buff-active');
-        // Use stored color from buff if available, otherwise use type-based color
         if (activeBuff.color) {
             plantHero.style.setProperty('--buff-color', activeBuff.color.replace(')', ', 0.35)').replace('hsl(', 'hsla('));
         } else {
             plantHero.classList.add('buff-' + activeBuff.type);
         }
     } else if (state.activeGuardians && state.activeGuardians.length > 0 && typeof FIREFLY_FAMILIES !== 'undefined') {
-        // Guardian is active
         plantHero.classList.add('buff-active');
         const firstGuardian = FIREFLY_FAMILIES[state.activeGuardians[0]];
         if (firstGuardian) {
@@ -615,8 +529,6 @@ function updateBuffVisuals() {
             plantHero.style.setProperty('--buff-color', col.replace(')', ', 0.35)').replace('hsl(', 'hsla('));
         }
     } else {
-        // No active buffs or guardians
-        // Removing classes is cheap if they aren't there
         plantHero.classList.remove('buff-active', 'buff-water', 'buff-sun', 'buff-love', 'buff-growth', 'buff-health', 'buff-slow', 'buff-luck', 'buff-random');
         plantHero.style.removeProperty('--buff-color');
     }
@@ -629,18 +541,12 @@ function enhancedUpdateMenuStats() {
     updateActiveModifiers();
 }
 
-// ============================================
-// INITIALIZE
-// ============================================
-
 function initImprovements() {
-    // Ensure state has new properties
     if (typeof state !== 'undefined') {
         if (!state.discoveries) state.discoveries = [];
         if (!state.hintsShown) state.hintsShown = [];
     }
     
-    // Override functions
     if (typeof render === 'function') {
         window._originalRender = render;
         window.render = enhancedRender;
@@ -656,10 +562,8 @@ function initImprovements() {
         window.renderFireflyLog = renderFireflyLogImproved;
     }
     
-    // Check garden discoverability
     setTimeout(checkGardenDiscoverability, 5000);
     
-    // Show first visit hint if new player
     if (typeof state !== 'undefined' && state.day === 1 && state.generation === 1 && 
         (!state.hintsShown || !state.hintsShown.includes('first_visit'))) {
         setTimeout(() => showHint('first_visit'), 2000);
@@ -668,14 +572,12 @@ function initImprovements() {
     console.log('Pocket Sprout v1.2 improvements loaded');
 }
 
-// Initialize when ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => setTimeout(initImprovements, 500));
 } else {
     setTimeout(initImprovements, 500);
 }
 
-// Export all functions globally
 window.switchMenuTab = switchMenuTab;
 window.openDiscoveries = openDiscoveries;
 window.closeDiscoveries = closeDiscoveries;

@@ -1,17 +1,12 @@
-// garden_audio.js - Pocket Sprout Unified Orchestration System
-// RESTORED: Full UI Legacy Support & State Initialization
-
 function initGardenAudio() {
     if (gardenState.audioContext) return;
     try {
         gardenState.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         
-        // Master Bus Chain
         gardenState.gainNode = gardenState.audioContext.createGain();
         gardenState.gainNode.gain.value = 0.25;
         gardenState.gainNode.connect(gardenState.audioContext.destination);
         
-        // Compression to "glue" everything together
         gardenState.masterComp = gardenState.audioContext.createDynamicsCompressor();
         gardenState.masterComp.threshold.value = -22;
         gardenState.masterComp.ratio.value = 4;
@@ -30,7 +25,6 @@ function initGardenAudio() {
         gardenState.plantGain.gain.value = 0.3;
         gardenState.plantGain.connect(gardenState.masterComp);
         
-        // UI AND STATE INITIALIZATION (Critical for button functionality)
         if (!gardenState.ambientTimers) gardenState.ambientTimers = {};
         if (!gardenState.activeSeeds) gardenState.activeSeeds = {};
         if (!gardenState.currentMood) gardenState.currentMood = 'contemplative';
@@ -39,11 +33,6 @@ function initGardenAudio() {
     } catch (e) { console.warn('Garden audio failed to initialize:', e); }
 }
 
-// --- SOUND SEED DOCK UI WIRING ---
-// midnight-garden.html provides:
-//   #soundSeedToggle (button), #soundSeedDock (panel), #soundSeedDockClose (button), #soundSeedGrid (container)
-// This file previously never bound click handlers, so the button could appear "dead".
-
 (function ensureGardenState(){
     if (!window.gardenState) window.gardenState = {};
     if (!gardenState.elements) gardenState.elements = {};
@@ -51,21 +40,18 @@ function initGardenAudio() {
 })();
 
 function initSoundSeedDockUI() {
-    // Bind once per page-load
     if (gardenState._uiBound.soundSeedDock) return;
 
     const toggleBtn = document.getElementById('soundSeedToggle');
     const dock = document.getElementById('soundSeedDock');
     const closeBtn = document.getElementById('soundSeedDockClose');
 
-    // If the garden overlay isn't in DOM yet, we'll try again later
     if (!toggleBtn || !dock) return;
 
     gardenState.elements.soundSeedToggle = toggleBtn;
     gardenState.elements.soundSeedDock = dock;
     gardenState.elements.soundSeedDockClose = closeBtn || null;
 
-    // Default state for accessibility
     if (!dock.hasAttribute('aria-hidden')) dock.setAttribute('aria-hidden', 'true');
 
     const onToggle = (e) => {
@@ -83,7 +69,6 @@ function initSoundSeedDockUI() {
     toggleBtn.addEventListener('click', onToggle, { passive: false });
     if (closeBtn) closeBtn.addEventListener('click', onClose, { passive: false });
 
-    // Optional: allow Esc to close when dock is open
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && gardenState.soundSeedDockOpen) {
             closeSoundSeedDock();
@@ -107,8 +92,6 @@ function openSoundSeedDock() {
     const toggleBtn = gardenState.elements.soundSeedToggle || document.getElementById('soundSeedToggle');
     if (toggleBtn) toggleBtn.classList.add('active');
 
-    // If CSS/layout puts it offscreen or inside a clipped container, force it onscreen.
-    // We only apply this if it's effectively not visible within the viewport.
     try {
         const r = dock.getBoundingClientRect();
         const vw = window.innerWidth || document.documentElement.clientWidth;
@@ -142,7 +125,6 @@ function closeSoundSeedDock() {
     dock.classList.remove('open');
     dock.setAttribute('aria-hidden', 'true');
 
-    // If we forced it onscreen, undo those inline overrides so your normal CSS takes back over.
     if (dock.dataset._forcedOnscreen === '1') {
         delete dock.dataset._forcedOnscreen;
         dock.style.position = '';
@@ -155,8 +137,6 @@ function closeSoundSeedDock() {
         dock.style.zIndex = '';
     }
 
-    // Respect your existing CSS: if you hide via transform, keep display as-is.
-    // But if there's no CSS, "none" avoids blocking taps behind it.
     dock.style.display = 'none';
 
     const toggleBtn = gardenState.elements.soundSeedToggle || document.getElementById('soundSeedToggle');
@@ -168,18 +148,14 @@ function toggleSoundSeedDock() {
     else openSoundSeedDock();
 }
 
-// Make these callable from console/other scripts if needed
 window.openSoundSeedDock = openSoundSeedDock;
 window.closeSoundSeedDock = closeSoundSeedDock;
 window.toggleSoundSeedDock = toggleSoundSeedDock;
 window.initSoundSeedDockUI = initSoundSeedDockUI;
 
-// Attempt binding as soon as DOM is ready, and also after load.
-// (Some setups inject/clone the garden overlay later; this catches both.)
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         initSoundSeedDockUI();
-        // One extra delayed attempt for cases where the overlay is inserted after DOMContentLoaded.
         setTimeout(initSoundSeedDockUI, 250);
         setTimeout(initSoundSeedDockUI, 1000);
     });
@@ -189,8 +165,6 @@ if (document.readyState === 'loading') {
     setTimeout(initSoundSeedDockUI, 1000);
 }
 
-
-// --- GLOBAL HARMONY CONFIG ---
 const MASTER_BPM = 72;
 const BEAT_DURATION = 60 / MASTER_BPM;
 const BAR_DURATION = BEAT_DURATION * 4;
@@ -226,8 +200,6 @@ function getNoiseBuffer(ctx, duration) {
     gardenState.audioBuffers[key] = buffer;
     return buffer;
 }
-
-// --- INTERACTION LOGIC ---
 
 function playFireflyChord(familyIndex) {
     if (!gardenState.isOpen) return;
@@ -272,8 +244,6 @@ function playPlantSound(plantData) {
         osc.start(now + i * 0.05); osc.stop(now + 2.5);
     });
 }
-
-// --- SEED ORCHESTRATION ---
 
 function getRoleForSeed(type) {
     const roles = [
@@ -348,22 +318,19 @@ function stopSoundSeedLoop(seedInstanceId) {
     }
 }
 
-// --- AMBIENCE & LEGACY UI COMPATIBILITY ---
-
 function startAmbientSoundscape() {
     initGardenAudio();
     const ctx = gardenState.audioContext;
     if (ctx.state === 'suspended') ctx.resume();
 
-    // UI Hook Restoration
     const indicator = gardenState.elements?.soundscapeIndicator || document.getElementById('soundscapeIndicator');
     gardenState.soundscapeActive = true;
     gardenState.isOpen = true; 
     if (indicator) indicator.classList.add('active');
 
     startForestBreath();
-    startPlantBreaths(); // Added back legacy call
-    startWindSystem();   // Added back legacy call
+    startPlantBreaths();
+    startWindSystem();
 }
 
 function stopAmbientSoundscape() {
@@ -401,7 +368,6 @@ function startForestBreath() {
     play();
 }
 
-// LEGACY SUPPORT FUNCTIONS (Restored for Button UI)
 function startPlantBreaths() { console.log("Plant breaths initialized."); }
 function startWindSystem() { console.log("Wind system initialized."); }
 function setGardenMood(mood) { gardenState.currentMood = mood; }

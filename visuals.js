@@ -1,7 +1,6 @@
-// visuals.js - Audio, Rendering, and Visual Effects
-
 const audio = {
     ctx: null, rainOsc: null, rainGain: null, isRainPlaying: false, isMusicPlaying: false, bgTimers: [],
+    activeMusicNodes: [],
     init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
     play(freq, type, dur, vol = 0.05) {
         if (!this.ctx) this.init();
@@ -84,7 +83,6 @@ const audio = {
         o.connect(f); f.connect(g); g.connect(ctx.destination);
         o.start(t); o.stop(t + 2.3);
     },
-    
     _getSeasonIndex() {
         try {
             if (typeof state !== 'undefined' && Number.isFinite(state.season)) return state.season | 0;
@@ -95,25 +93,17 @@ const audio = {
         if (!this.ctx) return;
         if (this.dropletBus) return;
         const ctx = this.ctx;
-
-        // A tiny "room" for piano droplets: delay + lowpass feedback.
         this.dropletBus = ctx.createGain();
         this.dropletBus.gain.value = 1.0;
-
         this.dropletDelay = ctx.createDelay(1.2);
         this.dropletDelay.delayTime.value = 0.18;
-
         this.dropletFeedback = ctx.createGain();
         this.dropletFeedback.gain.value = 0.35;
-
         this.dropletLP = ctx.createBiquadFilter();
         this.dropletLP.type = 'lowpass';
         this.dropletLP.frequency.value = 1400;
         this.dropletLP.Q.value = 0.7;
-
-        // bus -> (dry) bgFilter, and bus -> delay loop -> bgFilter
         this.dropletBus.connect(this.bgFilter);
-
         this.dropletBus.connect(this.dropletDelay);
         this.dropletDelay.connect(this.dropletLP);
         this.dropletLP.connect(this.dropletFeedback);
@@ -122,69 +112,46 @@ const audio = {
     },
     _playPianoDropletAt(t, midi, amp, brightness = 1.0) {
         const ctx = this.ctx;
-        if (!ctx) return;
+        if (!ctx || !this.isMusicPlaying) return;
         this._ensureDropletFX();
-
         const freq = this._midiToFreq(midi);
-
-        // Two partials: fundamental + a soft upper partial.
-        const o1 = ctx.createOscillator();
-        const o2 = ctx.createOscillator();
-        o1.type = 'triangle';
-        o2.type = 'sine';
-
-        o1.frequency.setValueAtTime(freq, t);
-        o2.frequency.setValueAtTime(freq * 2, t);
-
-        // Slight, stable detune so it doesn't sound like a pure test tone.
+        const o1 = ctx.createOscillator(), o2 = ctx.createOscillator();
+        o1.type = 'triangle'; o2.type = 'sine';
+        o1.frequency.setValueAtTime(freq, t); o2.frequency.setValueAtTime(freq * 2, t);
         const det = (Math.random() - 0.5) * 6;
-        o1.detune.setValueAtTime(det, t);
-        o2.detune.setValueAtTime(-det * 0.6, t);
-
-        const f = ctx.createBiquadFilter();
-        f.type = 'lowpass';
-        f.frequency.setValueAtTime(1800 * brightness, t);
-        f.Q.setValueAtTime(0.9, t);
-
+        o1.detune.setValueAtTime(det, t); o2.detune.setValueAtTime(-det * 0.6, t);
+        const f = ctx.createBiquadFilter(); f.type = 'lowpass';
+        f.frequency.setValueAtTime(1800 * brightness, t); f.Q.setValueAtTime(0.9, t);
         const g = ctx.createGain();
         g.gain.setValueAtTime(0.0001, t);
         g.gain.linearRampToValueAtTime(amp, t + 0.012);
         g.gain.exponentialRampToValueAtTime(0.0001, t + 2.8);
-
-        // A tiny transient click -> 'felt hammer' (very low level).
         const click = ctx.createBufferSource();
         const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.02), ctx.sampleRate);
         const d = buf.getChannelData(0);
         for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length) * 0.35;
         click.buffer = buf;
-
         const cg = ctx.createGain();
         cg.gain.setValueAtTime(0.0001, t);
         cg.gain.linearRampToValueAtTime(amp * 0.25, t + 0.005);
         cg.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
-
-        o1.connect(f); o2.connect(f);
-        f.connect(g);
-        g.connect(this.dropletBus);
-
-        click.connect(cg);
-        cg.connect(this.dropletBus);
-
-        o1.start(t);
-        o2.start(t);
-        click.start(t);
-
-        o1.stop(t + 3.0);
-        o2.stop(t + 3.0);
-        click.stop(t + 0.06);
+        o1.connect(f); o2.connect(f); f.connect(g); g.connect(this.dropletBus);
+        click.connect(cg); cg.connect(this.dropletBus);
+        o1.start(t); o2.start(t); click.start(t);
+        o1.stop(t + 3.0); o2.stop(t + 3.0); click.stop(t + 0.06);
+        if (!this.activeMusicNodes) this.activeMusicNodes = [];
+        this.activeMusicNodes.push(o1, o2, click);
+        const self = this;
+        setTimeout(() => { if (self.activeMusicNodes) self.activeMusicNodes = self.activeMusicNodes.filter(n => n !== o1 && n !== o2 && n !== click); }, (t - ctx.currentTime + 3.5) * 1000);
     },
-playBackgroundMusic() {
+    playBackgroundMusic() {
         if (!this.ctx) this.init();
         if (this.ctx.state === 'suspended') this.ctx.resume();
         if (this.isMusicPlaying) return;
         this.isMusicPlaying = true;
         this.bgTimers.forEach(id => clearTimeout(id));
         this.bgTimers = [];
+        this.activeMusicNodes = [];
         if (!this.bgMasterGain) {
             this.bgMasterGain = this.ctx.createGain();
             this.bgMasterGain.gain.value = 0.06;
@@ -197,12 +164,32 @@ playBackgroundMusic() {
             this.bgFilter.Q.value = 0.7;
             this.bgFilter.connect(this.bgMasterGain);
         }
+        if (this.dropletBus && this.dropletBus.gain) {
+            this.dropletBus.gain.cancelScheduledValues(this.ctx.currentTime);
+            this.dropletBus.gain.setValueAtTime(1.0, this.ctx.currentTime);
+        }
         this._scheduleBackgroundMusic();
     },
     stopBackgroundMusic() {
         this.isMusicPlaying = false;
         this.bgTimers.forEach(id => clearTimeout(id));
         this.bgTimers = [];
+        if (this.activeMusicNodes && this.activeMusicNodes.length > 0) {
+            this.activeMusicNodes.forEach(node => {
+                try { if (node.stop) node.stop(0); if (node.disconnect) node.disconnect(); } catch (e) { }
+            });
+            this.activeMusicNodes = [];
+        }
+        if (this.dropletBus && this.ctx) {
+            try {
+                const now = this.ctx.currentTime;
+                if (this.dropletBus.gain) {
+                    this.dropletBus.gain.cancelScheduledValues(now);
+                    this.dropletBus.gain.setValueAtTime(this.dropletBus.gain.value, now);
+                    this.dropletBus.gain.linearRampToValueAtTime(0, now + 0.1);
+                }
+            } catch (e) { }
+        }
     },
     _scheduleBackgroundMusic() {
         if (!this.isMusicPlaying || !this.ctx) return;
@@ -214,10 +201,10 @@ playBackgroundMusic() {
     },
     _getSeasonMelody(seasonIdx) {
         const MELODIES = {
-            0: { baseNote: 60, scale: [0,2,4,5,7,9,11], feel: 'hopeful', tempo: 72 },
-            1: { baseNote: 62, scale: [0,2,4,7,9], feel: 'bright', tempo: 80 },
-            2: { baseNote: 57, scale: [0,2,3,5,7,8,10], feel: 'wistful', tempo: 66 },
-            3: { baseNote: 55, scale: [0,2,3,5,7,8,11], feel: 'sparse', tempo: 54 }
+            0: { baseNote: 60, scale: [0,2,4,5,7,9,11], tempo: 72 },
+            1: { baseNote: 62, scale: [0,2,4,7,9], tempo: 80 },
+            2: { baseNote: 57, scale: [0,2,3,5,7,8,10], tempo: 66 },
+            3: { baseNote: 55, scale: [0,2,3,5,7,8,11], tempo: 54 }
         };
         const cfg = MELODIES[seasonIdx] || MELODIES[0];
         const rand = this._mulberry32(Date.now());
@@ -229,8 +216,7 @@ playBackgroundMusic() {
             let prevDeg = Math.floor(rand() * cfg.scale.length);
             for (let n = 0; n < notesPerPhrase; n++) {
                 const jump = Math.floor(rand() * 5) - 2;
-                let deg = prevDeg + jump;
-                deg = Math.max(0, Math.min(cfg.scale.length - 1, deg));
+                let deg = Math.max(0, Math.min(cfg.scale.length - 1, prevDeg + jump));
                 const octaveShift = rand() < 0.2 ? (rand() < 0.5 ? -12 : 12) : 0;
                 const midi = cfg.baseNote + cfg.scale[deg] + octaveShift;
                 const dur = [0.5, 0.75, 1, 1.5][Math.floor(rand() * 4)] * (60 / cfg.tempo);
@@ -290,20 +276,12 @@ function updateTimeOfDay() {
 function updateNightMotes(timeOfDay) {
     const container = document.getElementById('nightMotes');
     if (!container) return;
-    
     const isNight = timeOfDay === 'night' || timeOfDay === 'evening';
-    
-    // Only populate motes once
     if (isNight && container.children.length === 0) {
         for (let i = 0; i < 25; i++) {
             const mote = document.createElement('div');
             mote.className = 'night-mote';
-            mote.style.cssText = `
-                left: ${Math.random() * 100}%;
-                top: ${20 + Math.random() * 60}%;
-                --dur: ${10 + Math.random() * 8}s;
-                --delay: ${Math.random() * 10}s;
-            `;
+            mote.style.cssText = `left: ${Math.random() * 100}%; top: ${20 + Math.random() * 60}%; --dur: ${10 + Math.random() * 8}s; --delay: ${Math.random() * 10}s;`;
             container.appendChild(mote);
         }
     } else if (!isNight && container.children.length > 0) {
@@ -311,31 +289,13 @@ function updateNightMotes(timeOfDay) {
     }
 }
 
-/**
- * FIXED: Moon phase calculation using correct lunar cycle algorithm
- * The issue was the Julian Date formula was incorrect.
- * 
- * This uses the standard synodic month (29.53058867 days) and a known
- * new moon reference date (Jan 6, 2000 was a new moon).
- */
 function getMoonPhase() {
     const now = new Date();
-    
-    // Known new moon: January 6, 2000, 18:14 UTC
     const knownNewMoon = new Date(Date.UTC(2000, 0, 6, 18, 14, 0));
-    
-    // Synodic month in milliseconds
     const synodicMonth = 29.53058867 * 24 * 60 * 60 * 1000;
-    
-    // Days since the known new moon
     const daysSinceNewMoon = (now.getTime() - knownNewMoon.getTime()) / synodicMonth;
-    
-    // Get the fractional part (0 = new moon, 0.5 = full moon)
     const lunarPhase = daysSinceNewMoon - Math.floor(daysSinceNewMoon);
-    
-    // Map to 8 phases (0-7)
     const phaseIndex = Math.floor(lunarPhase * 8) % 8;
-    
     return MOON_PHASES[phaseIndex];
 }
 
@@ -352,7 +312,6 @@ function updateSeason() {
     const s = SEASONS[state.season % 4];
     const i = document.getElementById('seasonIndicator');
     if (i) i.textContent = `${s.icon} ${s.name}`;
-    // Set data-season attribute for environment scene CSS
     document.body.setAttribute('data-season', s.name);
     updateSeasonalVisuals();
 }
@@ -472,21 +431,14 @@ function updateMainPot() {
     if (p) p.setAttribute('fill', state.potPattern ? `url(#${state.potPattern})` : 'none');
 }
 
-// Night motes - floating particles for nighttime ambience
 function setupNightMotes() {
     const container = document.getElementById('nightMotes');
     if (!container || container.children.length > 0) return;
-    
-    const moteCount = 15;
+    const moteCount = 25;
     for (let i = 0; i < moteCount; i++) {
         const mote = document.createElement('div');
         mote.className = 'night-mote';
-        mote.style.cssText = `
-            left: ${Math.random() * 100}%;
-            top: ${30 + Math.random() * 50}%;
-            --dur: ${10 + Math.random() * 8}s;
-            --delay: ${Math.random() * -15}s;
-        `;
+        mote.style.cssText = `left: ${Math.random() * 100}%; top: ${30 + Math.random() * 50}%; --dur: ${10 + Math.random() * 8}s; --delay: ${Math.random() * -15}s;`;
         container.appendChild(mote);
     }
 }
