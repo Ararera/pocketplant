@@ -1,20 +1,16 @@
-<!-- MAIN MENU - Now with tabs for better organization -->
 <div class="menu-overlay" id="menuOverlay">
     <div class="menu-card">
         <div class="menu-title">Pocket Sprout <span class="version-tag">v1.2</span></div>
         
-        <!-- Tab Navigation -->
         <div class="menu-tabs">
             <button class="menu-tab active" data-tab="care" onclick="switchMenuTab('care')">Care</button>
             <button class="menu-tab" data-tab="collect" onclick="switchMenuTab('collect')">Collect</button>
             <button class="menu-tab" data-tab="info" onclick="switchMenuTab('info')">Info</button>
         </div>
         
-        <!-- CARE TAB -->
         <div class="menu-tab-content active" id="tabCare">
             <input type="text" id="nameInput" class="name-input" placeholder="Name your plant" maxlength="16" onchange="updateName(this.value)">
             
-            <!-- Active Modifiers Display - NEW -->
             <div class="active-modifiers" id="activeModifiers">
                 <div class="modifier-label">Active Effects</div>
                 <div class="modifier-list" id="modifierList"></div>
@@ -23,56 +19,53 @@
             <div class="menu-stat"><span>🌱 Generation</span><span id="menuGen">1</span></div>
             <div class="menu-stat"><span>⏳ Age</span><span id="menuAge">1 Day</span></div>
             <div class="menu-stat"><span>🌿 Growth Stage</span><span id="menuStage">Sprout</span></div>
-            <div class="menu-stat" style="flex-direction:column;align-items:flex-start">
-                <div style="display:flex;justify-content:space-between;width:100%">
-                    <span>📈 Progress</span>
-                    <span id="menuNextStageTime">--</span>
+            <div class="menu-stat"><span>❤️ Health</span><span id="menuHealth" style="color:var(--accent-growth)">Thriving</span></div>
+            
+            <div class="growth-wrapper">
+                <span class="growth-label">Evolution Progress</span>
+                <div class="progress-container">
+                    <div class="progress-bar" id="menuProgressBar"></div>
                 </div>
-                <div class="progress-container"><div class="progress-bar" id="menuProgressBar"></div></div>
-            </div>
-            <div class="menu-stat"><span>💚 Vitality</span><span id="menuHealth" style="font-weight:bold">Thriving</span></div>
-            <div class="menu-stat" id="menuScars" style="display:none"><span>🩹 Scars</span><span id="menuScarList"></span></div>
-            <div class="menu-stat" id="menuInherited" style="display:none;flex-direction:column;align-items:flex-start">
-                <span style="margin-bottom:5px">🧬 Inherited Traits</span>
-                <span id="menuInheritedList" style="font-size:0.8rem;opacity:0.7"></span>
             </div>
             
-            <div class="menu-section-title">Actions</div>
-            <button class="btn-base piano-btn" id="btnSing" onclick="singToPlant()">🎵 Sing to Plant</button>
+            <div class="menu-stat" id="menuScars" style="display:none; margin-top:12px;">
+                <span>🩹 Scars</span><span id="menuScarList" style="color:#fb923c; font-size:0.75rem;"></span>
+            </div>
+            
+            <button class="btn-base harvest-btn" id="btnHarvest" onclick="harvestPlant()">🌸 Ascend & Harvest</button>
+            <button class="btn-base sing-btn" id="btnSing" onclick="singToPlant()">🎵 Sing to Plant</button>
             <button class="btn-base fertilize-btn" id="btnFertilize" onclick="fertilizePlant()">🌿 Fertilize</button>
-            <button class="btn-base music-btn" id="btnMusic" onclick="toggleBackgroundMusic()">🎶 Background Music</button>
-            <button class="btn-base harvest-btn" id="btnHarvest" onclick="harvestPlant()">🌸 Ascend Plant</button>
         </div>
-        
-        <!-- COLLECT TAB -->
+
         <div class="menu-tab-content" id="tabCollect">
             <button class="btn-base firefly-btn" onclick="openFireflyLog()">🦋 Firefly Sanctuary</button>
-            <button class="btn-base style-btn" onclick="openPotDesigner()">🎨 Style Pot</button>
+            <button class="btn-base style-btn" onclick="openPotDesigner()">🎨 Customize Pot</button>
             
-            <div class="menu-section-title">Ancestors</div>
-            <p class="ancestors-hint">Visit the <span class="hint-link" onclick="enterMidnightGarden();toggleMenu();">Midnight Garden →</span> to see your plant lineage in a contemplative space.</p>
+            <div class="menu-section-title">Greenhouse</div>
             <div class="greenhouse-list" id="greenhouseList"></div>
         </div>
-        
-        <!-- INFO TAB -->
+
         <div class="menu-tab-content" id="tabInfo">
-            <button class="btn-base help-btn" onclick="openCareLog()">📜 Care Log</button>
-            <button class="btn-base help-btn" onclick="openSeasonInfo()">🍃 Seasons</button>
-            <button class="btn-base help-btn" onclick="openHelp()">📖 How to Play</button>
-            <button class="btn-base help-btn" onclick="openTraitGlossary()">🧬 Trait Glossary</button>
-            <button class="btn-base help-btn" onclick="openDiscoveries()">✨ Discoveries</button>
-            <button class="btn-base reset-btn" id="btnReset" onclick="openResetConfirm()">🔄 Reset Save</button>
+            <div class="menu-stat" id="menuInherited" style="display:none;">
+                <span>🧬 Traits</span><span id="menuInheritedList" style="color:var(--accent-growth)"></span>
+            </div>
+            
+            <button class="btn-base" onclick="openTraitGlossary()">📖 Trait Glossary</button>
+            <button class="btn-base" onclick="openCareLog()">📜 Care Log</button>
+            <button class="btn-base" onclick="openSeasonInfo()">📅 Season Info</button>
+            <button class="btn-base music-btn" id="btnMusic" onclick="toggleBackgroundMusic()">🎶 Background Music</button>
+            <button class="btn-base help-btn" onclick="openHelp()">❓ Help</button>
+            <button class="btn-base reset-btn" onclick="openResetConfirm()">🗑️ Reset Save</button>
         </div>
-        
-        <button class="btn-base close-btn" onclick="toggleMenu()">Close</button>
+
+        <button class="btn-base close-btn" style="margin-top:15px;" onclick="toggleMenu()">Close</button>
     </div>
 </div>
 
-<!-- FIREFLY SANCTUARY - Improved with "Invoke" language and progress bars -->
 <div class="menu-overlay" id="fireflyOverlay">
     <div class="menu-card firefly-card">
-        <div class="menu-title">🦋 Firefly Sanctuary</div>
-        <p class="firefly-intro">Tap fireflies in your garden to collect them. Each family grants unique powers when invoked.</p>
+        <div class="menu-title">Sanctuary</div>
+        <div class="firefly-intro">The gathered light of your journey.</div>
         
         <div class="firefly-family-grid" id="fireflyFamilyGrid"></div>
         
@@ -80,191 +73,113 @@
             <div class="family-detail-header">
                 <div class="family-orb" id="detailOrb"></div>
                 <div class="family-info">
-                    <h3 id="detailFamilyName">Family Name</h3>
-                    <p id="detailFamilyPower">Power description</p>
+                    <h3 id="detailFamilyName">Family</h3>
+                    <p id="detailFamilyPower">Effect</p>
                 </div>
             </div>
-            <p id="detailFireflyCount">You have 0 fireflies</p>
+            <div id="detailFireflyCount"></div>
             
-            <!-- Guardian Progress Bar - NEW -->
             <div class="guardian-bar-container">
                 <div class="guardian-bar-track">
                     <div class="guardian-bar-fill" id="guardianBarFill"></div>
                 </div>
-                <div class="guardian-bar-label" id="guardianBarLabel">0/50 to Guardian</div>
+                <div class="guardian-bar-label" id="guardianBarLabel"></div>
             </div>
             
-            <button class="btn-base invoke-btn" id="releaseBtn" onclick="releaseFirefly()">✨ Invoke Power</button>
-            <p class="invoke-hint">Invoking consumes one firefly to grant its blessing.</p>
-        </div>
-        
-        <div class="guardian-progress-section">
-            <div class="section-label">GUARDIANS</div>
-            <p id="guardianProgressText">Hold 50 of any family. A Guardian appears in the sky while you have enough fireflies, and provides passive bonuses when tapped.</p>
+            <button class="btn-base release-btn" id="releaseBtn" onclick="releaseFirefly()">Release One</button>
+            <p class="invoke-hint" id="guardianProgressText"></p>
         </div>
         
         <button class="btn-base close-btn" onclick="closeFireflyLog()">Close</button>
     </div>
 </div>
 
-<!-- POT DESIGNER -->
 <div class="menu-overlay" id="potOverlay">
     <div class="menu-card">
-        <div class="menu-title">🎨 Pot Designer</div>
-        <p style="font-size:0.8rem;opacity:0.7;margin:-10px 0 15px;">Collect fireflies to unlock new patterns!</p>
+        <div class="menu-title">Pot Design</div>
+        
         <div class="pot-preview-container">
             <svg id="potPreviewSVG" viewBox="0 0 200 100" class="pot-preview-svg">
                 <defs id="previewDefs"></defs>
-                <g id="potPreviewGroup"></g>
+                <g id="potPreviewGroup" transform="translate(0, 0)"></g>
             </svg>
         </div>
+        
         <div class="pot-section">
-            <span class="pot-section-label">Pot Color</span>
+            <span class="pot-section-label">Clay Color</span>
             <div class="color-grid" id="potColorGrid"></div>
         </div>
+        
         <div class="pot-section">
             <span class="pot-section-label">Pattern</span>
             <div class="pattern-grid" id="potPatternGrid"></div>
         </div>
+        
         <div class="pot-section">
             <span class="pot-section-label">Pattern Color</span>
             <div class="color-grid" id="patternColorGrid"></div>
         </div>
+        
         <button class="btn-base close-btn" onclick="closePotDesigner()">Done</button>
     </div>
 </div>
 
-<!-- HELP OVERLAY - Updated vocabulary -->
 <div class="menu-overlay" id="helpOverlay">
     <div class="menu-card help-card">
-        <div class="menu-title">📖 How to Play</div>
-        
+        <div class="menu-title">Guide</div>
         <div class="help-section">
-            <h3>🌱 Basic Care</h3>
-            <p><b>Water (💧):</b> Toggle rain to keep soil moist. Too much drowns!</p>
-            <p><b>Sunlight (☀️):</b> Toggle lamp for light. Evaporates water faster.</p>
-            <p><b>Love (❤️):</b> Tap the pot to show affection.</p>
-            <p><b>Vitality Rings:</b> Tap and <b>hold</b> the pot to see your plant's water, sun, and love levels as colored rings.</p>
+            <h3>Needs</h3>
+            <p>Keep Water 💧, Sun ☀️, and Love ❤️ balanced. Tap buttons to toggle environment. Tap the plant to give love.</p>
         </div>
-        
         <div class="help-section">
-            <h3>🌿 Boosts</h3>
-            <p><b>Sing (🎵):</b> Gives a burst of growth. 5 minute cooldown.</p>
-            <p><b>Fertilize (🌿):</b> Doubles growth speed for 60 seconds. 3 minute cooldown.</p>
+            <h3>Growth</h3>
+            <p>The plant grows over time. Better care = faster growth. Unlock new shapes and flowers as it evolves.</p>
         </div>
-        
         <div class="help-section">
-            <h3>🦋 Fireflies</h3>
-            <p>Tap glowing fireflies to collect them. Each family has unique powers.</p>
-            <p>Collect <b>50</b> of one family to unlock their <b>Guardian</b> — a larger firefly that appears in the sky. Tapping it invokes a blessing and costs <b>25</b> fireflies from that family.</p>
+            <h3>Fireflies</h3>
+            <p>Rare visitors that appear when the plant is happy. Collect them to unlock pot patterns and powerful buffs.</p>
         </div>
-        
-        <div class="help-section">
-            <h3>🧬 Inheritance</h3>
-            <p>When your plant ascends at full bloom, its child inherits a trait. Each generation shapes the next.</p>
-        </div>
-        
-        <div class="help-section">
-            <h3>🩹 Neglect & Scars</h3>
-            <p>Letting vitality drop below 20% causes stress. Extended neglect leaves permanent scars. Severe crisis leads to withering.</p>
-            <p><b>Watch your rings!</b> Pulsing red means your plant needs urgent care.</p>
-        </div>
-        
-        <div class="help-section">
-            <h3>🌙 Midnight Garden</h3>
-            <p>Tap the arrow on the right edge of the screen to visit your ancestors in the Midnight Garden — a contemplative space where ascended plants rest.</p>
-            <p><b>Essence:</b> In the Midnight Garden, matching 3 fireflies of the same family tints the moon and drops Essence into your jar. Spend <b>1000</b> Essence for a 50% chance to lift a random scar (or, if you have no scars, convert it into growth).</p>
-        </div>
-        
-        <button class="btn-base close-btn" onclick="closeHelp()">Got it!</button>
+        <button class="btn-base close-btn" onclick="closeHelp()">Close</button>
     </div>
 </div>
 
-<!-- CARE LOG -->
-<div class="menu-overlay" id="logOverlay">
-    <div class="menu-card help-card">
-        <div class="menu-title">📜 Care Log</div>
-        <div class="log-sub" id="logSub"></div>
-        <div class="log-list" id="logList"></div>
-        <button class="btn-base close-btn" onclick="closeCareLog()">Close</button>
-    </div>
-</div>
-
-<!-- SEASON INFO -->
-<div class="menu-overlay" id="seasonOverlay">
-    <div class="menu-card help-card">
-        <div class="menu-title">🍃 Seasons</div>
-        <div class="help-section">
-            <h3 id="seasonNow">Current Season</h3>
-            <p id="seasonNowBody"></p>
-        </div>
-        <div class="help-section">
-            <h3>What changes</h3>
-            <p><b>Growth:</b> Each season changes the growth multiplier.</p>
-            <p><b>Atmosphere:</b> Background effects and mood shift with the season.</p>
-            <p><b>Care pressure:</b> Some seasons feel forgiving, others feel sharp.</p>
-        </div>
-        <div class="help-section">
-            <h3>The year</h3>
-            <p><b>Spring (🌸):</b> +10% growth. Blossoms drift by.</p>
-            <p><b>Summer (☀️):</b> +20% growth. Heatwaves. Watch water levels.</p>
-            <p><b>Autumn (🍂):</b> -10% growth. Leaves blow through. Calmer pace.</p>
-            <p><b>Winter (❄️):</b> -30% growth. Quiet snowfall. Survival mode.</p>
-        </div>
-        <button class="btn-base close-btn" onclick="closeSeasonInfo()">Close</button>
-    </div>
-</div>
-
-<!-- TRAIT GLOSSARY -->
 <div class="menu-overlay" id="traitOverlay">
     <div class="menu-card trait-card">
-        <div class="menu-title">🧬 Trait Glossary</div>
-        <p class="trait-intro">Traits are inherited when your plant ascends. They permanently shape future generations.</p>
+        <div class="menu-title">Trait Glossary</div>
+        <div class="trait-intro">Traits inherited from ancestors shape your plant's destiny.</div>
         <div class="trait-list" id="traitGlossaryList"></div>
-        <button class="btn-base close-btn" onclick="closeTraitGlossary()">Close</button>
+        <button class="btn-base close-btn" style="margin-top:15px" onclick="closeTraitGlossary()">Close</button>
     </div>
 </div>
 
-<!-- DISCOVERIES - NEW -->
-<div class="menu-overlay" id="discoveriesOverlay">
-    <div class="menu-card help-card">
-        <div class="menu-title">✨ Discoveries</div>
-        <p class="discoveries-intro">Track your journey through Pocket Sprout.</p>
-        <div class="discoveries-list" id="discoveriesList"></div>
-        <button class="btn-base close-btn" onclick="closeDiscoveries()">Close</button>
-    </div>
-</div>
-
-<!-- ASCENSION MODAL - Updated vocabulary -->
 <div class="menu-overlay" id="harvestOverlay">
-    <div class="menu-card harvest-card">
-        <div class="menu-title" style="color:var(--accent-growth)">✨ Ascension</div>
+    <div class="menu-card">
+        <div class="menu-title">Ascension</div>
         <div class="harvest-preview">
             <svg id="harvestPlantSVG" viewBox="0 0 200 250" class="harvest-preview-svg">
                 <defs id="harvestDefs"></defs>
+                <g id="harvestPotGroup"></g>
                 <g id="harvestPlantGroup"></g>
             </svg>
         </div>
-        <p class="harvest-text" id="harvestMessage">Your plant has reached full bloom. It's time to pass on its legacy.</p>
+        <p class="harvest-text">Your plant is ready to complete its cycle. It will leave behind a seed with new traits for the next generation.</p>
         <div class="trait-inheritance-section">
-            <div class="section-label">INHERITED TRAIT</div>
-            <p id="inheritedTraitDisplay">A trait will be chosen...</p>
+            <div class="section-label">Inherited Trait</div>
+            <h3 id="inheritedTraitDisplay">...</h3>
         </div>
-        <button class="btn-base harvest-confirm-btn" onclick="confirmHarvest()">🌱 Plant New Seed</button>
-        <button class="btn-base close-btn" onclick="closeHarvestModal()">Not Yet</button>
+        <button class="btn-base harvest-confirm-btn" onclick="confirmHarvest()">Begin New Cycle</button>
+        <button class="btn-base close-btn" onclick="closeHarvestModal()">Cancel</button>
     </div>
 </div>
 
-<!-- DEATH OVERLAY -->
 <div class="menu-overlay death-overlay" id="deathOverlay">
     <div class="menu-card death-card">
-        <div class="menu-title" style="color:#ff6b6b;letter-spacing:4px">WITHERED</div>
-        <p class="death-text">Neglected too long, this life has returned to the soil. Its lineage ends here.</p>
-        <button class="btn-base death-btn" onclick="resetGame(false)">🍂 Plant New Seed</button>
+        <div class="menu-title" style="color:#ef4444">Withered</div>
+        <p class="death-text">Despite your efforts, the plant has faded away. Its nutrients return to the earth.</p>
+        <button class="btn-base death-btn" onclick="resetGame(true)">Try Again</button>
     </div>
 </div>
 
-<!-- ARCHIVE OVERLAY -->
 <div class="menu-overlay" id="archiveOverlay">
     <div class="menu-card archive-card">
         <div class="menu-title" id="archiveTitle">Ancestor</div>
@@ -280,7 +195,6 @@
     </div>
 </div>
 
-<!-- RESET CONFIRM -->
 <div class="menu-overlay" id="resetOverlay">
     <div class="menu-card reset-card">
         <div class="menu-title" style="color:#ff6b6b">Wipe Save?</div>
@@ -290,14 +204,41 @@
     </div>
 </div>
 
-<!-- QUICK STATS TOOLTIP - NEW (shows on plant long-press) -->
+<div class="menu-overlay" id="logOverlay">
+    <div class="menu-card" style="height:60vh;">
+        <div class="menu-title">Care Log</div>
+        <div class="section-label" id="logSub" style="margin-bottom:10px;">Recent Events</div>
+        <div class="log-list" id="logList"></div>
+        <button class="btn-base close-btn" style="margin-top:15px" onclick="closeCareLog()">Close</button>
+    </div>
+</div>
+
+<div class="menu-overlay" id="seasonOverlay">
+    <div class="menu-card">
+        <div class="menu-title">Season</div>
+        <div class="harvest-text">
+            <h3 id="seasonNow" style="margin-top:0;color:var(--accent-growth)"></h3>
+            <p id="seasonNowBody" style="opacity:0.8;font-size:0.85rem;line-height:1.5;"></p>
+        </div>
+        <div style="font-size:0.75rem;opacity:0.6;margin-top:15px;font-style:italic;">Seasons change every few minutes, affecting growth rates and visuals.</div>
+        <button class="btn-base close-btn" style="margin-top:20px" onclick="closeSeasonInfo()">Close</button>
+    </div>
+</div>
+
 <div class="quick-stats-tooltip" id="quickStatsTooltip">
     <div class="quick-stats-title">Active Modifiers</div>
     <div class="quick-stats-content" id="quickStatsContent"></div>
 </div>
 
-<!-- FIRST-TIME HINTS OVERLAY - NEW -->
 <div class="hint-bubble" id="hintBubble">
     <div class="hint-content" id="hintContent"></div>
     <button class="hint-dismiss" onclick="dismissHint()">Got it</button>
 </div>
+
+<div class="toast" id="welcomeToast">
+    <button class="toast-close" onclick="closeToast()">×</button>
+    <div class="toast-title">Welcome Back</div>
+    <div class="toast-body" id="toastBody"></div>
+</div>
+
+<div class="whisper-stack" id="whisperStack"></div>

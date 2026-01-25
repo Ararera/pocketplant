@@ -1,76 +1,43 @@
-<!-- Midnight Garden Entry Arrow - Now with tooltip on first view -->
 <button class="midnight-garden-entry" id="midnightGardenEntry" onclick="enterMidnightGarden()" aria-label="Enter Midnight Garden">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M5 12h14M12 5l7 7-7 7"/>
     </svg>
-    <!-- Tooltip label that shows initially -->
     <span class="entry-label" id="gardenEntryLabel">Garden</span>
 </button>
 
-<!-- Transition Overlay -->
 <div class="midnight-transition" id="midnightTransition"></div>
 
-<!-- Midnight Garden Scene -->
 <div class="midnight-garden-overlay" id="midnightGardenOverlay">
-    <!-- Back Button -->
     <button class="midnight-garden-back" id="midnightGardenBack" onclick="exitMidnightGarden()" aria-label="Return to Plant">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M19 12H5M12 19l-7-7 7-7"/>
         </svg>
     </button>
 
-    <!-- Garden Sky -->
     <div class="garden-sky" id="gardenSky">
         <div class="garden-stars" id="gardenStars"></div>
-        <!-- Soft, slow-moving aurora ribbons (pure CSS) -->
         <div class="garden-aurora" aria-hidden="true"></div>
-        <div class="garden-moon" id="gardenMoon" onclick="triggerWindGust()" title="Tap for wind">
-            <!-- Moon hint on first visit -->
-            <span class="moon-hint" id="moonHint">tap</span>
+        <div class="garden-moon" id="gardenMoon">
+            <div class="moon-hint">TAP</div>
         </div>
     </div>
 
-    <!-- Low fog and drifting motes sit between sky and forest -->
-    <div class="garden-fog" aria-hidden="true">
+    <div class="garden-fog">
         <div class="fog-layer fog-1"></div>
         <div class="fog-layer fog-2"></div>
         <div class="fog-layer fog-3"></div>
     </div>
 
-    <!-- Floating motes / dust (visual only) -->
-    <div class="garden-motes" id="gardenMotes" aria-hidden="true"></div>
-
-    <!-- Ambient Fireflies Container -->
+    <div class="garden-motes" id="gardenMotes"></div>
     <div class="garden-fireflies" id="gardenFireflies"></div>
 
-    <!-- Sound Seeds (player-placed musical seeds) -->
-    <div class="sound-seeds-layer" id="gardenSoundSeedsLayer" aria-hidden="false"></div>
-
-    <!-- Sound Seed Dock Toggle -->
-    <button class="sound-seed-toggle" id="soundSeedToggle" aria-label="Sound seeds" title="Sound seeds">
-        <span class="seed-icon" aria-hidden="true">🎶</span>
-    </button>
-
-    <!-- Sound Seed Dock -->
-    <div class="sound-seed-dock" id="soundSeedDock" aria-label="Sound seed dock">
-        <div class="sound-seed-dock-header">
-            <div class="dock-title">Sound Seeds</div>
-            <button class="dock-close" id="soundSeedDockClose" aria-label="Close sound seeds">✕</button>
-        </div>
-        <div class="sound-seed-grid" id="soundSeedGrid" aria-label="Available sound seeds"></div>
-        <div class="sound-seed-hint" aria-hidden="true">Drag a seed into the garden • Double‑tap a placed seed to remove</div>
-    </div>
-
-
-    <!-- Forest Background -->
-    <div class="garden-forest" id="gardenForest">
+    <div class="garden-forest">
         <div class="forest-layer forest-back"></div>
         <div class="forest-layer forest-mid"></div>
         <div class="forest-layer forest-front"></div>
     </div>
 
-    <!-- Garden Ground & Fence -->
-    <div class="garden-ground" id="gardenGround">
+    <div class="garden-ground">
         <div class="garden-fence">
             <div class="fence-post"></div>
             <div class="fence-post"></div>
@@ -82,12 +49,15 @@
         </div>
     </div>
 
-    <!-- Plant Display Area -->
     <div class="garden-plants-container" id="gardenPlantsContainer">
         <div class="garden-plants-scroll" id="gardenPlantsScroll"></div>
     </div>
 
-    <!-- Soundscape Indicator (subtle volume hint) - stays centered -->
+    <div class="garden-info">
+        <div class="garden-title">Midnight Garden</div>
+        <div class="garden-subtitle" id="gardenSubtitle"></div>
+    </div>
+
     <div class="soundscape-indicator" id="soundscapeIndicator" title="Audio active">
         <div class="soundscape-bar" aria-hidden="true">
             <div class="soundscape-bar-fill"></div>
@@ -95,8 +65,7 @@
         <div class="soundscape-caption" aria-hidden="true">turn up the volume</div>
     </div>
 
-    <!-- Essence Jar (currency) -->
-    <button class="essence-jar" id="essenceJar" onclick="spendEssence()" aria-label="Essence Jar">
+    <button class="essence-jar" id="essenceJar" onclick="spendEssence()" aria-label="Essence Jar" style="position: absolute; left: -9999px; visibility: hidden;">
         <div class="jar-glass" aria-hidden="true">
             <div class="jar-liquid" id="essenceJarFill"></div>
             <div class="jar-highlight" aria-hidden="true"></div>
@@ -107,11 +76,24 @@
         </div>
     </button>
 
-    <!-- Firefly hint for garden -->
+    <div class="sound-seeds-layer" id="gardenSoundSeedsLayer"></div>
+
+    <button class="sound-seed-toggle" id="soundSeedToggle" aria-label="Sound Seeds">
+        <div class="seed-icon">🎵</div>
+    </button>
+
+    <div class="sound-seed-dock" id="soundSeedDock" aria-hidden="true">
+        <div class="sound-seed-dock-header">
+            <span class="dock-title">Sound Seeds</span>
+            <button class="dock-close" id="soundSeedDockClose">×</button>
+        </div>
+        <div class="sound-seed-grid" id="soundSeedGrid"></div>
+        <div class="sound-seed-hint">Drag seeds to the sky to add layers</div>
+    </div>
+
     <div class="garden-firefly-hint" id="gardenFireflyHint">
         <span>Tap fireflies to hear their sounds</span>
     </div>
 
-    <!-- Subtle vignette to frame the scene -->
     <div class="garden-vignette" aria-hidden="true"></div>
 </div>
