@@ -27,7 +27,51 @@ Object.assign(window.gardenState, {
     moonHitFadeTimer: null,
     _moonBaseBoxShadow: null,
     _moonBaseBackground: null,
-    visualLoopId: null
+    visualLoopId: null,
+
+    // --- Generative music engine (duration-based, seed-orchestrated) ---
+    music: {
+        isRunning: false,
+        tempo: 54,
+        swing: 0.08,
+        meter: 4,
+        stepsPerBar: 16,     // 16th-note grid
+        barsPerCycle: 32,    // long-form loop
+        keyMidi: 57,         // A3 (warm, not bright)
+        mode: 'minor',       // 'minor' | 'major' | 'dorian'
+        cycleStartTime: 0,
+        currentStep: 0,
+        nextStepTime: 0,
+        lookaheadMs: 25,
+        scheduleAheadSec: 0.18,
+        timerId: null,
+        // seed orchestration: each seed unlocks a "voice" layer
+        seeds: {
+            0: false,  // Ember (bass)
+            1: false,  // Glade (pad)
+            2: false,  // Nectar (arp)
+            3: false,  // Aster (melody)
+            4: false,  // Dew (counter-melody)
+            5: false,  // Lumen (sparkle)
+            6: false,  // Bloom (pulse)
+            7: false,  // Breeze (drone + wind lift)
+            8: false,  // Rhythm 1: soft kit (kick/snare/hat)
+            9: false,  // Rhythm 2: hand perc (claves/shaker)
+            10: false, // Rhythm 3: brush hats (lighter, busier)
+            11: false  // Rhythm 4: low thumps (sparse, grounding)
+        },
+        // gentle progression (relative to key, in scale degrees)
+        progression: [0, 5, 3, 6, 0, 5, 4, 6], // i VI iv VII | i VI v VII (minor-ish color)
+        chordQuality: ['min7','maj7','min7','dom7','min7','maj7','min7','dom7'],
+        voiceMemory: {
+            bassMidi: null,
+            melodyMidi: null,
+            counterMidi: null,
+            sparkleMidi: null
+        },
+        energy: 0,          // 0..1 grows with duration/interaction
+        lastInteractAt: 0
+    }
 });
 
 const GARDEN_CHORDS = Object.freeze({
@@ -520,51 +564,722 @@ function initGardenAudio() {
         gardenState.gainNode = gardenState.audioContext.createGain();
         gardenState.gainNode.gain.value = 0.2;
         gardenState.gainNode.connect(gardenState.audioContext.destination);
-        
+
         gardenState.ambienceGain = gardenState.audioContext.createGain();
         gardenState.ambienceGain.gain.value = 0.4;
         gardenState.ambienceGain.connect(gardenState.gainNode);
-        
+
         gardenState.musicalGain = gardenState.audioContext.createGain();
         gardenState.musicalGain.gain.value = 0.7;
         gardenState.musicalGain.connect(gardenState.gainNode);
-        
+
+        // Percussion sits beside music (not ambience), so rhythms can be present without getting "washy".
+        gardenState.percussionGain = gardenState.audioContext.createGain();
+        gardenState.percussionGain.gain.value = 0.55;
+        gardenState.percussionGain.connect(gardenState.gainNode);
+
         gardenState.plantGain = gardenState.audioContext.createGain();
         gardenState.plantGain.gain.value = 0.3;
         gardenState.plantGain.connect(gardenState.gainNode);
     } catch (e) { console.warn('Audio error', e); }
 }
 
+
+// ------------------------------
+// Generative music engine
+// ------------------------------
+function _midiToFreq(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+
+function _clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+function _nowCtx() { return gardenState.audioContext ? gardenState.audioContext.currentTime : 0; }
+
+function _getStepDurationSec() {
+    const m = gardenState.music;
+    const beatSec = 60 / Math.max(20, m.tempo);
+    return beatSec / 4; // 16th note
+}
+
+function _getBarDurationSec() {
+    const m = gardenState.music;
+    const beatSec = 60 / Math.max(20, m.tempo);
+    return beatSec * m.meter;
+}
+
+function _getCycleDurationSec() {
+    const m = gardenState.music;
+    return _getBarDurationSec() * m.barsPerCycle;
+}
+
+function _getBarIndexAtTime(t) {
+    const m = gardenState.music;
+    const dt = Math.max(0, t - m.cycleStartTime);
+    const barSec = _getBarDurationSec();
+    return Math.floor(dt / barSec) % m.barsPerCycle;
+}
+
+function _getStepIndexAtTime(t) {
+    const m = gardenState.music;
+    const dt = Math.max(0, t - m.cycleStartTime);
+    const stepSec = _getStepDurationSec();
+    return Math.floor(dt / stepSec) % (m.barsPerCycle * m.stepsPerBar);
+}
+
+function _modeSemitones(mode) {
+    // scale degrees 1..7 in semitone offsets from tonic
+    if (mode === 'major')  return [0,2,4,5,7,9,11];
+    if (mode === 'dorian') return [0,2,3,5,7,9,10];
+    return [0,2,3,5,7,8,10]; // natural minor
+}
+
+function _buildChordMidi(tonicMidi, degree, quality) {
+    // degree: 0..6 (0 = i / I)
+    const scale = _modeSemitones(gardenState.music.mode);
+    const root = tonicMidi + scale[degree % 7];
+    // basic 7th chords
+    const intervalsByQuality = {
+        'min7': [0, 3, 7, 10],
+        'maj7': [0, 4, 7, 11],
+        'dom7': [0, 4, 7, 10],
+        'min9': [0, 3, 7, 10, 14],
+        'sus2': [0, 2, 7, 10],
+        'sus4': [0, 5, 7, 10]
+    };
+    const iv = intervalsByQuality[quality] || intervalsByQuality['min7'];
+    return iv.map(semi => root + semi);
+}
+
+function _getHarmonyAtTime(t) {
+    const m = gardenState.music;
+    const bar = _getBarIndexAtTime(t);
+    const progIndex = bar % m.progression.length;
+    const degree = m.progression[progIndex] % 7;
+    const quality = m.chordQuality[progIndex] || 'min7';
+    const chord = _buildChordMidi(m.keyMidi, degree, quality);
+    return { bar, progIndex, degree, quality, chord, tonic: m.keyMidi };
+}
+
+function _pickNearest(targetMidi, candidates) {
+    if (candidates.length === 0) return targetMidi;
+    let best = candidates[0], bestD = Infinity;
+    for (const c of candidates) {
+        const d = Math.abs(c - targetMidi);
+        if (d < bestD) { bestD = d; best = c; }
+    }
+    return best;
+}
+
+function _constrainRange(midi, lo, hi) {
+    while (midi < lo) midi += 12;
+    while (midi > hi) midi -= 12;
+    return midi;
+}
+
+function _quantizeToChordOrScale(prevMidi, harmony, preferChord = true, rangeLo = 48, rangeHi = 84) {
+    const scale = _modeSemitones(gardenState.music.mode);
+    const tonic = harmony.tonic;
+    const chord = harmony.chord.slice();
+    // Build scale over a couple octaves
+    const scaleCandidates = [];
+    for (let oct = -3; oct <= 4; oct++) {
+        for (const s of scale) scaleCandidates.push(tonic + s + oct * 12);
+    }
+    const chordCandidates = [];
+    for (let oct = -3; oct <= 4; oct++) {
+        for (const c of chord) chordCandidates.push(c + oct * 12);
+    }
+
+    const baseTarget = prevMidi ?? (tonic + 12);
+    const pool = (preferChord ? chordCandidates : scaleCandidates);
+    let picked = _pickNearest(baseTarget, pool);
+    picked = _constrainRange(picked, rangeLo, rangeHi);
+
+    // If it's too static, nudge by a chord tone up/down
+    if (prevMidi != null && Math.abs(picked - prevMidi) <= 1 && pool.length > 3) {
+        const alt = pool[Math.floor(Math.random() * pool.length)];
+        const alt2 = _constrainRange(alt, rangeLo, rangeHi);
+        if (Math.abs(alt2 - prevMidi) <= 7) picked = alt2;
+    }
+    return picked;
+}
+
+function _envGain(gain, t0, attack, hold, release, peak) {
+    const g = gain.gain;
+    g.cancelScheduledValues(t0);
+    g.setValueAtTime(0.0001, t0);
+    g.linearRampToValueAtTime(peak, t0 + attack);
+    g.setValueAtTime(peak, t0 + attack + hold);
+    g.exponentialRampToValueAtTime(0.0001, t0 + attack + hold + release);
+}
+
+function _makeVoiceNodeChain({ type='sine', freq=220, detune=0, filter='lowpass', filterFreq=1200, q=0.7, outGain=null }) {
+    const ctx = gardenState.audioContext;
+    const osc = ctx.createOscillator();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    osc.detune.setValueAtTime(detune, ctx.currentTime);
+
+    const filt = ctx.createBiquadFilter();
+    filt.type = filter;
+    filt.frequency.setValueAtTime(filterFreq, ctx.currentTime);
+    filt.Q.setValueAtTime(q, ctx.currentTime);
+
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+
+    osc.connect(filt);
+    filt.connect(g);
+    (g).connect(outGain || gardenState.musicalGain || gardenState.gainNode);
+    return { osc, filt, gain: g };
+}
+
+function _scheduleNote({ time, midi, seconds=0.25, peak=0.08, type='sine', filterFreq=1800, filterType='lowpass', detune=0, q=0.7, out=null }) {
+    const ctx = gardenState.audioContext; if (!ctx) return;
+    const freq = _midiToFreq(midi);
+    const chain = _makeVoiceNodeChain({ type, freq, detune, filter: filterType, filterFreq, q, outGain: out || gardenState.musicalGain });
+    const a = Math.min(0.06, seconds * 0.25);
+    const r = Math.max(0.08, seconds * 0.55);
+    const h = Math.max(0.02, seconds - a - r);
+    _envGain(chain.gain, time, a, h, r, peak);
+    chain.osc.start(time);
+    chain.osc.stop(time + seconds + 0.05);
+}
+
+function _schedulePad({ time, chordMidis, seconds=2.4, peak=0.045 }) {
+    const ctx = gardenState.audioContext; if (!ctx) return;
+    chordMidis.slice(0, 4).forEach((midi, i) => {
+        const det = (Math.random() - 0.5) * 6;
+        _scheduleNote({
+            time: time + i * 0.015,
+            midi: _constrainRange(midi, 52, 76),
+            seconds,
+            peak: peak * (1 - i * 0.12),
+            type: 'triangle',
+            filterFreq: 900 + Math.random() * 600,
+            detune: det,
+            q: 0.8,
+            out: gardenState.musicalGain
+        });
+    });
+}
+
+function _schedulePulse({ time, seconds=0.06, peak=0.035 }) {
+    const ctx = gardenState.audioContext; if (!ctx) return;
+    const buffer = getNoiseBuffer(ctx, 1.5);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1200 + Math.random()*900, time);
+    filter.Q.setValueAtTime(2.2, time);
+
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.linearRampToValueAtTime(peak, time + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + seconds);
+
+    src.connect(filter); filter.connect(g); g.connect(gardenState.musicalGain);
+    src.start(time);
+    src.stop(time + seconds + 0.02);
+}
+
+// --- Rhythm seeds (beat layers) ---
+// Seed 8: soft kit (kick/snare/hat) anchored to the 16th grid.
+// Seed 9: hand percussion (claves/shaker) using Euclidean-ish patterns + gentle variation.
+
+function _euclidHits(steps, pulses, rotate = 0) {
+    // Simple evenly-spaced hit pattern (not full Bjorklund, but musical enough).
+    const out = new Array(steps).fill(false);
+    if (pulses <= 0) return out;
+    const step = steps / pulses;
+    for (let i = 0; i < pulses; i++) {
+        const idx = (Math.round(i * step) + rotate) % steps;
+        out[idx] = true;
+    }
+    return out;
+}
+
+function _scheduleKick(time, peak = 0.22) {
+    const ctx = gardenState.audioContext; if (!ctx) return;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, time);
+
+    // classic pitch drop
+    osc.frequency.setValueAtTime(120, time);
+    osc.frequency.exponentialRampToValueAtTime(42, time + 0.09);
+
+    g.gain.linearRampToValueAtTime(peak, time + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + 0.18);
+
+    // soft saturation-ish "thump" via lowpass filter
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'lowpass';
+    filt.frequency.setValueAtTime(320, time);
+    filt.Q.setValueAtTime(0.7, time);
+
+    osc.connect(filt); filt.connect(g); g.connect(gardenState.percussionGain || gardenState.musicalGain);
+    osc.start(time);
+    osc.stop(time + 0.22);
+}
+
+function _scheduleSnare(time, peak = 0.10) {
+    const ctx = gardenState.audioContext; if (!ctx) return;
+    const buffer = getNoiseBuffer(ctx, 1.5);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.setValueAtTime(1800, time);
+    band.Q.setValueAtTime(0.9, time);
+
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.linearRampToValueAtTime(peak, time + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + 0.14);
+
+    // tiny body tone
+    const body = ctx.createOscillator();
+    body.type = 'triangle';
+    body.frequency.setValueAtTime(210, time);
+    const bg = ctx.createGain();
+    bg.gain.setValueAtTime(0.0001, time);
+    bg.gain.linearRampToValueAtTime(peak * 0.25, time + 0.006);
+    bg.gain.exponentialRampToValueAtTime(0.0001, time + 0.12);
+
+    src.connect(band); band.connect(g); g.connect(gardenState.percussionGain || gardenState.musicalGain);
+    body.connect(bg); bg.connect(gardenState.percussionGain || gardenState.musicalGain);
+
+    src.start(time); src.stop(time + 0.16);
+    body.start(time); body.stop(time + 0.14);
+}
+
+function _scheduleHat(time, peak = 0.055, open = false) {
+    const ctx = gardenState.audioContext; if (!ctx) return;
+    const buffer = getNoiseBuffer(ctx, 1.0);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.setValueAtTime(6000 + Math.random()*1500, time);
+    hp.Q.setValueAtTime(0.7, time);
+
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.linearRampToValueAtTime(peak, time + 0.002);
+    const dur = open ? (0.12 + Math.random()*0.08) : (0.04 + Math.random()*0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+
+    src.connect(hp); hp.connect(g); g.connect(gardenState.percussionGain || gardenState.musicalGain);
+    src.start(time);
+    src.stop(time + dur + 0.02);
+}
+
+function _scheduleClaves(time, peak = 0.06) {
+    const ctx = gardenState.audioContext; if (!ctx) return;
+    const osc = ctx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(1800 + Math.random()*400, time);
+
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(2400, time);
+    bp.Q.setValueAtTime(6.0, time);
+
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.linearRampToValueAtTime(peak, time + 0.0015);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + 0.06);
+
+    osc.connect(bp); bp.connect(g); g.connect(gardenState.percussionGain || gardenState.musicalGain);
+    osc.start(time);
+    osc.stop(time + 0.07);
+}
+
+function _scheduleShaker(time, peak = 0.045) {
+    const ctx = gardenState.audioContext; if (!ctx) return;
+    const buffer = getNoiseBuffer(ctx, 1.0);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(5200 + Math.random()*1200, time);
+    bp.Q.setValueAtTime(2.2, time);
+
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.linearRampToValueAtTime(peak, time + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + 0.045);
+
+    src.connect(bp); bp.connect(g); g.connect(gardenState.percussionGain || gardenState.musicalGain);
+    src.start(time);
+    src.stop(time + 0.07);
+}
+
+function _scheduleRhythmSeeds(stepTime, stepInBar, barIndex, swungTime) {
+    const m = gardenState.music;
+    const e = m.energy;
+
+    // Seed 8: soft kit groove
+    if (m.seeds[8]) {
+        // Kick: 1 & 3, with occasional pickup
+        const kick = (stepInBar === 0) || (stepInBar === 8) || (e > 0.65 && stepInBar === 12 && Math.random() < 0.35);
+        if (kick) _scheduleKick(stepTime, 0.18 + e*0.06);
+
+        // Snare: 2 & 4 (soft)
+        const snare = (stepInBar === 4) || (stepInBar === 12);
+        if (snare) _scheduleSnare(stepTime, 0.08 + e*0.05);
+
+        // Hat: 8ths, with gentle openness on bar ends
+        if (stepInBar % 2 === 0) {
+            const open = (stepInBar === 14 && Math.random() < (0.25 + e*0.35));
+            const prob = 0.70 + e*0.20;
+            if (Math.random() < prob) _scheduleHat(swungTime, 0.040 + e*0.020, open);
+        }
+    }
+
+    // Seed 9: hand percussion (claves + shaker) – more syncopation
+    if (m.seeds[9]) {
+        const clavesPattern = _euclidHits(16, 3 + (e > 0.6 ? 1 : 0), (barIndex % 4));
+        const shakerPattern = _euclidHits(16, 5 + (e > 0.4 ? 1 : 0), (barIndex % 3));
+
+        if (clavesPattern[stepInBar] && Math.random() < (0.75 + e*0.15)) {
+            _scheduleClaves(stepTime, 0.045 + e*0.030);
+        }
+        if (shakerPattern[stepInBar] && Math.random() < (0.60 + e*0.25)) {
+            _scheduleShaker(swungTime, 0.032 + e*0.020);
+        }
+    }
+    // Seed 10: brush hats (lighter, busier texture)
+    if (m.seeds[10]) {
+        // 16ths with probability, softened, occasional ghost snare
+        const prob = 0.38 + e*0.22;
+        if (Math.random() < prob) {
+            const open = (stepInBar === 15 && Math.random() < (0.18 + e*0.25));
+            _scheduleHat(swungTime, 0.026 + e*0.014, open);
+        }
+        const ghost = (stepInBar === 7 || stepInBar === 11) && Math.random() < (0.10 + e*0.18);
+        if (ghost) _scheduleSnare(stepTime, 0.030 + e*0.020);
+    }
+
+    // Seed 11: low thumps (sparse, grounding)
+    if (m.seeds[11]) {
+        const thump = (stepInBar === 0) || (stepInBar === 6 && Math.random() < 0.35) || (e > 0.7 && stepInBar === 14 && Math.random() < 0.25);
+        if (thump) _scheduleKick(stepTime, 0.12 + e*0.05);
+    }
+
+}
+
+function _updateMusicEnergy(nowSec) {
+    const m = gardenState.music;
+    if (!gardenState.entryTime) return;
+    const elapsedSec = (Date.now() - gardenState.entryTime) / 1000;
+    // slow ramp (0..1) over ~3 minutes
+    const timeRamp = _clamp(elapsedSec / 180, 0, 1);
+
+    // interaction bump decays
+    const sinceInteract = (Date.now() - (m.lastInteractAt || 0)) / 1000;
+    const interactBoost = _clamp(1 - (sinceInteract / 20), 0, 1) * 0.35;
+
+    m.energy = _clamp(timeRamp * 0.75 + interactBoost, 0, 1);
+}
+
+function _scheduleMusicStep(stepTime, stepIndex) {
+    const ctx = gardenState.audioContext; if (!ctx) return;
+    const m = gardenState.music;
+    const harmony = _getHarmonyAtTime(stepTime);
+
+    const stepInBar = stepIndex % m.stepsPerBar;         // 0..15
+    const beatInBar = Math.floor(stepInBar / 4);         // 0..3
+    const isDownbeat = (stepInBar === 0);
+    const isBeat = (stepInBar % 4 === 0);
+
+    _updateMusicEnergy(stepTime);
+
+    // Slight swing on off-8ths (steps 2,6,10,14) – subtle, not jazz
+    const swingSteps = new Set([2,6,10,14]);
+    const swungTime = swingSteps.has(stepInBar) ? (stepTime + m.swing * _getStepDurationSec()) : stepTime;
+
+    
+    // ---- Rhythm seeds (8/9) ----
+    _scheduleRhythmSeeds(stepTime, stepInBar, harmony.bar, swungTime);
+
+// ---- Voice: drone (seed 7) ----
+    if (m.seeds[7] && isDownbeat) {
+        const root = _constrainRange(harmony.chord[0], 45, 57);
+        const fifth = root + 7;
+        _scheduleNote({ time: stepTime, midi: root, seconds: 4.5, peak: 0.030 * _seedVolMult(7), type:'sine', filterFreq: 500, q:0.7 });
+        _scheduleNote({ time: stepTime + 0.03, midi: fifth, seconds: 4.2, peak: 0.018 * _seedVolMult(7), type:'sine', filterFreq: 520, q:0.7 });
+    }
+
+    // ---- Voice: bass (seed 0) ----
+    if (m.seeds[0] && isBeat) {
+        const target = (beatInBar === 0) ? harmony.chord[0] : (Math.random() < 0.3 ? harmony.chord[2] : harmony.chord[0]);
+        const midi = _constrainRange(target, 36, 52);
+        m.voiceMemory.bassMidi = midi;
+        _scheduleNote({ time: stepTime, midi, seconds: 0.38, peak: 0.070 * _seedVolMult(0), type:'sine', filterFreq: 360, q:0.9 });
+    }
+
+    // ---- Voice: pad (seed 1) ----
+    if (m.seeds[1] && (isDownbeat || (m.energy > 0.65 && stepInBar === 8))) {
+        // invert gently by moving one chord tone up
+        const chord = harmony.chord.slice();
+        if (Math.random() < 0.55) chord[1] += 12;
+        if (Math.random() < 0.35) chord[2] += 12;
+        _schedulePad({ time: stepTime, chordMidis: chord, seconds: 3.2, peak: (0.040 + m.energy*0.010) * _seedVolMult(1) });
+    }
+
+    // ---- Voice: arp (seed 2) ----
+    if (m.seeds[2] && (stepInBar % 2 === 0)) {
+        const arpPool = harmony.chord.concat([harmony.chord[0] + 12, harmony.chord[1] + 12, harmony.chord[2] + 12]);
+        const idx = (stepInBar / 2) % arpPool.length;
+        const midi = _constrainRange(arpPool[idx], 60, 84);
+        _scheduleNote({ time: swungTime, midi, seconds: 0.18, peak: (0.040 + m.energy*0.020) * _seedVolMult(2), type:'triangle', filterFreq: 1400 + Math.random()*700, q:0.9 });
+    }
+
+    // ---- Voice: pulse (seed 6) ----
+    if (m.seeds[6]) {
+        const gate = (stepInBar % 4 === 0) || (m.energy > 0.55 && (stepInBar % 4 === 2));
+        if (gate) {
+            // Bloom: warm pluck that anchors rhythm to the harmony (distinct from Lumen sparkle)
+            const target = (stepInBar % 8 === 0) ? harmony.chord[0] : (Math.random() < 0.4 ? harmony.chord[1] : harmony.chord[2]);
+            const midi = _constrainRange(target + 12, 58, 76);
+            _scheduleNote({
+                time: swungTime,
+                midi,
+                seconds: 0.14,
+                peak: (0.022 + m.energy*0.020) * _seedVolMult(6),
+                type: 'triangle',
+                filterType: 'lowpass',
+                filterFreq: 900 + Math.random()*500,
+                detune: (Math.random()-0.5)*8,
+                q: 0.9
+            });
+        }
+    }
+
+    // ---- Voice: melody (seed 3) ----
+    if (m.seeds[3]) {
+        const melodicGate =
+            (stepInBar === 0) ||
+            (m.energy > 0.30 && stepInBar === 6) ||
+            (m.energy > 0.55 && stepInBar === 10) ||
+            (m.energy > 0.70 && stepInBar === 14);
+
+        if (melodicGate && Math.random() < (0.65 + m.energy*0.25)) {
+            const preferChord = (stepInBar === 0 || stepInBar === 10);
+            const prev = m.voiceMemory.melodyMidi ?? (harmony.tonic + 12);
+            const midi = _quantizeToChordOrScale(prev, harmony, preferChord, 60, 88);
+            m.voiceMemory.melodyMidi = midi;
+            _scheduleNote({ time: swungTime, midi, seconds: 0.32, peak: (0.045 + m.energy*0.030) * _seedVolMult(3), type:'sine', filterFreq: 2200 + Math.random()*900, q:0.8 });
+        }
+    }
+
+    // ---- Voice: counter melody (seed 4) ----
+    if (m.seeds[4]) {
+        const counterGate = (stepInBar === 4) || (stepInBar === 12);
+        if (counterGate && Math.random() < (0.55 + m.energy*0.25)) {
+            const prev = m.voiceMemory.counterMidi ?? (harmony.tonic + 19);
+            const midi = _quantizeToChordOrScale(prev, harmony, true, 55, 80);
+            m.voiceMemory.counterMidi = midi;
+            _scheduleNote({ time: stepTime, midi, seconds: 0.55, peak: (0.030 + m.energy*0.018) * _seedVolMult(4), type:'triangle', filterFreq: 1100 + Math.random()*600, q:0.9 });
+        }
+    }
+
+    // ---- Voice: sparkle (seed 5) ----
+    if (m.seeds[5]) {
+        const sparkleGate = (stepInBar === 2) || (stepInBar === 9) || (m.energy > 0.6 && stepInBar === 15);
+        if (sparkleGate && Math.random() < (0.45 + m.energy*0.35)) {
+            const prev = m.voiceMemory.sparkleMidi ?? (harmony.tonic + 31);
+            const midi = _quantizeToChordOrScale(prev, harmony, false, 72, 96);
+            m.voiceMemory.sparkleMidi = midi;
+            _scheduleNote({ time: swungTime, midi, seconds: 0.20, peak: 0.018 + m.energy*0.018, type:'sine', filterType:'highpass', filterFreq: 1800 + Math.random()*1400, q:0.7 });
+        }
+    }
+}
+
+function _musicSchedulerTick() {
+    const ctx = gardenState.audioContext; if (!ctx) return;
+    const m = gardenState.music;
+    const now = ctx.currentTime;
+    while (m.nextStepTime < now + m.scheduleAheadSec) {
+        _scheduleMusicStep(m.nextStepTime, m.currentStep);
+
+        // advance
+        const stepSec = _getStepDurationSec();
+        m.currentStep = (m.currentStep + 1) % (m.barsPerCycle * m.stepsPerBar);
+        m.nextStepTime += stepSec;
+    }
+}
+
+function startGardenMusicEngine() {
+    initGardenAudio();
+    const ctx = gardenState.audioContext; if (!ctx) return;
+    const m = gardenState.music;
+    if (m.isRunning) return;
+
+    if (ctx.state === 'suspended') ctx.resume();
+
+    // Start quietly; overall loudness still governed by gardenState.gainNode/musicalGain.
+    m.cycleStartTime = ctx.currentTime + 0.05;
+    m.currentStep = 0;
+    m.nextStepTime = m.cycleStartTime;
+    m.isRunning = true;
+
+    // Default seeds: a gentle foundation so it's never empty
+    m.seeds[7] = true; // drone
+    m.seeds[1] = true; // pad (very soft)
+    m.seeds[6] = false;
+    m.lastInteractAt = Date.now();
+
+    if (m.timerId) clearInterval(m.timerId);
+    m.timerId = setInterval(_musicSchedulerTick, m.lookaheadMs);
+
+    // Expose helpers so your sound-seed UI can drive layers without tight coupling.
+    window.setGardenSoundSeedActive = function(seedIndex, isActive) {
+        const k = Number(seedIndex);
+        if (!Number.isFinite(k) || k < 0 || k > 11) return;
+        m.seeds[k] = !!isActive;
+        m.lastInteractAt = Date.now();
+    };
+    window.toggleGardenSoundSeed = function(seedIndex) {
+        const k = Number(seedIndex);
+        if (!Number.isFinite(k) || k < 0 || k > 11) return;
+        m.seeds[k] = !m.seeds[k];
+        m.lastInteractAt = Date.now();
+        return m.seeds[k];
+    };
+    window.getGardenSoundSeedState = function() {
+        return Object.assign({}, m.seeds);
+    };
+    window.getGardenHarmony = function() {
+        const h = _getHarmonyAtTime(_nowCtx());
+        return { bar: h.bar, degree: h.degree, quality: h.quality, chord: h.chord.slice() };
+    };
+}
+
+function stopGardenMusicEngine() {
+    const m = gardenState.music;
+    if (m.timerId) { clearInterval(m.timerId); m.timerId = null; }
+    m.isRunning = false;
+}
+
+function _quantizedTimeToNext(stepMultiple = 4) {
+    // returns an AudioContext time snapped to the next multiple of `stepMultiple` 16th-notes
+    const ctx = gardenState.audioContext; if (!ctx) return 0;
+    const m = gardenState.music;
+    const stepSec = _getStepDurationSec();
+    const now = ctx.currentTime;
+
+    const stepNow = _getStepIndexAtTime(now);
+    const next = Math.ceil((stepNow + 0.0001) / stepMultiple) * stepMultiple;
+    const deltaSteps = (next - stepNow + (m.barsPerCycle*m.stepsPerBar)) % (m.barsPerCycle*m.stepsPerBar);
+    return now + deltaSteps * stepSec;
+}
+
+function gardenMusicOnInteraction(intensity = 1) {
+    const m = gardenState.music;
+    m.lastInteractAt = Date.now();
+    // small tempo breathe with energy
+    m.tempo = 52 + Math.round(_clamp(m.energy + (intensity*0.15), 0, 1) * 10);
+}
+
+
+// --- Sound seed identities (UI-facing names) + per-seed loudness tuning ---
+// If your UI already defines labels elsewhere, you can override by setting:
+//   gardenState.music.seedLabels = ['Breeze', ...]  // length 12
+const _DEFAULT_SEED_LABELS = Object.freeze([
+    'Ember','Glade','Nectar','Aster','Dew','Lumen','Bloom','Breeze',
+    'Rhythm I','Rhythm II','Rhythm III','Rhythm IV'
+]);
+
+const _SEED_VOLUME_MULT_BY_LABEL = Object.freeze({
+    // User-requested boosts
+    'Breeze': 1.45,
+    'Aster': 1.55,
+    'Nectar': 1.50,
+    'Glade': 1.35,
+    'Dew': 1.55,
+    'Ember': 1.40
+});
+
+function _seedLabel(seedIndex) {
+    const labels = gardenState?.music?.seedLabels;
+    if (Array.isArray(labels) && labels[seedIndex]) return String(labels[seedIndex]);
+    return _DEFAULT_SEED_LABELS[seedIndex] || `Seed ${seedIndex}`;
+}
+
+function _seedVolMult(seedIndex) {
+    const label = _seedLabel(seedIndex);
+    return _SEED_VOLUME_MULT_BY_LABEL[label] || 1.0;
+}
 function playFireflyChord(familyIndex) {
     initGardenAudio();
     if (!gardenState.audioContext) return;
     if (gardenState.audioContext.state === 'suspended') gardenState.audioContext.resume();
-    
-    const chord = GARDEN_CHORDS[familyIndex] || GARDEN_CHORDS[0];
-    const timbre = FIREFLY_TIMBRES[familyIndex] || FIREFLY_TIMBRES[0];
+
+    // Fireflies are "voices" that reveal harmony; they don't decide harmony.
+    // We quantize the stinger to the next beat so everything feels like one song.
     const ctx = gardenState.audioContext;
-    const now = ctx.currentTime;
-    
-    chord.forEach((freq, i) => {
+    const playAt = _quantizedTimeToNext(4) || ctx.currentTime;
+
+    gardenMusicOnInteraction(1);
+
+    const harmony = _getHarmonyAtTime(playAt);
+    const timbre = FIREFLY_TIMBRES[familyIndex] || FIREFLY_TIMBRES[0];
+
+    // Choose voicing/inversion by family for variety while staying in-key.
+    const chordMidis = harmony.chord.slice(0, 4);
+    // Spread upward a bit so it shimmers instead of clumping.
+    if (familyIndex % 2 === 1) chordMidis[1] += 12;
+    if (familyIndex % 3 === 0) chordMidis[2] += 12;
+    if (familyIndex === 5 || familyIndex === 7) chordMidis[3] += 12;
+
+    // Convert to frequencies
+    const freqs = chordMidis.slice(0, 3).map(m => _midiToFreq(_constrainRange(m, 52, 90)));
+
+    freqs.forEach((freq, i) => {
         const osc = ctx.createOscillator();
         osc.type = timbre.type;
-        osc.frequency.value = freq;
-        osc.detune.value = (Math.random() - 0.5) * timbre.detune;
-        
+        osc.frequency.setValueAtTime(freq, playAt);
+        osc.detune.setValueAtTime((Math.random() - 0.5) * timbre.detune, playAt);
+
         const filter = ctx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = timbre.filterFreq;
-        
+        filter.frequency.setValueAtTime(timbre.filterFreq, playAt);
+        filter.Q.setValueAtTime(0.8, playAt);
+
         const noteGain = ctx.createGain();
-        noteGain.gain.setValueAtTime(0, now);
-        noteGain.gain.linearRampToValueAtTime(0.15 - (i * 0.02), now + timbre.attack);
-        noteGain.gain.exponentialRampToValueAtTime(0.001, now + timbre.decay);
-        
+        noteGain.gain.setValueAtTime(0.0001, playAt);
+
+        const peak = 0.13 - (i * 0.025);
+        const a = Math.max(0.01, timbre.attack);
+        const d = Math.max(0.35, timbre.decay);
+
+        noteGain.gain.linearRampToValueAtTime(peak, playAt + a);
+        noteGain.gain.exponentialRampToValueAtTime(0.001, playAt + d);
+
         osc.connect(filter); filter.connect(noteGain); noteGain.connect(gardenState.musicalGain);
-        osc.start(now + i * 0.03); osc.stop(now + timbre.decay + 0.5);
+        osc.start(playAt + i * 0.02);
+        osc.stop(playAt + d + 0.45);
     });
-    
-    if (familyIndex === 5) playReverbTail(chord[0], 0.05, 3);
+
+    // Sparkle tail on special families (keeps your previous "reverb" vibe, but in time)
+    if (familyIndex === 5) playReverbTail(freqs[0], 0.05, 3);
+
+    // Optional: make certain families also "unlock" a layer if player hasn't yet.
+    // (This makes tapping fireflies gradually orchestrate the full song.)
+    const autoUnlock = familyIndex % 8;
+    if (gardenState.music && gardenState.music.seeds && gardenState.music.seeds[autoUnlock] === false) {
+        // keep it gentle: only unlock one of the musical layers, not all at once
+        gardenState.music.seeds[autoUnlock] = true;
+    }
 }
 
 function playReverbTail(baseFreq, volume, duration) {
@@ -978,8 +1693,22 @@ function playPlantBreath() {
     const plant = history[Math.floor(Math.random() * Math.min(history.length, 12))];
     const hue = plant?.dna?.flowerH ?? plant?.dna?.colorH ?? 0;
     const harmonics = getHarmonicsForHue(hue);
-    const base = harmonics[Math.floor(Math.random() * harmonics.length)];
-    const freq = base * (Math.random() < 0.25 ? 0.5 : (Math.random() < 0.35 ? 2 : 1));
+    const baseFreq = harmonics[Math.floor(Math.random() * harmonics.length)];
+
+    // Plants sing *within* the current harmony so they feel like counter-melody, not random tones.
+    // Start from the plant's color-harmonic, then quantize to the active chord/scale.
+    let freq = baseFreq;
+    const approxMidi = 69 + 12 * (Math.log2(baseFreq / 440));
+    if (gardenState.music && gardenState.music.isRunning) {
+        const harmony = _getHarmonyAtTime(now);
+        const preferChord = Math.random() < (0.55 + (gardenState.music.energy || 0) * 0.25);
+        const midi = _quantizeToChordOrScale(approxMidi, harmony, preferChord, 50, 86);
+        // occasional octave drift for breath-like motion
+        const octave = (Math.random() < 0.18) ? (Math.random() < 0.5 ? -12 : 12) : 0;
+        freq = _midiToFreq(midi + octave);
+    } else {
+        freq = baseFreq * (Math.random() < 0.25 ? 0.5 : (Math.random() < 0.35 ? 2 : 1));
+    }
     
     const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.setValueAtTime(freq, now);
     const det = (Math.random() * 6) - 3; osc.detune.setValueAtTime(det, now);
@@ -1043,6 +1772,9 @@ function startAmbientSoundscape() {
     if (gardenState.soundscapeActive) return;
     initGardenAudio(); if (!gardenState.audioContext) return;
     if (gardenState.audioContext.state === 'suspended') gardenState.audioContext.resume();
+
+    // Start the duration-based musical spine. Seeds/voices layer on top.
+    startGardenMusicEngine();
     
     const indicator = gardenState.elements?.soundscapeIndicator || document.getElementById('soundscapeIndicator');
     gardenState.soundscapeActive = true;
@@ -1056,6 +1788,9 @@ function startAmbientSoundscape() {
 
 function stopAmbientSoundscape() {
     gardenState.soundscapeActive = false;
+
+    // Stop the generative score scheduler (notes already scheduled will ring out naturally).
+    stopGardenMusicEngine();
     const indicator = gardenState.elements?.soundscapeIndicator || document.getElementById('soundscapeIndicator');
     if (indicator) indicator.classList.remove('active');
     
@@ -1092,7 +1827,7 @@ function playWindSound() {
     
     const windGain = ctx.createGain();
     windGain.gain.setValueAtTime(0, now);
-    windGain.gain.linearRampToValueAtTime(0.12, now + 12);
+    windGain.gain.linearRampToValueAtTime(0.16, now + 12);
     windGain.gain.exponentialRampToValueAtTime(0.001, now + 30);
     
     noiseSource.connect(filter); filter.connect(windGain); windGain.connect(gardenState.ambienceGain || gardenState.gainNode);
