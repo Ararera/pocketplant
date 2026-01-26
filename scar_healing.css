@@ -1,0 +1,374 @@
+/**
+ * Scar Healing System Styles
+ * Contemplative, atmospheric mini-game overlays
+ */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   HEALING OVERLAY - BASE
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.healing-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.8s ease;
+    
+    --healing-color: #60a5fa;
+    --healing-accent: #93c5fd;
+}
+
+.healing-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.healing-backdrop {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #0c1929, #1e3a5f);
+    transition: background 1s ease;
+}
+
+.healing-backdrop::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: 
+        radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.03) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.02) 0%, transparent 40%);
+    pointer-events: none;
+}
+
+.healing-backdrop::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E");
+    opacity: 0.04;
+    pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CANVAS
+   ═══════════════════════════════════════════════════════════════════════ */
+
+#healingCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   UI ELEMENTS
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.healing-ui {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 20px) + 20px);
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.healing-progress-ring {
+    position: relative;
+    width: 80px;
+    height: 80px;
+}
+
+.healing-progress-ring svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.healing-progress-ring .progress-track {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.1);
+    stroke-width: 4;
+}
+
+.healing-progress-ring .progress-fill {
+    fill: none;
+    stroke: var(--healing-color);
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-dasharray: 283;
+    stroke-dashoffset: 283;
+    transition: stroke-dashoffset 0.3s ease;
+    filter: drop-shadow(0 0 6px var(--healing-color));
+}
+
+.healing-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.8rem;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.healing-whisper {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+    font-style: italic;
+    text-align: center;
+    max-width: 200px;
+    line-height: 1.4;
+    animation: whisperFade 2s ease-in-out infinite;
+}
+
+@keyframes whisperFade {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.8; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CLOSE BUTTON
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.healing-close {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 20px) + 15px);
+    right: 20px;
+    width: 44px;
+    height: 44px;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 20;
+    transition: all 0.2s ease;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.healing-close:hover,
+.healing-close:active {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+.healing-close svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SUCCESS STATE
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.healing-success {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+    z-index: 15;
+}
+
+.healing-success.visible {
+    opacity: 1;
+}
+
+.success-burst {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--healing-color) 0%, transparent 70%);
+    animation: successPulse 1.5s ease-out infinite;
+}
+
+@keyframes successPulse {
+    0% {
+        transform: scale(0.8);
+        opacity: 0.8;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0.4;
+    }
+    100% {
+        transform: scale(0.8);
+        opacity: 0.8;
+    }
+}
+
+.success-text {
+    font-size: 1.5rem;
+    font-weight: 300;
+    color: var(--healing-accent);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    text-shadow: 0 0 20px var(--healing-color);
+    animation: successGlow 1s ease-in-out infinite alternate;
+}
+
+@keyframes successGlow {
+    from {
+        text-shadow: 0 0 10px var(--healing-color);
+    }
+    to {
+        text-shadow: 0 0 30px var(--healing-color), 0 0 50px var(--healing-accent);
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   INTERACTIVE SCAR ITEMS IN MENU
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* New container for the interactive buttons that sits next to the hidden text */
+.interactive-scar-container {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    vertical-align: middle;
+}
+
+.scar-item.interactive {
+    position: relative;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 2px 8px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    
+    /* Look like the original text but clickable */
+    background: rgba(251, 146, 60, 0.15);
+    border: 1px solid rgba(251, 146, 60, 0.3);
+    color: #fdba74; /* Orange-300 */
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    
+    /* Reset button styles */
+    -webkit-appearance: none;
+    appearance: none;
+    line-height: 1.4;
+    font-family: inherit;
+    margin: 0;
+}
+
+.scar-item.interactive:hover {
+    background: rgba(251, 146, 60, 0.3);
+    border-color: rgba(251, 146, 60, 0.6);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(251, 146, 60, 0.2);
+}
+
+.scar-item.interactive:active {
+    transform: translateY(0);
+    background: rgba(251, 146, 60, 0.4);
+}
+
+/* Subtle pulse to indicate interactivity */
+@keyframes scarPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(251, 146, 60, 0.0); }
+    50% { box-shadow: 0 0 8px rgba(251, 146, 60, 0.2); }
+}
+
+.scar-item.interactive {
+    animation: scarPulse 3s infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   HEALING INTRO ANIMATION
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.healing-overlay.open .healing-ui {
+    animation: healingUIEnter 0.8s ease-out forwards;
+}
+
+@keyframes healingUIEnter {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+.healing-overlay.open .healing-backdrop {
+    animation: backdropFade 0.8s ease-out forwards;
+}
+
+@keyframes backdropFade {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   RESPONSIVE ADJUSTMENTS
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 480px) {
+    .healing-progress-ring {
+        width: 70px;
+        height: 70px;
+    }
+    
+    .healing-icon {
+        font-size: 1.5rem;
+    }
+    
+    .healing-whisper {
+        font-size: 0.8rem;
+        max-width: 180px;
+    }
+    
+    .success-text {
+        font-size: 1.2rem;
+        letter-spacing: 3px;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SCAR TYPE SPECIFIC COLORS
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.healing-overlay[data-scar="wilt"] {
+    --healing-color: #60a5fa;
+    --healing-accent: #93c5fd;
+}
+
+.healing-overlay[data-scar="bend"] {
+    --healing-color: #fbbf24;
+    --healing-accent: #fcd34d;
+}
+
+.healing-overlay[data-scar="pale"] {
+    --healing-color: #a78bfa;
+    --healing-accent: #c4b5fd;
+}
+
+.healing-overlay[data-scar="dormant"] {
+    --healing-color: #94a3b8;
+    --healing-accent: #cbd5e1;
+}
