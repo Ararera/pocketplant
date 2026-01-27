@@ -14,8 +14,15 @@ function updateMenuStats() {
     if (els.menuScars && els.menuScarList) {
         if (state.scars.length > 0) {
             els.menuScars.style.display = 'flex';
-            els.menuScarList.textContent = state.scars.map(s => ({ wilt: 'Wilted', bend: 'Bent', pale: 'Faded', dormant: 'Dormant' }[s] || s)).join(', ');
-        } else els.menuScars.style.display = 'none';
+            const desiredScarText = state.scars
+                .map(s => ({ wilt: 'Wilted', bend: 'Bent', pale: 'Faded', dormant: 'Dormant' }[s] || s))
+                .join(', ');
+            if (els.menuScarList.textContent !== desiredScarText) {
+                els.menuScarList.textContent = desiredScarText;
+            }
+        } else {
+            els.menuScars.style.display = 'none';
+        }
     }
     if (els.menuInherited && els.menuInheritedList) {
         if (state.inheritedTraits.length > 0) {

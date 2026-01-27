@@ -220,7 +220,6 @@ function exitMidnightGarden() {
             transition.classList.remove('active');
             gardenState.isOpen = false;
             
-            if (typeof render === 'function') render();
             if (typeof updateUI === 'function') updateUI();
             
             if (typeof state !== 'undefined' && state.isRainOn && typeof audio !== 'undefined' && audio.startRainSound) audio.startRainSound();

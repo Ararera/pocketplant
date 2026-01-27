@@ -1019,6 +1019,11 @@ body.midnight-garden-active .firefly {
     letter-spacing: 0.4px;
 }
 
+.essence-jar {
+    position:relative;
+    left:-1000px;
+}
+
 .sound-seed-placed{
     position:absolute;
     width: 30px;
