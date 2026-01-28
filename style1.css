@@ -658,8 +658,14 @@ body.paused *::after {
 .rainbow,
 .whisper-stack {
     transform: translateZ(0);
-    will-change: transform, opacity;
     backface-visibility: hidden;
+}
+
+/* Only apply will-change when actively animating to reduce GPU pressure */
+.rain-container.active,
+.rainbow.visible,
+.rain-clouds.active {
+    will-change: transform, opacity;
 }
 
 .environment-scene,
@@ -683,4 +689,11 @@ body.paused *::after {
 .raindrop {
     contain: layout style;
     will-change: transform, opacity;
+}
+
+/* Remove will-change when not active to free GPU layers */
+.rain-container:not(.active),
+.rainbow:not(.visible),
+.rain-clouds:not(.active) {
+    will-change: auto;
 }

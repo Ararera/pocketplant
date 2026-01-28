@@ -106,18 +106,38 @@ function interact(type, e) {
     render();
 }
 
+let _applyThemeTimer = null;
 function applyTheme() {
-    const rc = document.getElementById('rainContainer'); if (rc) rc.classList.toggle('active', state.isRainOn);
-    const rb = document.getElementById('rainbowContainer'); if (rb) rb.classList.toggle('visible', state.isSunLampOn && state.isRainOn);
-    audio.toggleRainSound(state.isRainOn);
-    const beam = document.getElementById('moonlightBeam'); if (beam && !isDaytime()) beam.classList.toggle('active', state.isSunLampOn);
+    // Cancel pending theme application to prevent rapid-fire calls
+    if (_applyThemeTimer) {
+        clearTimeout(_applyThemeTimer);
+    }
     
-    const envScene = document.getElementById('environmentScene');
-    const rainClouds = document.getElementById('rainClouds');
-    if (envScene) envScene.classList.toggle('raining', state.isRainOn);
-    if (rainClouds) rainClouds.classList.toggle('active', state.isRainOn);
-    
-    updateSunRays();
+    _applyThemeTimer = setTimeout(() => {
+        _applyThemeTimer = null;
+        
+        // Skip theme updates if a menu overlay is open (prevents flash)
+        const anyOverlayOpen = document.querySelector('.menu-overlay.open');
+        if (anyOverlayOpen) return;
+        
+        const rc = document.getElementById('rainContainer');
+        if (rc) rc.classList.toggle('active', state.isRainOn);
+        
+        const rb = document.getElementById('rainbowContainer');
+        if (rb) rb.classList.toggle('visible', state.isSunLampOn && state.isRainOn);
+        
+        audio.toggleRainSound(state.isRainOn);
+        
+        const beam = document.getElementById('moonlightBeam');
+        if (beam && !isDaytime()) beam.classList.toggle('active', state.isSunLampOn);
+        
+        const envScene = document.getElementById('environmentScene');
+        const rainClouds = document.getElementById('rainClouds');
+        if (envScene) envScene.classList.toggle('raining', state.isRainOn);
+        if (rainClouds) rainClouds.classList.toggle('active', state.isRainOn);
+        
+        updateSunRays();
+    }, 16); // One frame delay (60fps = ~16ms)
 }
 
 function updateSunRays() {
@@ -521,6 +541,11 @@ function toggleMusicLogic() {
         els.btnMusic.textContent = '🎶 Music ON'; 
     } else { 
         audio.stopBackgroundMusic(); 
+        // IMPORTANT: Suspend the AudioContext to immediately silence any already-scheduled WebAudio nodes
+        // (the zen loop schedules notes far into the future, and stopping nodes individually can miss some).
+        try {
+            if (audio && audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend();
+        } catch (_) {}
         els.btnMusic.classList.remove('active'); 
         els.btnMusic.textContent = '🎶 Background Music'; 
     }

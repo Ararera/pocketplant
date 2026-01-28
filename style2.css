@@ -163,6 +163,7 @@
     transition: opacity 0.3s ease;
     will-change: opacity;
     padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+    isolation: isolate;
 }
 
 .menu-overlay.open {
@@ -366,6 +367,12 @@
 .firefly-btn {
     background: linear-gradient(135deg, #ffd43b, #fcc419);
     color: #1a1b1e;
+}
+
+.got-btn {
+    background: linear-gradient(135deg, #d4a574, #c9956c);
+    color: #2a1f14;
+    box-shadow: 0 8px 20px rgba(212, 165, 116, 0.25);
 }
 
 .piano-btn {
@@ -1453,69 +1460,6 @@
     color: var(--accent-growth);
 }
 
-.entry-label {
-    position: absolute;
-    right: 50px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: rgba(18, 18, 24, 0.9);
-    padding: 4px 10px;
-    border-radius: 8px;
-    font-size: 0.65rem;
-    color: rgba(255, 255, 255, 0.7);
-    white-space: nowrap;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    pointer-events: none;
-}
-
-.midnight-garden-entry.show-label .entry-label,
-.midnight-garden-entry:hover .entry-label {
-    opacity: 1;
-}
-
-.moon-hint {
-    position: absolute;
-    bottom: -20px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.6rem;
-    color: rgba(254, 249, 195, 0.5);
-    opacity: 0;
-    animation: moonHintPulse 2s ease-in-out 3;
-}
-
-@keyframes moonHintPulse {
-    0%, 100% { opacity: 0; }
-    50% { opacity: 1; }
-}
-
-.garden-firefly-hint {
-    position: absolute;
-    bottom: calc(env(safe-area-inset-bottom, 20px) + 60px);
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.4);
-    opacity: 0;
-    transition: opacity 0.5s ease;
-    pointer-events: none;
-}
-
-.garden-firefly-hint.visible {
-    opacity: 1;
-}
-
-.garden-info {
-    display: block;
-    position: absolute;
-    top: calc(env(safe-area-inset-top, 20px) + 15px);
-    left: 50%;
-    transform: translateX(-50%);
-    text-align: center;
-    z-index: 410;
-}
-
 .quick-stats-tooltip {
     position: fixed;
     background: rgba(18, 18, 24, 0.95);
@@ -1685,41 +1629,6 @@
 .plant-mood.stressed { color: #fb923c; }
 .plant-mood.crisis { color: #f87171; }
 
-.garden-hint {
-    position: fixed;
-    right: 60px;
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.5s ease;
-    z-index: 98;
-}
-
-.garden-hint.visible {
-    opacity: 1;
-    animation: gardenHintPulse 2s ease-in-out 3;
-}
-
-@keyframes gardenHintPulse {
-    0%, 100% { transform: translateY(-50%) translateX(0); }
-    50% { transform: translateY(-50%) translateX(5px); }
-}
-
-.garden-hint-arrow {
-    color: rgba(255, 255, 255, 0.5);
-    font-size: 1.2rem;
-}
-
-.garden-hint-text {
-    font-size: 0.7rem;
-    color: rgba(255, 255, 255, 0.5);
-    white-space: nowrap;
-}
-
 .family-card {
     position: relative;
     overflow: hidden;
@@ -1755,4 +1664,20 @@
 @keyframes guardianPulseLite {
     0%, 100% { transform: translateZ(0) scale(1); opacity: 0.95; }
     50% { transform: translateZ(0) scale(1.10); opacity: 1; }
+}
+
+/* === FLASH FIX: Pause weather animations when menus are open === */
+body:has(.menu-overlay.open) .rain-container,
+body:has(.menu-overlay.open) .rainbow,
+body:has(.menu-overlay.open) .sun-rays-container,
+body:has(.menu-overlay.open) .seasonal-container,
+body:has(.menu-overlay.open) .cloud-layer,
+body:has(.menu-overlay.open) .rain-clouds {
+    animation-play-state: paused !important;
+}
+
+/* Reduce flicker on overlay transitions */
+.menu-overlay.open {
+    backface-visibility: hidden;
+    transform: translateZ(0);
 }

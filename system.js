@@ -114,15 +114,6 @@ function ensureStateDefaults() {
     if (!Array.isArray(state.noticeLog)) state.noticeLog = [];
     if (typeof state.nameSuggestion !== 'string') state.nameSuggestion = '';
     if (typeof state.lastWhisperText !== 'string') state.lastWhisperText = '';
-    if (!Array.isArray(state.gardenSoundSeeds)) state.gardenSoundSeeds = [];
-
-    if (Array.isArray(state.history)) {
-        for (const h of state.history) {
-            if (h && typeof h === 'object' && typeof h.essenceFirstTapClaimed !== 'boolean') {
-                h.essenceFirstTapClaimed = false;
-            }
-        }
-    }
 }
 function loadState() { try { const s = localStorage.getItem('pocketSprout'); if (s) state = { ...state, ...JSON.parse(s) }; ensureStateDefaults(); } catch (e) { } }
 

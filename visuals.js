@@ -65,9 +65,13 @@ const audio = {
         g.gain.linearRampToValueAtTime(amp, t + 1.8);
         g.gain.setValueAtTime(amp, t + dur - 1.4);
         g.gain.linearRampToValueAtTime(0.0001, t + dur);
-        f.connect(g); g.connect(ctx.destination);
+        f.connect(g);
+        if (this.bgFilter) g.connect(this.bgFilter);
+        else g.connect(ctx.destination);
         chordMidi.forEach((m, i) => {
             const o = ctx.createOscillator(); o.type = 'sine';
+            if (!this.activeMusicNodes) this.activeMusicNodes = [];
+            this.activeMusicNodes.push(o);
             o.frequency.setValueAtTime(this._midiToFreq(m), t);
             o.detune.setValueAtTime((i - (chordMidi.length - 1) / 2) * 2.0 + (Math.random() - 0.5) * 3.0, t);
             o.connect(f); o.start(t); o.stop(t + dur + 0.1);
@@ -144,6 +148,75 @@ const audio = {
         const self = this;
         setTimeout(() => { if (self.activeMusicNodes) self.activeMusicNodes = self.activeMusicNodes.filter(n => n !== o1 && n !== o2 && n !== click); }, (t - ctx.currentTime + 3.5) * 1000);
     },
+
+_playSixMinuteZenLoop() {
+    if (!this.ctx || !this.isMusicPlaying) return;
+
+    const ctx = this.ctx;
+    const startTime = ctx.currentTime + 0.1;
+    const LOOP_LENGTH = 360; // seconds (6 minutes)
+
+    // Deterministic per-season seed so the loop is truly the same each time.
+    const seasonIdx = this._getSeasonIndex();
+    const rand = this._mulberry32(0xC0FFEE + (seasonIdx | 0) * 1337);
+
+    // D major / B minor-friendly palette (calm, "no wrong notes").
+    const SCALE = [62, 64, 66, 69, 71, 74]; // D E F# A B D (upper)
+    const CHORDS = [
+        [62, 66, 69], // D
+        [59, 62, 66], // Bm
+        [57, 62, 66], // A
+        [55, 62, 64], // G
+    ];
+
+    // Gentle 4-part arc: sparse → bloom → plateau → thin.
+    const sectionLen = LOOP_LENGTH / 4; // 90s each
+    const densityAt = (sec) => {
+        if (sec < sectionLen) return 0.65;
+        if (sec < sectionLen * 2) return 1.0;
+        if (sec < sectionLen * 3) return 1.15;
+        return 0.75;
+    };
+
+    let t = startTime;
+    let chordIndex = 0;
+
+    while (t < startTime + LOOP_LENGTH) {
+        const chord = CHORDS[chordIndex % CHORDS.length];
+
+        // Pad bed: slow swells, routed through bgFilter/bgMasterGain for consistent level.
+        this._playPadChordAt(t, chord, 16, 0.02);
+
+        // Droplets: sparse, gentle, and never percussive-heavy.
+        const rel = t - startTime;
+        const dens = densityAt(rel);
+        const dropletCount = Math.max(2, Math.min(6, Math.floor((3 + rand() * 3) * dens)));
+
+        for (let i = 0; i < dropletCount; i++) {
+            // keep droplets away from the exact loop boundary to avoid perceptible "clicks" at restart
+            const dt = t + 1.5 + rand() * 9.0;
+            if (dt > startTime + LOOP_LENGTH - 2.0) continue;
+
+            const note = SCALE[Math.floor(rand() * SCALE.length)];
+            const amp = (0.06 + rand() * 0.04) * (0.85 + dens * 0.15);
+            const brightness = 0.65 + rand() * 0.35;
+
+            this._playPianoDropletAt(dt, note, amp, brightness);
+        }
+
+        // Harmonic rhythm: slow enough to feel like breathing.
+        t += 12.0;
+        chordIndex++;
+    }
+
+    // Exact loop restart at 6 minutes.
+    const tid = setTimeout(() => {
+        if (this.isMusicPlaying) this._playSixMinuteZenLoop();
+    }, LOOP_LENGTH * 1000);
+
+    this.bgTimers.push(tid);
+},
+
     playBackgroundMusic() {
         if (!this.ctx) this.init();
         if (this.ctx.state === 'suspended') this.ctx.resume();
@@ -157,7 +230,8 @@ const audio = {
             this.bgMasterGain.gain.value = 0.06;
             this.bgMasterGain.connect(this.ctx.destination);
         }
-        if (!this.bgFilter) {
+                try { this.bgMasterGain.gain.cancelScheduledValues(this.ctx.currentTime); this.bgMasterGain.gain.setValueAtTime(0.06, this.ctx.currentTime); } catch (_) {}
+if (!this.bgFilter) {
             this.bgFilter = this.ctx.createBiquadFilter();
             this.bgFilter.type = 'lowpass';
             this.bgFilter.frequency.value = 2500;
@@ -168,12 +242,13 @@ const audio = {
             this.dropletBus.gain.cancelScheduledValues(this.ctx.currentTime);
             this.dropletBus.gain.setValueAtTime(1.0, this.ctx.currentTime);
         }
-        this._scheduleBackgroundMusic();
+        this._playSixMinuteZenLoop();
     },
     stopBackgroundMusic() {
         this.isMusicPlaying = false;
         this.bgTimers.forEach(id => clearTimeout(id));
         this.bgTimers = [];
+        try { if (this.bgMasterGain && this.ctx) { const now = this.ctx.currentTime; this.bgMasterGain.gain.cancelScheduledValues(now); this.bgMasterGain.gain.setValueAtTime(this.bgMasterGain.gain.value, now); this.bgMasterGain.gain.linearRampToValueAtTime(0.0001, now + 0.08); } } catch (_) {}
         if (this.activeMusicNodes && this.activeMusicNodes.length > 0) {
             this.activeMusicNodes.forEach(node => {
                 try { if (node.stop) node.stop(0); if (node.disconnect) node.disconnect(); } catch (e) { }

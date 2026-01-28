@@ -215,11 +215,15 @@
     animation: rainCloudDrift 60s linear infinite;
     transform: translateZ(0);
     backface-visibility: hidden;
-    will-change: transform, opacity;
 }
 
 .rain-clouds.active {
     opacity: 1;
+    will-change: transform, opacity;
+}
+
+.rain-clouds:not(.active) {
+    will-change: auto;
 }
 
 @keyframes rainCloudDrift {
@@ -543,11 +547,6 @@ body[data-season="Winter"] .cloud-haze {
     );
 }
 
-body.midnight-garden-active .environment-scene {
-    opacity: 0;
-    transition: opacity 0.8s ease;
-}
-
 @media (max-width: 480px) {
     .grass-blade-cluster::before {
         background-size: 60px 40px;
@@ -658,12 +657,16 @@ body.time-morning .seasonal-beam {
     opacity: 0;
     filter: brightness(1);
     transition: opacity 1.8s ease, filter 1.8s ease;
-    will-change: opacity, filter;
 }
 
 .sun-rays-container.active {
     opacity: 0.38;
     filter: brightness(1.15);
+    will-change: opacity, filter;
+}
+
+.sun-rays-container:not(.active) {
+    will-change: auto;
 }
 
 .sun-ray {

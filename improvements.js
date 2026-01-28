@@ -572,6 +572,57 @@ function initImprovements() {
     console.log('Pocket Sprout v1.2 improvements loaded');
 }
 
+// === FLASH FIX: Graceful weather re-sync after Midnight Garden exit ===
+function syncWeatherAfterGardenExit() {
+    // Small delay to let garden transition complete
+    setTimeout(() => {
+        // Re-sync weather visual state if weather is active
+        if (typeof state !== 'undefined' && typeof applyTheme === 'function') {
+            if (state.isRainOn || state.isSunLampOn) {
+                applyTheme();
+            }
+        }
+        
+        // Force re-render of seasonal effects
+        const seasonalContainer = document.getElementById('seasonalContainer');
+        if (seasonalContainer && typeof updateSeasonalVisuals === 'function') {
+            seasonalContainer.dataset.season = ''; // Clear cache
+            updateSeasonalVisuals();
+        }
+    }, 400);
+}
+
+// Hook into existing exitMidnightGarden if it exists
+const _originalExitMidnightGarden = window.exitMidnightGarden;
+if (typeof _originalExitMidnightGarden === 'function') {
+    window.exitMidnightGarden = function() {
+        _originalExitMidnightGarden.apply(this, arguments);
+        syncWeatherAfterGardenExit();
+    };
+}
+
+// Also listen for the class removal as a fallback
+const _gardenObserver = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+            const body = document.body;
+            if (!body.classList.contains('midnight-garden-active') && 
+                mutation.oldValue && mutation.oldValue.includes('midnight-garden-active')) {
+                syncWeatherAfterGardenExit();
+            }
+        }
+    });
+});
+
+// Start observing body class changes
+if (document.body) {
+    _gardenObserver.observe(document.body, { 
+        attributes: true, 
+        attributeOldValue: true,
+        attributeFilter: ['class']
+    });
+}
+
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => setTimeout(initImprovements, 500));
 } else {
@@ -586,3 +637,4 @@ window.showHint = showHint;
 window.unlockDiscovery = unlockDiscovery;
 window.showQuickStats = showQuickStats;
 window.hideQuickStats = hideQuickStats;
+window.syncWeatherAfterGardenExit = syncWeatherAfterGardenExit;
