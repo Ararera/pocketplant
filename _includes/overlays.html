@@ -18,7 +18,7 @@
             
             <div class="menu-stat"><span>🌱 Generation</span><span id="menuGen">1</span></div>
             <div class="menu-stat"><span>⏳ Age</span><span id="menuAge">1 Day</span></div>
-            <div class="menu-stat"><span>🌿 Growth Stage</span><span id="menuStage">Sprout</span></div>
+            <div class="menu-stat"><span>🌿 Stage</span><span id="menuStage">Sprout</span></div>
             <div class="menu-stat"><span>❤️ Health</span><span id="menuHealth" style="color:var(--accent-growth)">Thriving</span></div>
             
             <div class="growth-wrapper">
@@ -42,7 +42,7 @@
             <button class="btn-base firefly-btn" onclick="openFireflyLog()">🦋 Firefly Sanctuary</button>
             <button class="btn-base style-btn" onclick="openPotDesigner()">🎨 Customize Pot</button>
             
-            <div class="menu-section-title">Greenhouse</div>
+            <div class="menu-section-title">Lineage</div>
             <div class="greenhouse-list" id="greenhouseList"></div>
         </div>
 
@@ -55,7 +55,7 @@
             <button class="btn-base" onclick="openCareLog()">📜 Care Log</button>
             <button class="btn-base" onclick="openSeasonInfo()">📅 Season Info</button>
             <button class="btn-base music-btn" id="btnMusic" onclick="toggleBackgroundMusic()">🎶 Background Music</button>
-            <button class="btn-base help-btn" onclick="openHelp()">❓ Help</button>
+            <button class="btn-base help-btn" onclick="openHelp()">❓ How to Play</button>
             <button class="btn-base reset-btn" onclick="openResetConfirm()">🗑️ Reset Save</button>
         </div>
 
@@ -65,8 +65,8 @@
 
 <div class="menu-overlay" id="fireflyOverlay">
     <div class="menu-card firefly-card">
-        <div class="menu-title">Sanctuary</div>
-        <div class="firefly-intro">The gathered light of your journey.</div>
+        <div class="menu-title">Firefly Sanctuary</div>
+        <div class="firefly-intro">Your collection of gathered light. Tap a family to see details.</div>
         
         <div class="firefly-family-grid" id="fireflyFamilyGrid"></div>
         
@@ -127,27 +127,31 @@
 
 <div class="menu-overlay" id="helpOverlay">
     <div class="menu-card help-card">
-        <div class="menu-title">Guide</div>
+        <div class="menu-title">How to Play</div>
         <div class="help-section">
-            <h3>Needs</h3>
-            <p>Keep Water 💧, Sun ☀️, and Love ❤️ balanced. Tap buttons to toggle environment. Tap the plant to give love.</p>
+            <h3>Basic Care</h3>
+            <p>Your plant needs three things: Water 💧, Sunlight ☀️, and Love ❤️. Use the buttons at the bottom to toggle rain and sun. Tap the pot to give love. Hold the pot to see your plant's vitality rings.</p>
         </div>
         <div class="help-section">
-            <h3>Growth</h3>
-            <p>The plant grows over time. Better care = faster growth. Unlock new shapes and flowers as it evolves.</p>
+            <h3>Growth & Evolution</h3>
+            <p>Keep all three stats balanced for optimal growth. Your plant evolves through six stages: Shoot → Seedling → Sprout → Budding → Bloom → Flourish. At Bloom stage or higher, you can ascend to start a new generation.</p>
         </div>
         <div class="help-section">
             <h3>Fireflies</h3>
-            <p>Rare visitors that appear when the plant is happy. Collect them to unlock pot patterns and powerful buffs.</p>
+            <p>When your plant is happy, fireflies may visit. Tap them to collect! Each of the 16 families has unique powers. Collect 50 of one family to unlock their Guardian.</p>
         </div>
-        <button class="btn-base close-btn" onclick="closeHelp()">Close</button>
+        <div class="help-section">
+            <h3>Scars & Healing</h3>
+            <p>Neglect can leave scars on your plant. If you see scars in the Care tab, tap them to begin a healing ritual and restore your plant.</p>
+        </div>
+        <button class="btn-base close-btn" onclick="closeHelp()">Got It</button>
     </div>
 </div>
 
 <div class="menu-overlay" id="traitOverlay">
     <div class="menu-card trait-card">
         <div class="menu-title">Trait Glossary</div>
-        <div class="trait-intro">Traits inherited from ancestors shape your plant's destiny.</div>
+        <div class="trait-intro">Each generation can pass down a trait to its offspring. These inherited traits shape your plant's growth and resilience.</div>
         <div class="trait-list" id="traitGlossaryList"></div>
         <button class="btn-base close-btn" style="margin-top:15px" onclick="closeTraitGlossary()">Close</button>
     </div>
@@ -163,21 +167,21 @@
                 <g id="harvestPlantGroup"></g>
             </svg>
         </div>
-        <p class="harvest-text">Your plant is ready to complete its cycle. It will leave behind a seed with new traits for the next generation.</p>
+        <p class="harvest-text">Your plant has reached full bloom and is ready to complete its cycle. It will leave behind a seed carrying a new inherited trait for the next generation.</p>
         <div class="trait-inheritance-section">
             <div class="section-label">Inherited Trait</div>
             <h3 id="inheritedTraitDisplay">...</h3>
         </div>
         <button class="btn-base harvest-confirm-btn" onclick="confirmHarvest()">Begin New Cycle</button>
-        <button class="btn-base close-btn" onclick="closeHarvestModal()">Cancel</button>
+        <button class="btn-base close-btn" onclick="closeHarvestModal()">Not Yet</button>
     </div>
 </div>
 
 <div class="menu-overlay death-overlay" id="deathOverlay">
     <div class="menu-card death-card">
         <div class="menu-title" style="color:#ef4444">Withered</div>
-        <p class="death-text">Despite your efforts, the plant has faded away. Its nutrients return to the earth.</p>
-        <button class="btn-base death-btn" onclick="resetGame(true)">Try Again</button>
+        <p class="death-text">Despite your efforts, this plant has faded away. But every ending holds the seed of a new beginning.</p>
+        <button class="btn-base death-btn" onclick="resetGame(true)">Start Fresh</button>
     </div>
 </div>
 
@@ -198,10 +202,10 @@
 
 <div class="menu-overlay" id="resetOverlay">
     <div class="menu-card reset-card">
-        <div class="menu-title" style="color:#ff6b6b">Wipe Save?</div>
-        <p class="reset-warning">This will delete your current plant and <b>all history</b>.<br><br>This cannot be undone.</p>
+        <div class="menu-title" style="color:#ff6b6b">Reset Everything?</div>
+        <p class="reset-warning">This will permanently delete your current plant, all ancestors, fireflies, and discoveries.<br><br>This cannot be undone.</p>
         <button class="btn-base reset-confirm-btn" onclick="finalizeReset()">🗑️ Delete Everything</button>
-        <button class="btn-base close-btn" onclick="closeResetOverlay()">Cancel</button>
+        <button class="btn-base close-btn" onclick="closeResetOverlay()">Keep Playing</button>
     </div>
 </div>
 
@@ -216,12 +220,12 @@
 
 <div class="menu-overlay" id="seasonOverlay">
     <div class="menu-card">
-        <div class="menu-title">Season</div>
+        <div class="menu-title">Seasons</div>
         <div class="harvest-text">
             <h3 id="seasonNow" style="margin-top:0;color:var(--accent-growth)"></h3>
             <p id="seasonNowBody" style="opacity:0.8;font-size:0.85rem;line-height:1.5;"></p>
         </div>
-        <div style="font-size:0.75rem;opacity:0.6;margin-top:15px;font-style:italic;">Seasons change every few minutes, affecting growth rates and visuals.</div>
+        <div style="font-size:0.75rem;opacity:0.6;margin-top:15px;font-style:italic;">Seasons change every few in-game days, affecting growth rates and the world around your plant.</div>
         <button class="btn-base close-btn" style="margin-top:20px" onclick="closeSeasonInfo()">Close</button>
     </div>
 </div>
