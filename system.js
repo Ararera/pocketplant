@@ -15,7 +15,7 @@ window.forceStopAllAudio = function() {
     });
 
     try {
-        const potentialAudioNames = ['bgm', 'music', 'backgroundMusic', 'audio', 'player', 'sound', 'bgAudio', 'midnightMusic'];
+        const potentialAudioNames = ['bgm', 'music', 'backgroundMusic', 'audio', 'player', 'sound', 'bgAudio'];
         potentialAudioNames.forEach(name => {
             const obj = window[name];
             if (obj && typeof obj.pause === 'function') {
@@ -42,7 +42,7 @@ function processOfflineProgress() {
     }
     const hrs = diffSec / 3600; let nested = null;
     if (hrs >= 2 && Math.random() < 0.4) {
-        const fi = Math.floor(Math.random() * 8); state.fireflies[fi] = (state.fireflies[fi] || 0) + 1; state.totalFireflies++; nested = FIREFLY_FAMILIES[fi];
+        const fi = Math.floor(Math.random() * FIREFLY_FAMILIES.length); state.fireflies[fi] = (state.fireflies[fi] || 0) + 1; state.totalFireflies++; nested = FIREFLY_FAMILIES[fi];
     }
     let dream = null;
     if (hrs >= 1) {
@@ -127,8 +127,7 @@ function resetGame(preserveHistory = true) {
             stage: state.stage,
             scars: [...state.scars],
             potColor: state.potColor,
-            potPattern: state.potPattern,
-            essenceFirstTapClaimed: false
+            potPattern: state.potPattern
         });
     }
     const hist = preserveHistory ? state.history : [];
@@ -136,12 +135,11 @@ function resetGame(preserveHistory = true) {
     const ff = preserveHistory ? state.fireflies : {};
     const it = preserveHistory ? state.inheritedTraits : [];
     const gen = preserveHistory ? state.generation + 1 : 1;
-    const gSeeds = preserveHistory ? (state.gardenSoundSeeds || []) : [];
     
     if (!preserveHistory) state.inheritedTraits = [];
 
     state = {
-        water: 50, sun: 50, love: 50, growth: 0, stage: 1, isSunLampOn: false, isRainOn: false, day: 1, dayProgress: 0, generation: gen, name: "Sprout", nameSuggestion: '', season: state.season || 0, dna: generateDNA(), potColor: POT_COLORS[0], potPattern: 'patNone', potPatternColor: 'rgba(255,255,255,0.5)', timeAtZero: 0, isDead: false, history: hist, lastSave: Date.now(), growthMultiplier: 1, singCooldownUntil: 0, fertilizeCooldownUntil: 0, fireflies: ff, totalFireflies: tf, activeGuardians: [], buffs: [], scars: [], crisisCount: 0, inheritedTraits: it, lastDream: null, isMusicPlaying: false, neglect: { waterLowMs: 0, sunLowMs: 0, loveLowMs: 0, crisisMs: 0, partialDormant: false }, lastWhisperAt: 0, noticeLog: preserveHistory ? state.noticeLog : [], lastWhisperText: '', gardenSoundSeeds: gSeeds
+        water: 50, sun: 50, love: 50, growth: 0, stage: 1, isSunLampOn: false, isRainOn: false, day: 1, dayProgress: 0, generation: gen, name: "Sprout", nameSuggestion: '', season: state.season || 0, dna: generateDNA(), potColor: POT_COLORS[0], potPattern: 'patNone', potPatternColor: 'rgba(255,255,255,0.5)', timeAtZero: 0, isDead: false, history: hist, lastSave: Date.now(), growthMultiplier: 1, singCooldownUntil: 0, fertilizeCooldownUntil: 0, fireflies: ff, totalFireflies: tf, activeGuardians: [], buffs: [], scars: [], crisisCount: 0, inheritedTraits: it, lastDream: null, isMusicPlaying: false, neglect: { waterLowMs: 0, sunLowMs: 0, loveLowMs: 0, crisisMs: 0, partialDormant: false }, lastWhisperAt: 0, noticeLog: preserveHistory ? state.noticeLog : [], lastWhisperText: ''
     };
     els.deathOverlay.classList.remove('open'); els.plantHero.classList.remove('dead-plant', 'dormant-plant');
     audio.stopRainSound(); setupWorld(); renderPlant('plantGroup', state.dna, state.stage); renderPotPreview(); updateUI(); saveState();
@@ -187,8 +185,8 @@ function debugMaxStats() { state.water = 100; state.sun = 100; state.love = 100;
 function debugGrow() { state.growth += 1000; render(); debugLog('+1000 growth'); }
 function debugEvolve() { if (state.stage < 5) { state.stage++; renderPlant('plantGroup', state.dna, state.stage); debugLog(`Stage ${state.stage}`); } else debugLog('Max stage'); }
 function debugKill() { triggerDeath(); debugLog('Killed'); }
-function debugUnlockFireflies() { FIREFLY_FAMILIES.forEach((_, i) => { state.fireflies[i] = CONFIG.maxFireflyPerFamily; }); state.totalFireflies = 8 * CONFIG.maxFireflyPerFamily; debugLog('All fireflies'); }
-function debugAddFirefly() { const i = Math.floor(Math.random() * 8); if (!state.fireflies[i]) state.fireflies[i] = 0; state.fireflies[i]++; state.totalFireflies++; debugLog(`+${FIREFLY_FAMILIES[i].name}`); }
+function debugUnlockFireflies() { FIREFLY_FAMILIES.forEach((_, i) => { state.fireflies[i] = CONFIG.maxFireflyPerFamily; }); state.totalFireflies = FIREFLY_FAMILIES.length * CONFIG.maxFireflyPerFamily; debugLog('All fireflies'); }
+function debugAddFirefly() { const i = Math.floor(Math.random() * FIREFLY_FAMILIES.length); if (!state.fireflies[i]) state.fireflies[i] = 0; state.fireflies[i]++; state.totalFireflies++; debugLog(`+${FIREFLY_FAMILIES[i].name}`); }
 function debugCycleTime() {
     const ts = ['night', 'dawn', 'morning', 'day', 'afternoon', 'dusk', 'evening'], c = ts.findIndex(t => document.body.classList.contains('time-' + t)), n = (c + 1) % ts.length;
     document.body.className = document.body.className.replace(/time-\w+/g, ''); document.body.classList.add('time-' + ts[n]); debugLog('Time: ' + ts[n]);

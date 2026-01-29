@@ -463,6 +463,7 @@ function gameTick() {
     
     if (now - _lastTimeOfDayCheck > TIME_CHECK_THROTTLE_MS) {
         if (typeof updateTimeOfDay === 'function') updateTimeOfDay();
+        if (typeof updateMoonPhase === 'function') updateMoonPhase();
         _lastTimeOfDayCheck = now;
     }
 }

@@ -225,9 +225,37 @@ function hasGuardian(familyIndex) { return ((state.fireflies && (state.fireflies
 
 function attemptSpawnFirefly() {
     if (els.menuOverlay && els.menuOverlay.classList.contains('open')) return;
-    if (Math.random() < (state.dna?.fireflyChance || 0.05)) spawnVisualFirefly(Math.floor(Math.random() * 8), false);
+
+    const base = (state.dna?.fireflyChance || 0.05);
+
+    // Luck + Bloom increase visitation (buffs and active guardians)
+    const buffCount = (t) => {
+        if (!state.buffs) return 0;
+        let c = 0;
+        for (let i = 0; i < state.buffs.length; i++) if (state.buffs[i]?.type === t && (state.buffs[i]?.remaining || 0) > 0) c++;
+        return c;
+    };
+    const guardianCount = (eff) => {
+        if (!state.activeGuardians) return 0;
+        let c = 0;
+        for (let i = 0; i < state.activeGuardians.length; i++) {
+            const fam = FIREFLY_FAMILIES[state.activeGuardians[i]];
+            if (fam && fam.effect === eff) c++;
+        }
+        return c;
+    };
+
+    const luck = buffCount('luck') + guardianCount('luck');
+    const bloom = buffCount('bloom') + guardianCount('bloom');
+
+    const mult = 1 + (0.22 * luck) + (0.18 * bloom);
+    const chance = Math.min(0.35, base * mult);
+
+    if (Math.random() < chance) spawnVisualFirefly(Math.floor(Math.random() * FIREFLY_FAMILIES.length), false);
+
+    const guardianSpawn = Math.min(0.02, 0.008 * (1 + 0.12 * luck));
     FIREFLY_FAMILIES.forEach((_, i) => {
-        if (hasGuardian(i) && !activeBigFireflies.includes(i) && Math.random() < 0.008) spawnVisualFirefly(i, true);
+        if (hasGuardian(i) && !activeBigFireflies.includes(i) && Math.random() < guardianSpawn) spawnVisualFirefly(i, true);
     });
 }
 
@@ -609,9 +637,19 @@ function releaseFirefly() {
     else if (f.effect === 'health') state.buffs.push({ type: 'health', strength: 3, remaining: 15, color: col, familyIndex: i });
     else if (f.effect === 'slow') state.buffs.push({ type: 'slow', strength: 1, remaining: 30, color: col, familyIndex: i });
     else if (f.effect === 'luck') state.buffs.push({ type: 'luck', strength: 1, remaining: 30, color: col, familyIndex: i });
-    else if (f.effect === 'random') { const types = ['water', 'sun', 'love', 'growth', 'health']; const rt = types[Math.floor(Math.random() * types.length)]; state.buffs.push({ type: rt, strength: 3, remaining: 20, color: col, familyIndex: i }); }
-    
-    applyBuffVisualFeedback(col);
+    else if (f.effect === 'harmony') state.buffs.push({ type: 'harmony', strength: 1.2, remaining: 30, color: col, familyIndex: i });
+    else if (f.effect === 'bloom') state.buffs.push({ type: 'bloom', strength: 1, remaining: 35, color: col, familyIndex: i });
+    else if (f.effect === 'rejuvenate') state.buffs.push({ type: 'rejuvenate', strength: 1, remaining: 35, color: col, familyIndex: i });
+    else if (f.effect === 'focus') state.buffs.push({ type: 'focus', strength: 1, remaining: 35, color: col, familyIndex: i });
+    else if (f.effect === 'shield') state.buffs.push({ type: 'shield', strength: 1, remaining: 40, color: col, familyIndex: i });
+    else if (f.effect === 'ward') state.buffs.push({ type: 'ward', strength: 1, remaining: 40, color: col, familyIndex: i });
+    else if (f.effect === 'mend') state.buffs.push({ type: 'mend', strength: 1, remaining: 45, color: col, familyIndex: i });
+    else if (f.effect === 'clarity') state.buffs.push({ type: 'clarity', strength: 1, remaining: 45, color: col, familyIndex: i });
+    else if (f.effect === 'random') { 
+        const types = ['water', 'sun', 'love', 'growth', 'health', 'slow', 'luck', 'harmony', 'bloom', 'rejuvenate', 'focus', 'shield', 'ward', 'mend', 'clarity']; 
+        const rt = types[Math.floor(Math.random() * types.length)]; 
+        state.buffs.push({ type: rt, strength: 1.5, remaining: 30, color: col, familyIndex: i }); 
+    }applyBuffVisualFeedback(col);
     
     spawnFloatingText(f.name + ' released! ' + f.desc, col, 'good'); renderFireflyLog(); saveState();
 }

@@ -364,24 +364,51 @@ function updateNightMotes(timeOfDay) {
     }
 }
 
-function getMoonPhase() {
+function getMoonPhaseDetailed() {
+    // Continuous lunar phase + illumination (0..1), plus an 8-bucket label/icon for UI.
     const now = new Date();
-    const knownNewMoon = new Date(Date.UTC(2000, 0, 6, 18, 14, 0));
+    const knownNewMoon = new Date(Date.UTC(2000, 0, 6, 18, 14, 0)); // reference new moon
     const synodicMonth = 29.53058867 * 24 * 60 * 60 * 1000;
-    const daysSinceNewMoon = (now.getTime() - knownNewMoon.getTime()) / synodicMonth;
-    const lunarPhase = daysSinceNewMoon - Math.floor(daysSinceNewMoon);
-    const phaseIndex = Math.floor(lunarPhase * 8) % 8;
-    return MOON_PHASES[phaseIndex];
+
+    const cycles = (now.getTime() - knownNewMoon.getTime()) / synodicMonth;
+    const phaseFrac = cycles - Math.floor(cycles); // 0..1 (0=new, 0.5=full)
+
+    // Illumination fraction (0..1). 0=new, 1=full.
+    const illum = (1 - Math.cos(2 * Math.PI * phaseFrac)) / 2;
+
+    // Waxing from new->full, waning from full->new.
+    const waxing = phaseFrac < 0.5;
+
+    // Keep the traditional 8-phase label/icon available (doesn't drive the visual anymore).
+    const phaseIndex = Math.floor(phaseFrac * 8) % 8;
+    const meta = (typeof MOON_PHASES !== 'undefined' && MOON_PHASES[phaseIndex]) ? MOON_PHASES[phaseIndex] : { name: 'Moon', icon: '🌙' };
+
+    return { phaseFrac, illum, waxing, meta, phaseIndex };
+}
+
+function getMoonPhase() {
+    // Backward-compatible helper: returns the 8-phase metadata, with extra fields for display if needed.
+    const d = getMoonPhaseDetailed();
+    return { ...d.meta, illum: d.illum, waxing: d.waxing, phaseFrac: d.phaseFrac, phaseIndex: d.phaseIndex };
 }
 
 function updateMoonPhase() {
-    const p = getMoonPhase();
+    const d = getMoonPhaseDetailed();
     const me = document.getElementById('moonElement');
-    if (me) me.style.setProperty('--moon-phase', p.phase + '%');
+
+    if (me) {
+        // Your CSS moon uses a dark disk that translates on X:
+        // positive values put the shadow to the RIGHT (waxing), negative to the LEFT (waning).
+        const sign = d.waxing ? -1 : 1; // flip terminator side
+        const shift = Math.max(0, Math.min(100, d.illum * 100));
+        me.style.setProperty('--moon-phase', (sign * shift).toFixed(1) + '%');
+    }
+
     updateSeason();
 }
 
-function isNewMoon() { return getMoonPhase().name === 'New Moon'; }
+// Treat "new moon" as very low illumination to avoid label flicker at boundaries.
+function isNewMoon() { return getMoonPhaseDetailed().illum < 0.03; }
 
 function updateSeason() {
     const s = SEASONS[state.season % 4];

@@ -25,15 +25,25 @@ const PATTERNS = Object.freeze([
 ]);
 
 const FIREFLY_FAMILIES = Object.freeze([
-    { name: 'Ember', hue: 15, power: 'warmth', desc: 'Restores sun vitality', effect: 'sun' },
-    { name: 'Citrine', hue: 45, power: 'growth', desc: 'Accelerates growth', effect: 'growth' },
-    { name: 'Verdant', hue: 120, power: 'vitality', desc: 'Boosts overall health', effect: 'health' },
-    { name: 'Aqua', hue: 180, power: 'hydration', desc: 'Restores water', effect: 'water' },
-    { name: 'Azure', hue: 210, power: 'calm', desc: 'Slows decay', effect: 'slow' },
-    { name: 'Violet', hue: 270, power: 'dreams', desc: 'Increases luck', effect: 'luck' },
-    { name: 'Rose', hue: 330, power: 'love', desc: 'Fills with affection', effect: 'love' },
-    { name: 'Pearl', hue: 0, sat: 15, power: 'mystery', desc: 'Random powerful effects', effect: 'random' }
+    { name: 'Ember',   hue: 15,  power: 'warmth',    desc: 'Restores sun vitality', effect: 'sun' },
+    { name: 'Citrine', hue: 45,  power: 'growth',    desc: 'Accelerates growth', effect: 'growth' },
+    { name: 'Verdant', hue: 120, power: 'vitality',  desc: 'Boosts overall health', effect: 'health' },
+    { name: 'Aqua',    hue: 180, power: 'hydration', desc: 'Restores water', effect: 'water' },
+    { name: 'Azure',   hue: 210, power: 'calm',      desc: 'Slows decay', effect: 'slow' },
+    { name: 'Violet',  hue: 270, power: 'dreams',    desc: 'Increases luck', effect: 'luck' },
+    { name: 'Rose',    hue: 330, power: 'love',      desc: 'Fills with affection', effect: 'love' },
+    { name: 'Pearl',   hue: 0,   sat: 15, power: 'mystery', desc: 'Random powerful effects', effect: 'random' },
+
+    { name: 'Lumen',   hue: 70,  power: 'harmony',   desc: 'Gently restores all vitals', effect: 'harmony' },
+    { name: 'Glade',   hue: 100, power: 'bloom',     desc: 'Boosts growth and attracts visitors', effect: 'bloom' },
+    { name: 'Dew',     hue: 165, power: 'renewal',   desc: 'Improves rain & sunlight recovery', effect: 'rejuvenate' },
+    { name: 'Aster',   hue: 200, power: 'focus',     desc: 'Reduces cooldowns and resting time', effect: 'focus' },
+    { name: 'Iris',    hue: 245, power: 'shield',    desc: 'Helps prevent neglect scars', effect: 'shield' },
+    { name: 'Onyx',    hue: 300, sat: 35, power: 'ward', desc: 'Buys time during crisis', effect: 'ward' },
+    { name: 'Echo',    hue: 315, sat: 55, power: 'mending', desc: 'Softens dormant penalties', effect: 'mend' },
+    { name: 'Quartz',  hue: 30,  sat: 25, power: 'clarity', desc: 'Stabilizes recovery and growth', effect: 'clarity' }
 ]);
+
 
 const GUARDIAN_THRESHOLD = 50;
 const GUARDIAN_INVOKE_COST = 25;

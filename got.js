@@ -18,80 +18,114 @@ const GOT = {
     },
     // Firefly fun facts and lore
     fireflyFacts: {
-        0: [ // Ember
-            "Ember fireflies are born from the last warm breaths of autumn sunsets.",
-            "Their glow can reach temperatures warm enough to thaw morning frost.",
-            "Ancient gardeners believed catching an Ember firefly brought luck in love.",
-            "They're most active during the golden hour before dusk."
+        0: [
+            "Ember fireflies carry a cozy warmth in their light.",
+            "They often arrive when the air smells like dry leaves."
         ],
-        1: [ // Citrine
-            "Citrine fireflies collect and store starlight in their tiny lanterns.",
-            "Their yellow glow has been used to read by on moonless nights.",
-            "A gathering of Citrines is called a 'constellation'.",
-            "They're attracted to the scent of chamomile and honey."
+        1: [
+            "Citrine fireflies drift toward pollen as if it were music.",
+            "A cluster of Citrines can make shadows feel gentler."
         ],
-        2: [ // Verdant
-            "Verdant fireflies only appear where the soil is exceptionally healthy.",
-            "Their green light promotes faster leaf growth in nearby plants.",
-            "Some say they're the spirits of seeds that never got to sprout.",
-            "They taste like fresh mint (not that you should try)."
+        2: [
+            "Verdant fireflies linger where the soil is thriving.",
+            "Their glow makes leaf veins look sharply defined."
         ],
-        3: [ // Azure
-            "Azure fireflies are said to carry memories of rain.",
-            "Their blue glow intensifies just before a storm arrives.",
-            "They navigate using the earth's magnetic field.",
-            "A single Azure can drink three times its weight in morning dew."
+        3: [
+            "Aqua fireflies gather where dew settles and mist hangs low.",
+            "They tend to appear after rain, hovering near the pot."
         ],
-        4: [ // Violet
-            "Violet fireflies sleep during full moons - too much competition.",
-            "Their purple light is invisible to most predators.",
-            "They communicate through patterns only they can perceive.",
-            "Ancient texts call them 'twilight's tears'."
+        4: [
+            "Azure fireflies move slowly, as if time thickens around them.",
+            "Their blue glow makes the garden feel calmer and cooler."
         ],
-        5: [ // Rose
-            "Rose fireflies are hopeless romantics who mate for life.",
-            "Their pink glow strengthens the emotional bonds of nearby creatures.",
-            "They build tiny nests from flower petals and spider silk.",
-            "A Rose firefly's favorite flower? Surprisingly, dandelions."
+        5: [
+            "Violet fireflies flash in odd rhythms, like private jokes.",
+            "Their glow seems brighter when you return after time away."
         ],
-        6: [ // Amber
-            "Amber fireflies are living fossils, unchanged for millions of years.",
-            "Their warm glow contains trace amounts of actual amber resin.",
-            "They're excellent listeners (they have no choice - no ears).",
-            "Collectors prize them for their calming presence."
+        6: [
+            "Rose fireflies circle close, as if checking you are still here.",
+            "Their light feels like a remembered kindness."
         ],
-        7: [ // Pearl
-            "Pearl fireflies only emerge under specific lunar conditions.",
-            "Their white light is actually all colors combined.",
-            "They're considered omens of new beginnings.",
-            "No two Pearl fireflies have the same glow pattern."
+        7: [
+            "Pearl fireflies shine with near-colorless clarity.",
+            "No two Pearls keep the same pulse pattern for long."
+        ],
+        8: [
+            "Lumen fireflies are steady lanterns—soft, patient, forgiving.",
+            "They linger when your vitals are close to balance."
+        ],
+        9: [
+            "Glade fireflies leave faint green-gold trails when they turn.",
+            "They appear when growth is already underway, as if cheering it on."
+        ],
+        10: [
+            "Dew fireflies sparkle with a cool wet brightness.",
+            "They love hovering under leaves where condensation gathers."
+        ],
+        11: [
+            "Aster fireflies dart, pause, then dart again—focused and precise.",
+            "They show up after long stretches of careful tending."
+        ],
+        12: [
+            "Iris fireflies keep close watch when your plant is struggling.",
+            "Their glow seems to blunt the edge of neglect."
+        ],
+        13: [
+            "Onyx fireflies burn with a dark sheen, like polished stone.",
+            "They feel rarest at the brink, when the garden needs more time."
+        ],
+        14: [
+            "Echo fireflies shimmer like a memory trying to stay put.",
+            "They soften the heaviness of dormancy without erasing it."
+        ],
+        15: [
+            "Quartz fireflies sparkle cleanly, like frost on glass.",
+            "They steady recovery and make growth feel less fragile."
         ]
     },
-    
+
     // Color descriptions for fireflies
     fireflyColorDescriptions: {
-        0: "A warm, flickering orange-red like dying embers in a hearth",
-        1: "Bright golden yellow, reminiscent of crystallized sunshine",
-        2: "Deep forest green with hints of spring meadows",
-        3: "Cool cerulean blue like a clear winter sky",
-        4: "Rich purple twilight with mysterious undertones",
-        5: "Soft pink like cherry blossoms at dawn",
-        6: "Warm honey amber with golden highlights",
-        7: "Iridescent white with subtle rainbow shimmer"
+        0: "Warm orange-red, like embers in a hearth",
+        1: "Bright golden yellow, like crystallized sunshine",
+        2: "Deep green with forest undertones",
+        3: "Cool teal-blue, like moonlit water",
+        4: "Cerulean blue with a quiet glow",
+        5: "Rich purple twilight with mysterious depth",
+        6: "Soft pink like petals at dawn",
+        7: "Iridescent white with subtle shimmer",
+        8: "Pale gold-white, lantern-soft and steady",
+        9: "Green-gold, like new leaves catching light",
+        10: "Minty aqua, bright with dew-kissed sparkle",
+        11: "Deep sky blue, crisp like cold starlight",
+        12: "Indigo-violet with a protective sheen",
+        13: "Smoky violet-black with faint mineral glints",
+        14: "Magenta-rose with an echoing shimmer",
+        15: "Warm crystal-white with peach highlights"
     },
+
 
     // Unique footer quotes for each family
     fireflyQuotes: {
-        0: "Born from the last spark of an autumn bonfire.",
-        1: "Carrying the memory of the sun into the deepest night.",
-        2: "Singing the silent song of roots and reaching branches.",
-        3: "Dancing with the rhythm of the rain, even when skies are clear.",
-        4: "Keepers of the secrets whispered between midnight blooms.",
-        5: "Believing that every garden is a love story waiting to be told.",
-        6: "Preserving the golden moments of the past in living light.",
-        7: "Lighting the path for new beginnings and fresh starts."
+        0: "A small warmth that refuses to go out.",
+        1: "Sunlight remembered after the day is gone.",
+        2: "Roots hum quietly; leaves answer.",
+        3: "Water finds its way—so do you.",
+        4: "Slow is a kind of strength.",
+        5: "Luck arrives wearing quiet shoes.",
+        6: "Affection is nourishment, too.",
+        7: "New beginnings, without explanation.",
+        8: "Balance is a lantern in the dark.",
+        9: "Growth loves applause.",
+        10: "Recovery tastes like rain.",
+        11: "Focus turns care into craft.",
+        12: "Protection is patience made visible.",
+        13: "More time can be a miracle.",
+        14: "A scar is a story, not a sentence.",
+        15: "Clarity makes the fragile steady."
     },
-    
+
+
     // Discovery unlock stories
     discoveryStories: {
         'first_water': "You learned that even the smallest rain shower can bring tremendous relief. Your plant's first drink was a moment of pure joy.",

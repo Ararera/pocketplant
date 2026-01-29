@@ -46,8 +46,6 @@ const DISCOVERIES = Object.freeze([
     { id: 'first_firefly', name: 'Firefly Catcher', desc: 'Collected your first firefly', icon: '🦋' },
     { id: 'first_guardian', name: 'Guardian Summoned', desc: 'Unlocked a Guardian (50 of one family)', icon: '👑' },
     { id: 'first_ascension', name: 'Circle of Life', desc: 'Ascended your first plant', icon: '🌸' },
-    { id: 'visited_garden', name: 'Midnight Wanderer', desc: 'Visited the Midnight Garden', icon: '🌙' },
-    { id: 'garden_chord', name: 'Moon Chord', desc: 'Played a chord in the Midnight Garden', icon: '🎹' },
     { id: 'made_rainbow', name: 'Prismatic', desc: 'Created a rainbow (sun + rain)', icon: '🌈' },
     { id: 'named_plant', name: 'True Name', desc: 'Gave your plant a real name', icon: '🏷️' },
     { id: 'survived_winter', name: 'Winter Survivor', desc: 'Kept a plant alive through winter', icon: '❄️' },
@@ -58,8 +56,7 @@ const DISCOVERIES = Object.freeze([
     { id: 'first_fertilize', name: 'Nourished', desc: 'Used fertilizer', icon: '🧪' },
     { id: 'all_families', name: 'Firefly Collector', desc: 'Collected at least one of each firefly family', icon: '✨' },
     { id: 'sang_to_plant', name: 'Plant Whisperer', desc: 'Sang to your plant', icon: '🎵' },
-    { id: 'invoke_power', name: 'Essence Caller', desc: 'Used Essence in the Midnight Garden', icon: '⚡' },
-    { id: 'scar_healed', name: 'Unburdened', desc: 'Lifted a scar using Essence', icon: '🫙' }
+    { id: 'scar_healed', name: 'Healed', desc: 'Completed a healing ritual for a scar', icon: '🩹' }
 ]);
 
 function unlockDiscovery(discoveryId) {
@@ -299,22 +296,22 @@ function hideQuickStats() {
 
 const HINTS = {
     first_visit: {
-        content: '👋 Welcome to Pocket Sprout! Toggle rain ☁️ and sun ☀️ to care for your plant. Tap the pot to show love, or hold it to see vitality rings!'
+        content: '👋 Welcome to Pocket Sprout! Use the rain ☁️ and sun ☀️ buttons below to care for your plant. Tap the pot to give love, or hold it to see vitality rings.'
     },
     firefly_appeared: {
-        content: '🦋 A firefly appeared! Tap it to collect. Each family grants unique powers.'
+        content: '🦋 A firefly appeared! Tap it quickly to collect. Each family grants unique powers when released.'
     },
     guardian_ready: {
-        content: '👑 You have enough fireflies to summon a Guardian! Visit the Firefly Sanctuary.'
-    },
-    midnight_garden: {
-        content: '🌙 Tap the arrow → on the right to visit the Midnight Garden, where your ancestors rest.'
+        content: '👑 You have enough fireflies to invoke a Guardian! Visit the Firefly Sanctuary in the menu.'
     },
     plant_struggling: {
-        content: '⚠️ Your plant is struggling! Check its vitality rings by holding the pot.'
+        content: '⚠️ Your plant needs attention! Hold the pot to check its vitality rings and see what it needs most.'
     },
     ascension_ready: {
-        content: '🌸 Your plant is ready to ascend! Open the menu to harvest and begin a new cycle.'
+        content: '🌸 Your plant has bloomed fully and is ready to ascend! Open the menu to harvest and start a new generation.'
+    },
+    scar_healing: {
+        content: '🩹 Your plant has a scar from neglect. Tap the scar in the menu to begin a healing ritual.'
     }
 };
 
@@ -432,34 +429,6 @@ function renderFamilyDetail() {
     }
 }
 
-function checkGardenDiscoverability() {
-    if (state.history && state.history.length > 0 && (!state.hintsShown || !state.hintsShown.includes('midnight_garden'))) {
-        const entry = document.getElementById('midnightGardenEntry');
-        const hint = document.getElementById('gardenHint');
-        
-        if (entry) {
-            entry.classList.add('pulse-hint', 'show-label');
-            setTimeout(() => entry.classList.remove('pulse-hint'), 6000);
-        }
-        
-        if (hint) {
-            hint.classList.add('visible');
-            setTimeout(() => hint.classList.remove('visible'), 6000);
-        }
-        
-        showHint('midnight_garden');
-    }
-}
-
-function showGardenFireflyHint() {
-    const hint = document.getElementById('gardenFireflyHint');
-    if (hint && (!state.hintsShown || !state.hintsShown.includes('garden_fireflies'))) {
-        hint.classList.add('visible');
-        if (!state.hintsShown) state.hintsShown = [];
-        state.hintsShown.push('garden_fireflies');
-    }
-}
-
 function updateGenBadgeText() {
     const genBadge = getEl('genBadge');
     if (genBadge && typeof state !== 'undefined') {
@@ -562,65 +531,12 @@ function initImprovements() {
         window.renderFireflyLog = renderFireflyLogImproved;
     }
     
-    setTimeout(checkGardenDiscoverability, 5000);
-    
     if (typeof state !== 'undefined' && state.day === 1 && state.generation === 1 && 
         (!state.hintsShown || !state.hintsShown.includes('first_visit'))) {
         setTimeout(() => showHint('first_visit'), 2000);
     }
     
     console.log('Pocket Sprout v1.2 improvements loaded');
-}
-
-// === FLASH FIX: Graceful weather re-sync after Midnight Garden exit ===
-function syncWeatherAfterGardenExit() {
-    // Small delay to let garden transition complete
-    setTimeout(() => {
-        // Re-sync weather visual state if weather is active
-        if (typeof state !== 'undefined' && typeof applyTheme === 'function') {
-            if (state.isRainOn || state.isSunLampOn) {
-                applyTheme();
-            }
-        }
-        
-        // Force re-render of seasonal effects
-        const seasonalContainer = document.getElementById('seasonalContainer');
-        if (seasonalContainer && typeof updateSeasonalVisuals === 'function') {
-            seasonalContainer.dataset.season = ''; // Clear cache
-            updateSeasonalVisuals();
-        }
-    }, 400);
-}
-
-// Hook into existing exitMidnightGarden if it exists
-const _originalExitMidnightGarden = window.exitMidnightGarden;
-if (typeof _originalExitMidnightGarden === 'function') {
-    window.exitMidnightGarden = function() {
-        _originalExitMidnightGarden.apply(this, arguments);
-        syncWeatherAfterGardenExit();
-    };
-}
-
-// Also listen for the class removal as a fallback
-const _gardenObserver = new MutationObserver((mutations) => {
-    mutations.forEach((mutation) => {
-        if (mutation.attributeName === 'class') {
-            const body = document.body;
-            if (!body.classList.contains('midnight-garden-active') && 
-                mutation.oldValue && mutation.oldValue.includes('midnight-garden-active')) {
-                syncWeatherAfterGardenExit();
-            }
-        }
-    });
-});
-
-// Start observing body class changes
-if (document.body) {
-    _gardenObserver.observe(document.body, { 
-        attributes: true, 
-        attributeOldValue: true,
-        attributeFilter: ['class']
-    });
 }
 
 if (document.readyState === 'loading') {
@@ -637,4 +553,3 @@ window.showHint = showHint;
 window.unlockDiscovery = unlockDiscovery;
 window.showQuickStats = showQuickStats;
 window.hideQuickStats = hideQuickStats;
-window.syncWeatherAfterGardenExit = syncWeatherAfterGardenExit;
