@@ -119,12 +119,54 @@ function stopAudioForBackground() {
 
 function saveState() { state.lastSave = Date.now(); try { localStorage.setItem('pocketSprout', JSON.stringify(state)); } catch (e) { } }
 function ensureStateDefaults() {
+    // Core defaults
     if (!state.neglect) state.neglect = { waterLowMs: 0, sunLowMs: 0, loveLowMs: 0, crisisMs: 0, partialDormant: false };
     if (typeof state.lastWhisperAt !== 'number') state.lastWhisperAt = 0;
     if (typeof state.dayProgress !== 'number') state.dayProgress = 0;
     if (!Array.isArray(state.noticeLog)) state.noticeLog = [];
     if (typeof state.nameSuggestion !== 'string') state.nameSuggestion = '';
     if (typeof state.lastWhisperText !== 'string') state.lastWhisperText = '';
+
+    // Firefly inventory normalization (prevents Community Garden showing 0 when you actually have fireflies)
+    // - state.fireflies should be an array of counts indexed by family
+    // - state.totalFireflies should match the sum of those counts
+    const FAMILY_COUNT = (typeof FIREFLY_FAMILIES !== 'undefined' && Array.isArray(FIREFLY_FAMILIES)) ? FIREFLY_FAMILIES.length : 16;
+
+    // Normalize state.fireflies shape
+    if (!state.fireflies) {
+        state.fireflies = new Array(FAMILY_COUNT).fill(0);
+    } else if (Array.isArray(state.fireflies)) {
+        // Ensure correct length and numeric counts
+        if (state.fireflies.length < FAMILY_COUNT) {
+            for (let i = state.fireflies.length; i < FAMILY_COUNT; i++) state.fireflies[i] = 0;
+        }
+        for (let i = 0; i < state.fireflies.length; i++) {
+            const v = Number(state.fireflies[i] || 0);
+            state.fireflies[i] = Number.isFinite(v) && v > 0 ? Math.floor(v) : 0;
+        }
+    } else if (typeof state.fireflies === 'object') {
+        // Convert legacy object form to array
+        const arr = new Array(FAMILY_COUNT).fill(0);
+        try {
+            Object.keys(state.fireflies).forEach((k) => {
+                const idx = Number(k);
+                if (!Number.isFinite(idx)) return;
+                if (idx < 0 || idx >= FAMILY_COUNT) return;
+                const v = Number(state.fireflies[k] || 0);
+                arr[idx] = Number.isFinite(v) && v > 0 ? Math.floor(v) : 0;
+            });
+        } catch (e) {}
+        state.fireflies = arr;
+    }
+
+    // Normalize state.totalFireflies
+    const computedTotal = (Array.isArray(state.fireflies) ? state.fireflies.reduce((a, b) => a + (Number(b) || 0), 0) : 0);
+    if (!Number.isFinite(state.totalFireflies)) state.totalFireflies = computedTotal;
+    // If total drifted (common after older saves / partial migrations), fix it.
+    if (Math.abs((state.totalFireflies || 0) - computedTotal) > 0) state.totalFireflies = computedTotal;
+
+    // Ensure guardian state arrays exist
+    if (!Array.isArray(state.activeGuardians)) state.activeGuardians = [];
 }
 function loadState() { try { const s = localStorage.getItem('pocketSprout'); if (s) state = { ...state, ...JSON.parse(s) }; ensureStateDefaults(); } catch (e) { } }
 
@@ -143,7 +185,7 @@ function resetGame(preserveHistory = true) {
     }
     const hist = preserveHistory ? state.history : [];
     const tf = preserveHistory ? state.totalFireflies : 0;
-    const ff = preserveHistory ? state.fireflies : {};
+    const ff = preserveHistory ? (Array.isArray(state.fireflies) ? [...state.fireflies] : state.fireflies) : new Array((typeof FIREFLY_FAMILIES !== 'undefined' && Array.isArray(FIREFLY_FAMILIES)) ? FIREFLY_FAMILIES.length : 16).fill(0);
     const it = preserveHistory ? state.inheritedTraits : [];
     const gen = preserveHistory ? state.generation + 1 : 1;
     

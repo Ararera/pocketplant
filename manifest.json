@@ -1,44 +1,21 @@
 {
   "name": "Pocket Sprout",
-  "short_name": "Sprout",
-  "description": "A serene living plant you nurture in real time, where every choice quietly shapes its growth and lineage.",
-  "start_url": "./",
-  "id": "/",
+  "short_name": "Pocket Sprout",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#1a1b1e",
   "theme_color": "#1a1b1e",
-  "orientation": "portrait",
+  "description": "A cozy, rhythmic gardening game.",
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "https://cdn-icons-png.flaticon.com/512/628/628283.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "icon-512.png",
+      "src": "https://cdn-icons-png.flaticon.com/512/628/628283.png",
       "sizes": "512x512",
       "type": "image/png"
     }
-  ],
-  "screenshots": [
-    {
-      "src": "images/screenshot1.png",
-      "sizes": "1080x2340",
-      "type": "image/png",
-      "form_factor": "narrow"
-    },
-    {
-      "src": "images/screenshot2.png",
-      "sizes": "1080x2340",
-      "type": "image/png",
-      "form_factor": "narrow"
-    },
-    {
-      "src": "images/screenshot3.png",
-      "sizes": "1080x2340",
-      "type": "image/png",
-      "form_factor": "wide"
-    }
   ]
 }
-

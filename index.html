@@ -14,7 +14,7 @@
     {% include overlays.html %}
     {% include stage.html %}
     {% include dock.html %}
-
+    <!-- Removed old compat scripts to prevent conflicts -->
     <script src="config.js"></script>
     <script src="logic.js"></script>
     <script src="visuals.js"></script>
@@ -24,6 +24,37 @@
     <script src="improvements.js"></script>
     <script src="scar_healing.js"></script>
     <script src="got.js"></script>
+    <!-- Community Garden shim: keeps inline onclick handlers stable even if module loading fails -->
+    <script>
+    (function () {
+        async function ensureCommunityGardenLoaded() {
+            if (window.CommunityGarden && typeof window.CommunityGarden.open === 'function') return true;
+            try {
+                // Lazy-load the module if it hasn't loaded yet (or previously failed).
+                await import('./community-garden.js');
+            } catch (e) {
+                console.error('[CommunityGarden] Failed to load module:', e);
+            }
+            return !!(window.CommunityGarden && typeof window.CommunityGarden.open === 'function');
+        }
+
+        window.openCommunityGarden = async function () {
+            const ok = await ensureCommunityGardenLoaded();
+            if (ok) return window.CommunityGarden.open();
+            console.warn('[CommunityGarden] Unable to open (module not available).');
+        };
+
+        window.closeCommunityGarden = function () {
+            if (window.CommunityGarden && typeof window.CommunityGarden.close === 'function') {
+                window.CommunityGarden.close();
+            }
+        };
+    })();
+    </script>
+
+    <!-- Updated to type="module" for modern Firebase imports -->
+    <script type="module" src="firebase-config.js"></script>
+    <script type="module" src="community-garden.js"></script>
     <script src="days.js"></script>
     <script>if('serviceWorker'in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('/sw.js').then(r=>{console.log('SW registered',r.scope)}).catch(e=>{console.log('SW failed',e)})})}</script>
 </body>
