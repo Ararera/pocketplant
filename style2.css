@@ -7,7 +7,7 @@
     overflow-y: hidden;
     gap: 12px;
     padding: 25px 50% 30px 20px; /* Right padding allows last item to center */
-    margin: 0 -25px 15px -25px; /* Pull to edges of card */
+    margin: 0 -25px 5px -25px; /* Pull to edges of card, reduced bottom margin */
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
     
@@ -110,43 +110,124 @@
 
 /* Detail Panel Tuned for Compactness */
 .family-detail-panel {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 20px;
-    padding: 16px;
-    margin-top: 10px;
+    background: linear-gradient(180deg, rgba(30, 32, 35, 0.95), rgba(20, 22, 25, 0.98));
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 14px;
+    margin-top: 5px;
     margin-bottom: 5px;
-    animation: slideUpFade 0.3s ease-out;
+    animation: slideUpFade 0.2s ease-out;
+    box-shadow: 0 -5px 15px rgba(0,0,0,0.2);
 }
 
 @keyframes slideUpFade {
-    from { opacity: 0; transform: translateY(10px); }
+    from { opacity: 0; transform: translateY(5px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
-.family-detail-header {
-    margin-bottom: 12px;
+/* Hide the large orb image in the detail panel */
+.family-detail-header .family-orb, #detailOrb {
+    display: none !important; 
 }
 
-.family-detail-header .family-orb {
-    width: 48px;
-    height: 48px;
-    box-shadow: 0 0 30px var(--family-color);
+/* Compact Header Layout */
+.family-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 8px;
+}
+
+.family-info {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .family-info h3 {
-    font-size: 1.1rem;
-    margin-bottom: 4px;
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--family-color);
+    text-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+#detailFireflyCount {
+    font-size: 0.85rem;
+    font-weight: 700;
     color: white;
-    text-shadow: 0 0 10px var(--family-color);
+    margin: 0;
+    opacity: 0.9;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+#detailFamilyPower {
+    font-size: 0.8rem;
+    opacity: 0.7;
+    margin-bottom: 12px;
+    text-align: left;
+    line-height: 1.3;
+}
+
+.guardian-progress-section {
+    margin-top: 0;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+#guardianProgressText {
+    font-size: 0.7rem;
+    opacity: 0.6;
+    margin-bottom: 6px;
+    text-align: center;
+}
+
+.guardian-bar-track {
+    height: 6px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 3px;
+    margin-bottom: 10px;
 }
 
 .release-btn {
-    font-size: 0.95rem;
-    padding: 14px;
-    border-radius: 16px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    border: 1px solid rgba(255,255,255,0.2);
+    font-size: 0.9rem;
+    padding: 12px;
+    border-radius: 12px;
+    margin-top: 8px;
+    width: 100%;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* Default / Disabled State */
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.4);
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+/* Active state - Lights up with the family color! */
+.release-btn:not(:disabled) {
+    background: linear-gradient(135deg, var(--family-color), color-mix(in srgb, var(--family-color) 60%, black));
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: white;
+    box-shadow: 0 4px 15px color-mix(in srgb, var(--family-color) 40%, transparent);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    transform: translateY(0);
+    cursor: pointer;
+}
+
+.release-btn:not(:disabled):active {
+    transform: scale(0.97);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--family-color) 40%, transparent);
 }
 
 /* --- Unchanged below, keeping existing styles --- */
@@ -613,20 +694,6 @@
     font-size: 0.75rem;
     opacity: 0.6;
     margin-bottom: 10px;
-}
-
-.guardian-progress-section {
-    margin-top: 15px;
-    padding: 10px;
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 8px;
-}
-
-#guardianProgressText {
-    font-size: 0.75rem;
-    opacity: 0.7;
-    line-height: 1.4;
-    margin: 0;
 }
 
 .firefly {

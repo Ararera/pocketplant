@@ -447,7 +447,7 @@ function renderFamilyDetail() {
     if (power) power.textContent = f.desc;
     
     const count = getEl('detailFireflyCount');
-    if (count) count.textContent = `You have ${cnt} fireflies`;
+    if (count) count.textContent = `${cnt} Collected`;
     
     const barFill = getEl('guardianBarFill');
     const barLabel = getEl('guardianBarLabel');
@@ -457,7 +457,7 @@ function renderFamilyDetail() {
         barFill.style.width = progress + '%';
         
         if (cnt >= threshold) {
-            barLabel.textContent = '👑 Guardian is present (Invoking costs 25)';
+            barLabel.textContent = '👑 Guardian Present (Cost: 25)';
         } else {
             barLabel.textContent = `${cnt}/${threshold} to Guardian`;
         }
@@ -465,6 +465,9 @@ function renderFamilyDetail() {
     
     const btn = getEl('releaseBtn');
     if (btn) {
+        // Set the family color directly on the button so our CSS can pick it up
+        btn.style.setProperty('--family-color', col);
+        
         btn.disabled = cnt < 1;
         btn.textContent = cnt >= 1 ? '✨ Invoke Power' : 'No fireflies';
     }
