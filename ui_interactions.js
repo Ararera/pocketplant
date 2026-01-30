@@ -248,10 +248,33 @@ function attemptSpawnFirefly() {
     const luck = buffCount('luck') + guardianCount('luck');
     const bloom = buffCount('bloom') + guardianCount('bloom');
 
-    const mult = 1 + (0.22 * luck) + (0.18 * bloom);
+    // Day of week firefly multiplier
+    const dayFireflyMult = (typeof window.daySystem !== 'undefined') ? window.daySystem.getFireflySpawnMultiplier() : 1;
+
+    const mult = (1 + (0.22 * luck) + (0.18 * bloom)) * dayFireflyMult;
     const chance = Math.min(0.35, base * mult);
 
-    if (Math.random() < chance) spawnVisualFirefly(Math.floor(Math.random() * FIREFLY_FAMILIES.length), false);
+    if (Math.random() < chance) {
+        // Determine which family to spawn
+        let familyIdx = Math.floor(Math.random() * FIREFLY_FAMILIES.length);
+        
+        // Pearl firefly bonus on Monday
+        if (typeof window.daySystem !== 'undefined') {
+            const pearlMult = window.daySystem.getPearlFireflyMultiplier();
+            if (pearlMult > 1 && Math.random() < (pearlMult - 1)) {
+                // Find Pearl family (index 7, effect 'random')
+                familyIdx = 7; // Pearl family
+            }
+            
+            // Fashion Friday bonus family
+            const fashionFamily = window.daySystem.getFashionFridayBonusFamily();
+            if (fashionFamily >= 0 && Math.random() < 0.3) {
+                familyIdx = fashionFamily;
+            }
+        }
+        
+        spawnVisualFirefly(familyIdx, false);
+    }
 
     const guardianSpawn = Math.min(0.02, 0.008 * (1 + 0.12 * luck));
     FIREFLY_FAMILIES.forEach((_, i) => {
@@ -306,6 +329,11 @@ function closePotDesigner() {
         if (_potDesignerSnapshot) {
             const changed = (_potDesignerSnapshot.potColor !== state.potColor) || (_potDesignerSnapshot.potPattern !== state.potPattern) || (_potDesignerSnapshot.potPatternColor !== state.potPatternColor);
             if (changed && typeof unlockDiscovery === 'function') unlockDiscovery('pot_customized');
+            
+            // Check for Fashion Friday bonus
+            if (changed && typeof window.daySystem !== 'undefined' && window.daySystem.isFriday()) {
+                window.daySystem.checkFashionFriday(_potDesignerSnapshot.potColor, state.potColor);
+            }
         }
     } catch (_) {}
     saveState();

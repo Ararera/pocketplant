@@ -397,18 +397,102 @@ function render() {
     if (els.ringWater) els.ringWater.style.strokeDashoffset = 283 * (1 - state.water / 100);
     if (els.ringSun) els.ringSun.style.strokeDashoffset = 264 * (1 - state.sun / 100);
     if (els.ringLove) els.ringLove.style.strokeDashoffset = 245 * (1 - state.love / 100);
-    if (els.genBadge) els.genBadge.textContent = `CYCLE ${state.generation}`;
+    
+    // Gen badge - new format
+    if (els.genBadge) els.genBadge.textContent = `Gen ${state.generation}`;
+    
+    // Plant name
     if (els.plantNameDisplay) els.plantNameDisplay.textContent = state.name;
+    
+        // Mood (tap to expand if truncated)
     const mood = getMood();
-    if (els.plantMoodDisplay) { els.plantMoodDisplay.textContent = mood.text; els.plantMoodDisplay.style.color = mood.color; }
+    if (els.plantMoodDisplay) {
+        const moodText = String(mood.text || '');
+        // No ticker; show a single-line label that can be tapped to view fully
+        els.plantMoodDisplay.classList.remove('short-text');
+        els.plantMoodDisplay.textContent = moodText;
+        els.plantMoodDisplay.dataset.fullText = moodText;
+        els.plantMoodDisplay.setAttribute('aria-label', moodText);
+        els.plantMoodDisplay.style.color = mood.color;
+    }
+
+    // Day name display (new Stardew-style)
+    const dayNameEl = document.getElementById('dayNameDisplay');
+    if (dayNameEl && typeof window.daySystem !== 'undefined') {
+        const dayInfo = window.daySystem.getDayInfo();
+        const dayAbbrevs = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const abbrev = dayAbbrevs[window.daySystem.getCurrentDay()];
+        dayNameEl.textContent = `${abbrev}. ${state.day}`;
+    } else if (dayNameEl) {
+        dayNameEl.textContent = `Day ${state.day}`;
+    }
+    
+    // Season icon (new)
+    const seasonIconEl = document.getElementById('seasonIcon');
+    if (seasonIconEl) {
+        const season = SEASONS[state.season % 4];
+        seasonIconEl.textContent = season ? season.icon : '🌸';
+        seasonIconEl.title = season ? season.name : 'Spring';
+    }
+    
+    // Weather icon (shows rain/sun state)
+    const weatherIconEl = document.getElementById('weatherIcon');
+    if (weatherIconEl) {
+        if (state.isRainOn) {
+            weatherIconEl.textContent = '🌧️';
+        } else if (state.isSunLampOn) {
+            weatherIconEl.textContent = '☀️';
+        } else {
+            // Show time-of-day weather
+            const tod = typeof getTimeOfDay === 'function' ? getTimeOfDay() : 'day';
+            if (tod === 'night' || tod === 'evening') {
+                weatherIconEl.textContent = '🌙';
+            } else if (tod === 'dawn' || tod === 'dusk') {
+                weatherIconEl.textContent = '🌅';
+            } else {
+                weatherIconEl.textContent = '⛅';
+            }
+        }
+    }
+    
+    // Stage badge (new)
+    const stageBadgeEl = document.getElementById('stageBadge');
+    if (stageBadgeEl) {
+        stageBadgeEl.textContent = STAGES[state.stage - 1] || 'Seed';
+    }
+    
+    // Action buttons
     if (els.btnSun) els.btnSun.classList.toggle('sun-active', state.isSunLampOn);
     if (els.btnRain) els.btnRain.classList.toggle('rain-active', state.isRainOn);
-    if (els.evolutionBar) {
+    
+    // Growth bar - now uses growth-bar-fill and growth-percent
+    const growthBarFill = document.getElementById('evolutionBar');
+    const growthPercentEl = document.getElementById('growthPercent');
+    
+    if (growthBarFill) {
+        let percent = 0;
+        if (state.stage < 6) {
+            const prev = STAGE_THRESHOLDS[state.stage - 1] || 0;
+            const next = STAGE_THRESHOLDS[state.stage];
+            percent = Math.min(100, ((state.growth - prev) / (next - prev)) * 100);
+        } else {
+            percent = 100;
+        }
+        growthBarFill.style.width = percent + '%';
+        
+        if (growthPercentEl) {
+            growthPercentEl.textContent = Math.floor(percent) + '%';
+        }
+    }
+    
+    // Legacy evolutionBar support
+    if (els.evolutionBar && els.evolutionBar !== growthBarFill) {
         if (state.stage < 6) {
             const prev = STAGE_THRESHOLDS[state.stage - 1] || 0, next = STAGE_THRESHOLDS[state.stage];
             els.evolutionBar.style.width = Math.min(100, ((state.growth - prev) / (next - prev)) * 100) + '%';
         } else els.evolutionBar.style.width = '100%';
     }
+    
     const scale = Math.min(1.4, 1 + (state.growth / 6000));
     if (els.plantGraphics) els.plantGraphics.style.transform = `scale(${scale})`;
     if (els.menuOverlay && els.menuOverlay.classList.contains('open')) updateMenuStats();

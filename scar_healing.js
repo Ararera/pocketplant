@@ -394,26 +394,36 @@
         const scarId = healingState.activeHealing;
         const scarInfo = SCAR_HEALINGS[scarId];
         
+        // Check if this was a Tuesday growth ritual (not a real scar healing)
+        const isGrowthRitual = (typeof window.daySystem !== 'undefined' && window.daySystem.dayState && window.daySystem.dayState.isGrowthRitual);
+        
         // Cleanup game specific things (like audio loops)
         if (scarInfo && scarInfo.cleanupGame) {
             scarInfo.cleanupGame();
         }
 
-        // Remove scar from state
-        if (typeof state !== 'undefined' && state.scars) {
-            const index = state.scars.indexOf(scarId);
-            if (index > -1) {
-                state.scars.splice(index, 1);
+        if (isGrowthRitual) {
+            // Handle growth ritual completion - don't remove any scar
+            if (typeof window.daySystem !== 'undefined') {
+                window.daySystem.completeGrowthRitual();
             }
-            
-            // Reset timers
-            if (state.neglect) {
-                if (scarId === 'wilt') state.neglect.waterLowMs = 0;
-                if (scarId === 'pale') state.neglect.sunLowMs = 0;
-                if (scarId === 'dormant') state.neglect.crisisMs = 0;
+        } else {
+            // Remove scar from state (normal scar healing)
+            if (typeof state !== 'undefined' && state.scars) {
+                const index = state.scars.indexOf(scarId);
+                if (index > -1) {
+                    state.scars.splice(index, 1);
+                }
+                
+                // Reset timers
+                if (state.neglect) {
+                    if (scarId === 'wilt') state.neglect.waterLowMs = 0;
+                    if (scarId === 'pale') state.neglect.sunLowMs = 0;
+                    if (scarId === 'dormant') state.neglect.crisisMs = 0;
+                }
+                
+                if (typeof saveState === 'function') saveState();
             }
-            
-            if (typeof saveState === 'function') saveState();
         }
         
         playHealingSound('success');
@@ -428,7 +438,7 @@
         
         document.getElementById('healingSuccess').classList.add('visible');
         
-        if (typeof unlockDiscovery === 'function') {
+        if (!isGrowthRitual && typeof unlockDiscovery === 'function') {
             unlockDiscovery('scar_healed');
         }
         
@@ -436,17 +446,19 @@
             renderPlant('plantGroup', state.dna, state.stage);
         }
         
-        // Remove visual DOM classes
-        const plantHero = document.getElementById('plantHero');
-        if (plantHero) {
-            if (scarId === 'wilt') plantHero.classList.remove('droop-plant');
-            if (scarId === 'pale') plantHero.classList.remove('shade-plant');
-            if (scarId === 'dormant') plantHero.classList.remove('dormant-plant', 'quiet-plant');
+        // Remove visual DOM classes (only for real scar healing)
+        if (!isGrowthRitual) {
+            const plantHero = document.getElementById('plantHero');
+            if (plantHero) {
+                if (scarId === 'wilt') plantHero.classList.remove('droop-plant');
+                if (scarId === 'pale') plantHero.classList.remove('shade-plant');
+                if (scarId === 'dormant') plantHero.classList.remove('dormant-plant', 'quiet-plant');
+            }
         }
         
         setTimeout(() => {
             closeHealing();
-            if (typeof spawnFloatingText === 'function') {
+            if (typeof spawnFloatingText === 'function' && !isGrowthRitual) {
                 spawnFloatingText(`🌿 ${scarInfo.name} healed`, scarInfo.color, 'good');
             }
         }, 2500);

@@ -39,16 +39,21 @@ function simulateStep(dtSeconds, mode = 'online') {
     
     const dayFactor = isOffline ? 0.85 : (isDaytime() ? 1 : 0.7);
     
+    // Day of week multipliers
+    const waterDecayMult = (typeof window.daySystem !== 'undefined') ? window.daySystem.getWaterDecayMultiplier() : 1;
+    const sunDecayMult = (typeof window.daySystem !== 'undefined') ? window.daySystem.getSunDecayMultiplier() : 1;
+    const loveDecayMult = (typeof window.daySystem !== 'undefined') ? window.daySystem.getLoveDecayMultiplier() : 1;
+    
     const decayBase = (1 / res) * slowGuardian * dtSeconds;
     
     if (isOffline) {
-        state.water = Math.max(0, state.water - (CONFIG.decayRate.water * decayBase * CONFIG.offlineDecayMult.water));
-        state.sun = Math.max(0, state.sun - (CONFIG.decayRate.sun * decayBase * CONFIG.offlineDecayMult.sun * dayFactor));
-        state.love = Math.max(0, state.love - (CONFIG.decayRate.love * decayBase * CONFIG.offlineDecayMult.love));
+        state.water = Math.max(0, state.water - (CONFIG.decayRate.water * decayBase * CONFIG.offlineDecayMult.water * waterDecayMult));
+        state.sun = Math.max(0, state.sun - (CONFIG.decayRate.sun * decayBase * CONFIG.offlineDecayMult.sun * dayFactor * sunDecayMult));
+        state.love = Math.max(0, state.love - (CONFIG.decayRate.love * decayBase * CONFIG.offlineDecayMult.love * loveDecayMult));
     } else {
-        state.water = Math.max(0, state.water - (CONFIG.decayRate.water * decayBase));
-        state.sun = Math.max(0, state.sun - (CONFIG.decayRate.sun * decayBase * dayFactor));
-        state.love = Math.max(0, state.love - (CONFIG.decayRate.love * decayBase));
+        state.water = Math.max(0, state.water - (CONFIG.decayRate.water * decayBase * waterDecayMult));
+        state.sun = Math.max(0, state.sun - (CONFIG.decayRate.sun * decayBase * dayFactor * sunDecayMult));
+        state.love = Math.max(0, state.love - (CONFIG.decayRate.love * decayBase * loveDecayMult));
     }
 
     const recoveryFactor = isOffline ? 0.6 : 1;
@@ -67,7 +72,10 @@ function simulateStep(dtSeconds, mode = 'online') {
     
     if (state.isSunLampOn && state.sun < 100) {
         const preSun = state.sun;
-        const rate = isDaytime() ? CONFIG.recoveryRate.sunDay : CONFIG.recoveryRate.sunNight;
+        const baseRate = isDaytime() ? CONFIG.recoveryRate.sunDay : CONFIG.recoveryRate.sunNight;
+        // Apply day of week sun recovery multiplier
+        const sunRecoveryMult = (typeof window.daySystem !== 'undefined') ? window.daySystem.getSunRecoveryMultiplier() : 1;
+        const rate = baseRate * sunRecoveryMult;
         state.sun = Math.min(100, state.sun + rate * dtSeconds * recoveryFactor * getHealMod(state.sun));
         
         if (!isOffline && preSun < 100 && state.sun >= 100) {

@@ -70,6 +70,17 @@ function processOfflineProgress() {
 
 function closeToast() { els.welcomeToast.classList.remove('visible'); }
 
+function showHintBubble(htmlOrText) {
+    const bubble = els.hintBubble || document.getElementById('hintBubble');
+    const content = els.hintContent || document.getElementById('hintContent');
+    if (!bubble || !content) {
+        // Fallback: last resort, but always show the full message
+        alert(String(htmlOrText || ''));
+        return;
+    }
+    content.textContent = String(htmlOrText || '');
+    bubble.classList.add('visible');
+}
 function handleVisibility() {
     if (document.visibilityState === 'visible') {
         processOfflineProgress(); saveState(); lastTickTime = Date.now();
@@ -230,7 +241,7 @@ function init() {
 }
 
 function cacheElements() {
-    ['skyLayer', 'starsContainer', 'moonElement', 'moonlightBeam', 'seasonalContainer', 'rainContainer', 'rainbowContainer', 'statusArea', 'genBadge', 'plantNameDisplay', 'plantMoodDisplay', 'seasonIndicator', 'evolutionBar', 'menuOverlay', 'fireflyOverlay', 'potOverlay', 'helpOverlay', 'traitOverlay', 'harvestOverlay', 'deathOverlay', 'archiveOverlay', 'resetOverlay', 'welcomeToast', 'toastBody', 'traitGlossaryList', 'plantHero', 'plantGraphics', 'potGroup', 'plantGroup', 'vitals', 'ringWater', 'ringSun', 'ringLove', 'nameInput', 'menuGen', 'menuAge', 'menuStage', 'menuHealth', 'menuProgressBar', 'menuScars', 'menuScarList', 'menuInherited', 'menuInheritedList', 'greenhouseList', 'btnHarvest', 'btnSing', 'btnFertilize', 'btnMusic', 'btnReset', 'btnRain', 'btnSun', 'btnMenu', 'fireflyFamilyGrid', 'familyDetailPanel', 'detailOrb', 'detailFamilyName', 'detailFamilyPower', 'detailFireflyCount', 'releaseBtn', 'guardianProgressText', 'potColorGrid', 'potPatternGrid', 'patternColorGrid', 'potPreviewGroup', 'harvestPlantGroup', 'inheritedTraitDisplay', 'archivePlantGroup', 'archivePotGroup', 'archiveTitle', 'archiveStats', 'debugPanel', 'debugLog', 'debugState', 'whisperStack', 'logOverlay', 'logSub', 'logList', 'seasonOverlay', 'seasonNow', 'seasonNowBody'].forEach(id => els[id] = document.getElementById(id));
+    ['skyLayer', 'starsContainer', 'moonElement', 'moonlightBeam', 'seasonalContainer', 'rainContainer', 'rainbowContainer', 'statusArea', 'genBadge', 'plantNameDisplay', 'plantMoodDisplay', 'seasonIndicator', 'evolutionBar', 'menuOverlay', 'fireflyOverlay', 'potOverlay', 'helpOverlay', 'traitOverlay', 'harvestOverlay', 'deathOverlay', 'archiveOverlay', 'resetOverlay', 'welcomeToast', 'toastBody', 'hintBubble', 'hintContent', 'traitGlossaryList', 'plantHero', 'plantGraphics', 'potGroup', 'plantGroup', 'vitals', 'ringWater', 'ringSun', 'ringLove', 'nameInput', 'menuGen', 'menuAge', 'menuStage', 'menuHealth', 'menuProgressBar', 'menuScars', 'menuScarList', 'menuInherited', 'menuInheritedList', 'greenhouseList', 'btnHarvest', 'btnSing', 'btnFertilize', 'btnMusic', 'btnReset', 'btnRain', 'btnSun', 'btnMenu', 'fireflyFamilyGrid', 'familyDetailPanel', 'detailOrb', 'detailFamilyName', 'detailFamilyPower', 'detailFireflyCount', 'releaseBtn', 'guardianProgressText', 'potColorGrid', 'potPatternGrid', 'patternColorGrid', 'potPreviewGroup', 'harvestPlantGroup', 'inheritedTraitDisplay', 'archivePlantGroup', 'archivePotGroup', 'archiveTitle', 'archiveStats', 'debugPanel', 'debugLog', 'debugState', 'whisperStack', 'logOverlay', 'logSub', 'logList', 'seasonOverlay', 'seasonNow', 'seasonNowBody', 'dayNameDisplay', 'seasonIcon', 'weatherIcon', 'stageBadge', 'growthPercent', 'urgencyWarning', 'urgencyText'].forEach(id => els[id] = document.getElementById(id));
 }
 
 function setupEventListeners() {
@@ -244,6 +255,17 @@ function setupEventListeners() {
     if (pot) {
         pot.addEventListener('mousedown', () => handlePress(true)); pot.addEventListener('mouseup', () => handlePress(false)); pot.addEventListener('mouseleave', () => handlePress(false));
         pot.addEventListener('touchstart', e => { e.preventDefault(); handlePress(true); }, { passive: false }); pot.addEventListener('touchend', e => { e.preventDefault(); handlePress(false); });
+    }
+    // Tap the status mood message to see it in full (no ticker, no reset)
+    if (els.plantMoodDisplay) {
+        const openFullMood = (e) => {
+            if (e) { try { e.stopPropagation(); } catch (_) {} }
+            const txt = els.plantMoodDisplay.dataset.fullText || els.plantMoodDisplay.textContent || '';
+            if (!txt) return;
+            showHintBubble(txt);
+        };
+        els.plantMoodDisplay.addEventListener('click', openFullMood);
+        els.plantMoodDisplay.addEventListener('touchend', openFullMood, { passive: true });
     }
     setInterval(() => { checkSingCooldown(); checkFertilizeCooldown(); }, 1000);
     checkSingCooldown(); checkFertilizeCooldown();

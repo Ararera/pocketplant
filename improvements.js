@@ -56,7 +56,12 @@ const DISCOVERIES = Object.freeze([
     { id: 'first_fertilize', name: 'Nourished', desc: 'Used fertilizer', icon: '🧪' },
     { id: 'all_families', name: 'Firefly Collector', desc: 'Collected at least one of each firefly family', icon: '✨' },
     { id: 'sang_to_plant', name: 'Plant Whisperer', desc: 'Sang to your plant', icon: '🎵' },
-    { id: 'scar_healed', name: 'Healed', desc: 'Completed a healing ritual for a scar', icon: '🩹' }
+    { id: 'scar_healed', name: 'Healed', desc: 'Completed a healing ritual for a scar', icon: '🩹' },
+    // Day of Week discoveries
+    { id: 'growth_ritual', name: 'Tuesday\'s Blessing', desc: 'Completed a Growth Day ritual', icon: '🌱' },
+    { id: 'fashion_friday', name: 'Fashion Statement', desc: 'Changed pot style on Fashion Friday', icon: '👗' },
+    { id: 'snail_exchange', name: 'Snail\'s Bargain', desc: 'Made an exchange with the Saturday snail', icon: '🐌' },
+    { id: 'wisdom_seeker', name: 'Wisdom Seeker', desc: 'Read a Wednesday wisdom message', icon: '📜' }
 ]);
 
 function unlockDiscovery(discoveryId) {
@@ -79,6 +84,22 @@ function openDiscoveries() {
     if (overlay) {
         overlay.classList.add('open');
         renderDiscoveries();
+        
+        // Show wisdom message on Wednesday
+        const wisdomContainer = document.getElementById('wisdomMessage');
+        const wisdomText = document.getElementById('wisdomMessageText');
+        if (wisdomContainer && wisdomText && typeof window.daySystem !== 'undefined') {
+            const wisdom = window.daySystem.getWisdomMessage();
+            if (wisdom) {
+                wisdomText.textContent = wisdom;
+                wisdomContainer.style.display = 'block';
+                if (typeof unlockDiscovery === 'function') {
+                    unlockDiscovery('wisdom_seeker');
+                }
+            } else {
+                wisdomContainer.style.display = 'none';
+            }
+        }
     }
     if (typeof pushHistoryState === 'function') pushHistoryState();
 }
@@ -195,6 +216,19 @@ function updateActiveModifiers() {
     if (!modifiers || !container) return;
     
     const mods = [];
+    
+    // Day of Week effects
+    if (typeof window.daySystem !== 'undefined') {
+        const dayEffects = window.daySystem.getDayEffects();
+        if (dayEffects && dayEffects.length > 0) {
+            dayEffects.forEach(effect => {
+                mods.push({
+                    text: effect.text,
+                    class: 'day-effect'
+                });
+            });
+        }
+    }
     
     if (typeof SEASONS !== 'undefined' && typeof state !== 'undefined') {
         const season = SEASONS[state.season % 4];
