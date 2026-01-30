@@ -377,6 +377,11 @@ function renderFireflyLogImproved() {
     const grid = getEl('fireflyFamilyGrid');
     if (!grid || typeof FIREFLY_FAMILIES === 'undefined') return;
     
+    // Auto-select first family if none selected, so the details panel isn't empty
+    if (selectedFamily === null) {
+        selectedFamily = 0;
+    }
+    
     const fragment = document.createDocumentFragment();
     
     FIREFLY_FAMILIES.forEach((f, i) => {
@@ -384,9 +389,10 @@ function renderFireflyLogImproved() {
         const col = typeof getFireflyColor === 'function' ? getFireflyColor(i) : `hsl(${f.hue}, 70%, 60%)`;
         const threshold = (typeof GUARDIAN_THRESHOLD !== 'undefined') ? GUARDIAN_THRESHOLD : 50;
         const hasGuardian = cnt >= threshold;
+        const isSelected = selectedFamily === i;
         
         const card = document.createElement('div');
-        card.className = 'family-card' + (selectedFamily === i ? ' selected' : '');
+        card.className = 'family-card' + (isSelected ? ' selected' : '');
         card.style.setProperty('--family-color', col);
         
         const progress = Math.min(100, (cnt / threshold) * 100);
@@ -402,7 +408,8 @@ function renderFireflyLogImproved() {
         card.onclick = () => {
             selectedFamily = i;
             renderFireflyLogImproved();
-            renderFamilyDetail();
+            // Scroll selected item into view smoothly
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
         };
         
         fragment.appendChild(card);
