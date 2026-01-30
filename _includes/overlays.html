@@ -40,6 +40,7 @@
         <div class="menu-tab-content" id="tabCollect">
             <button class="btn-base got-btn" onclick="openGardenOfTime()">🕰️ Garden of Time</button>
             <button class="btn-base firefly-btn" onclick="openFireflyLog()">🦋 Firefly Sanctuary</button>
+            <button class="btn-base" onclick="openDiscoveries()">✨ Discoveries</button>
             <button class="btn-base style-btn" onclick="openPotDesigner()">🎨 Customize Pot</button>
             
             <div class="menu-section-title">Lineage</div>
@@ -144,6 +145,10 @@
             <h3>Scars & Healing</h3>
             <p>Neglect can leave scars on your plant. If you see scars in the Care tab, tap them to begin a healing ritual and restore your plant.</p>
         </div>
+        <div class="help-section">
+            <h3>Days of the Week</h3>
+            <p>Each day brings special bonuses! Sun Day boosts sunlight. Moon Day enhances moonlight and Pearl fireflies. Tuesday offers growth rituals. Wednesday retains water and shares wisdom. Thursday increases thirst slightly. Friday boosts fireflies and rewards pot customization. Saturday slows decay and brings a helpful snail.</p>
+        </div>
         <button class="btn-base close-btn" onclick="closeHelp()">Got It</button>
     </div>
 </div>
@@ -233,6 +238,30 @@
 <div class="quick-stats-tooltip" id="quickStatsTooltip">
     <div class="quick-stats-title">Active Modifiers</div>
     <div class="quick-stats-content" id="quickStatsContent"></div>
+</div>
+
+<div class="menu-overlay" id="discoveriesOverlay">
+    <div class="menu-card">
+        <div class="menu-title">Discoveries</div>
+        <div class="discoveries-intro">Milestones and moments from your journey.</div>
+        <div class="wisdom-message" id="wisdomMessage" style="display:none;">
+            <span class="wisdom-message-icon">📜</span>
+            <div class="wisdom-message-label">Wisdom Wednesday</div>
+            <div class="wisdom-message-text" id="wisdomMessageText"></div>
+        </div>
+        <div class="discoveries-list" id="discoveriesList"></div>
+        <button class="btn-base close-btn" style="margin-top:15px" onclick="closeDiscoveries()">Close</button>
+    </div>
+</div>
+
+<div class="menu-overlay" id="snailOverlay">
+    <div class="menu-card snail-card">
+        <div class="menu-title">🐌 Wandering Snail</div>
+        <div class="snail-greeting" id="snailGreeting"></div>
+        <div class="snail-offers" id="snailOffers"></div>
+        <div class="snail-cost-notice">Each exchange costs 10 fireflies</div>
+        <button class="btn-base close-btn" onclick="window.closeSnailDialog()">Leave the snail be</button>
+    </div>
 </div>
 
 <div class="hint-bubble" id="hintBubble">

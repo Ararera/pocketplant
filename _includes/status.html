@@ -1,30 +1,38 @@
-<!-- Status Panel - Compact version -->
+<!-- Status Panel - Stardew-inspired compact vertical layout -->
 <div class="status-panel" id="statusArea">
-    <div class="panel-header">
-        <div class="gen-badge" id="genBadge" onclick="handleDebugTap()" title="Generation">GEN 1</div>
-        <div class="season-indicator" id="seasonIndicator">🌸 Spring</div>
-    </div>
-    
-    <div class="plant-info">
-        <div class="plant-name" id="plantNameDisplay">Sprout</div>
-        <div class="plant-mood-row">
-            <span class="plant-mood" id="plantMoodDisplay">awakening...</span>
-            <!-- Urgency Warning - Compact inline indicator -->
-            <span class="urgency-warning" id="urgencyWarning">
-                <span class="urgency-icon">⚠️</span>
-                <span class="urgency-text" id="urgencyText">Needs care</span>
-            </span>
+    <!-- Row 1: Day & Season -->
+    <div class="status-row status-row-time">
+        <span class="day-name" id="dayNameDisplay">Sun. 1</span>
+        <div class="status-icons">
+            <span class="season-icon" id="seasonIcon">🌸</span>
+            <span class="weather-icon" id="weatherIcon">☀️</span>
         </div>
     </div>
     
-    <!-- Growth Progress with Stage Label -->
-    <div class="growth-wrapper">
-        <div class="growth-label">
-            <span>Growth</span>
-            <span class="stage-label" id="stageLabel">Shoot</span>
+    <!-- Row 2: Plant name & stage -->
+    <div class="status-row status-row-plant">
+        <span class="plant-name" id="plantNameDisplay">Sprout</span>
+        <span class="stage-badge" id="stageBadge">Shoot</span>
+    </div>
+    
+    <!-- Row 3: Growth bar -->
+    <div class="status-row status-row-growth">
+        <span class="growth-icon">🌱</span>
+        <div class="growth-bar-container">
+            <div class="growth-bar-fill" id="evolutionBar"></div>
         </div>
-        <div class="evolution-bar-track">
-            <div class="evolution-bar" id="evolutionBar"></div>
-        </div>
+        <span class="growth-percent" id="growthPercent">0%</span>
+    </div>
+    
+    <!-- Row 4: Generation & mood (small) -->
+    <div class="status-row status-row-gen">
+        <span class="gen-label" id="genBadge" onclick="handleDebugTap()">Gen 1</span>
+        <span class="plant-mood" id="plantMoodDisplay">awakening...</span>
+    </div>
+    
+    <!-- Urgency Warning - appears when needed -->
+    <div class="status-urgency" id="urgencyWarning">
+        <span class="urgency-icon">⚠️</span>
+        <span class="urgency-text" id="urgencyText">Needs water</span>
     </div>
 </div>
