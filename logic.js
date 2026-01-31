@@ -38,8 +38,7 @@ function simulateStep(dtSeconds, mode = 'online') {
     const slowGuardian = state.activeGuardians && state.activeGuardians.includes(4) ? 0.7 : 1;
     
     const dayFactor = isOffline ? 0.85 : (isDaytime() ? 1 : 0.7);
-    
-    // Day of week multipliers
+
     const waterDecayMult = (typeof window.daySystem !== 'undefined') ? window.daySystem.getWaterDecayMultiplier() : 1;
     const sunDecayMult = (typeof window.daySystem !== 'undefined') ? window.daySystem.getSunDecayMultiplier() : 1;
     const loveDecayMult = (typeof window.daySystem !== 'undefined') ? window.daySystem.getLoveDecayMultiplier() : 1;
@@ -60,9 +59,9 @@ function simulateStep(dtSeconds, mode = 'online') {
     
     if (state.isRainOn && state.water < 100) {
         const preWater = state.water;
-        // Use heal modifier but ensure a minimum recovery rate so critical plants can still recover
+
         const healMod = getHealMod(state.water);
-        // Minimum recovery: at least 40% of base rate even when critically low
+
         const effectiveHealMod = Math.max(0.4, healMod);
         state.water = Math.min(100, state.water + CONFIG.recoveryRate.water * dtSeconds * recoveryFactor * effectiveHealMod);
         
@@ -77,12 +76,12 @@ function simulateStep(dtSeconds, mode = 'online') {
     if (state.isSunLampOn && state.sun < 100) {
         const preSun = state.sun;
         const baseRate = isDaytime() ? CONFIG.recoveryRate.sunDay : CONFIG.recoveryRate.sunNight;
-        // Apply day of week sun recovery multiplier
+
         const sunRecoveryMult = (typeof window.daySystem !== 'undefined') ? window.daySystem.getSunRecoveryMultiplier() : 1;
         const rate = baseRate * sunRecoveryMult;
-        // Use heal modifier but ensure a minimum recovery rate so critical plants can still recover
+
         const healMod = getHealMod(state.sun);
-        // Minimum recovery: at least 40% of base rate even when critically low
+
         const effectiveHealMod = Math.max(0.4, healMod);
         state.sun = Math.min(100, state.sun + rate * dtSeconds * recoveryFactor * effectiveHealMod);
         
@@ -91,7 +90,7 @@ function simulateStep(dtSeconds, mode = 'online') {
             state.isSunLampOn = false;
             if (typeof spawnFloatingText === 'function') spawnFloatingText("☀️ Fully energized! Resting...", "var(--accent-sun)", "good");
             if (typeof applyTheme === 'function') applyTheme();
-            // Also turn off moonbeam when sun reaches max
+
             if (typeof updateMoonbeam === 'function') updateMoonbeam();
         }
     }

@@ -6,6 +6,7 @@
     {% include head.html %}
     <link rel="stylesheet" href="scar_healing.css">
     <link rel="stylesheet" href="got.css">
+    <link rel="stylesheet" href="community-garden.css">
 </head>
 <body>
     {% include environment.html %}
@@ -14,7 +15,7 @@
     {% include overlays.html %}
     {% include stage.html %}
     {% include dock.html %}
-    <!-- Removed old compat scripts to prevent conflicts -->
+    
     <script src="config.js"></script>
     <script src="logic.js"></script>
     <script src="visuals.js"></script>
@@ -24,7 +25,7 @@
     <script src="improvements.js"></script>
     <script src="scar_healing.js"></script>
     <script src="got.js"></script>
-    <!-- Community Garden shim: keeps inline onclick handlers stable even if module loading fails -->
+    
     <script>
     (function () {
         async function ensureCommunityGardenLoaded() {
@@ -52,7 +53,7 @@
     })();
     </script>
 
-    <!-- Updated to type="module" for modern Firebase imports -->
+    
     <script type="module" src="firebase-config.js"></script>
     <script type="module" src="community-garden.js"></script>
     <script src="days.js"></script>

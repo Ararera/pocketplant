@@ -45,8 +45,8 @@ const FIREFLY_FAMILIES = Object.freeze([
 ]);
 
 
-const GUARDIAN_THRESHOLD = 50;
-const GUARDIAN_INVOKE_COST = 25;
+const GUARDIAN_THRESHOLD = 40;  // Reduced from 50 - guardians unlock sooner
+const GUARDIAN_INVOKE_COST = 20; // Reduced from 25 - cheaper to invoke
 
 const SEASONS = Object.freeze([
     { name: 'Spring', icon: '🌸', growth: 1.1 },
@@ -95,34 +95,45 @@ const INHERITABLE_TRAITS = Object.freeze([
 ]);
 
 const CONFIG = {
-    decayRate: { water: 0.023, sun: 0.025, love: 0.018 },
-    offlineDecayMult: { water: 1.3, sun: 1.3, love: 2.0 },
-    recoveryRate: { water: 0.18, sunDay: 0.32, sunNight: 0.22 },
-    growthRate: 0.35,
+
+
+
+    decayRate: { water: 0.020, sun: 0.022, love: 0.015 },
+
+
+    offlineDecayMult: { water: 1.2, sun: 1.2, love: 1.5 },
+
+
+    recoveryRate: { water: 0.20, sunDay: 0.35, sunNight: 0.25 },
+
+    growthRate: 0.40, // Slightly faster base growth
     tickRate: 1000,
-    
-    healThreshold1: 30,
-    healThreshold2: 10,
-    healMod1: 0.5,
-    healMod2: 0.2,
-    neglectThreshold: 20,
-    neglectWarnHours: 2,
-    neglectScarHours: 6,
-    neglectRecoveryRate: 0.25,
+
+
+    healThreshold1: 30,  // Below 30%, recovery at 60% (was 50%)
+    healThreshold2: 10,  // Below 10%, recovery at 30% (was 20%)
+    healMod1: 0.6,       // More forgiving
+    healMod2: 0.3,       // Still challenging but possible
+
+    neglectThreshold: 18, // Below this, neglect timer ticks (was 20)
+    neglectWarnHours: 2.5,  // Warning after 2.5h (was 2h)
+    neglectScarHours: 7,    // Scar after 7h (was 6h) - more forgiving
+    neglectRecoveryRate: 0.3, // Faster recovery from near-neglect (was 0.25)
+
     crisisThreshold: 10,
-    crisisDormantHours: 2,
-    crisisScar1Hours: 6,
-    crisisScar2Hours: 10,
-    crisisDeathHours: 14,
+    crisisDormantHours: 2.5, // Partial dormant warning (was 2h)
+    crisisScar1Hours: 7,     // First crisis scar (was 6h)
+    crisisScar2Hours: 12,    // Second crisis scar (was 10h)
+    crisisDeathHours: 16,    // Death (was 14h) - more time to recover
     daySeconds: 86400,
-    
+
     debugTapThreshold: 20,
-    singCooldown: 300000,
-    fertilizeCooldown: 180000,
-    rainRestCooldown: 300000,
-    sunRestCooldown: 480000,
-    loveRestCooldown: 180000,
-    
+    singCooldown: 240000,      // 4 min (was 5 min) - more frequent singing
+    fertilizeCooldown: 150000, // 2.5 min (was 3 min) - more frequent fertilizing
+    rainRestCooldown: 240000,  // 4 min (was 5 min) - rain returns sooner
+    sunRestCooldown: 360000,   // 6 min (was 8 min) - sun returns sooner
+    loveRestCooldown: 120000,  // 2 min (was 3 min) - can love more often
+
     maxFireflyPerFamily: 12, 
     offlineChunkSize: 60,
     

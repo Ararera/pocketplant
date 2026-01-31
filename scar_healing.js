@@ -1,16 +1,10 @@
-/**
- * Scar Healing System for Pocket Sprout
- * * Healing rituals that remove scars through contemplative mini-games.
- * Uses a shadow-container observation strategy to remain interactive 
- * even when the main game logic overwrites the scar list text.
- */
+
 
 (function() {
     'use strict';
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // HEALING STATE
-    // ═══════════════════════════════════════════════════════════════════════
+
+
     
     const healingState = {
         activeHealing: null,      // Current scar being healed
@@ -22,22 +16,19 @@
         progress: 0,              // Healing progress (0-100)
         phase: 'intro',           // intro, active, success, fail
         particles: [],            // Visual particles
-        
-        // Input Tracking
+
         touches: new Map(),       // Map<id, {x, y}> for multi-touch
         touchData: {},            // Legacy single-touch data for compatibility
         
         gameData: {},             // Mini-game specific data
-        
-        // Persistent Audio Nodes (for drones/loops)
+
         activeNodes: [],
         
         lastFrameTime: 0
     };
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // SCAR DEFINITIONS
-    // ═══════════════════════════════════════════════════════════════════════
+
+
     
     const SCAR_HEALINGS = {
         wilt: {
@@ -91,9 +82,8 @@
         }
     };
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // CORE SYSTEM & OBSERVATION LOGIC
-    // ═══════════════════════════════════════════════════════════════════════
+
+
     
     function initHealingSystem() {
         console.log('[ScarHealing] Initializing healing system...');
@@ -101,15 +91,11 @@
         setupScarObserver();
     }
 
-    /**
-     * Sets up a robust observer that creates a "Shadow Container" for interactive buttons.
-     * This decouples the display from the game logic that continually overwrites the text.
-     */
+    
     function setupScarObserver() {
         const checkForElement = () => {
             const originalList = document.getElementById('menuScarList');
-            
-            // If main game not loaded yet, retry
+
             if (!originalList) {
                 setTimeout(checkForElement, 200);
                 return;
@@ -117,40 +103,37 @@
 
             console.log('[ScarHealing] Scar list found. Setting up observer.');
 
-            // Create our Shadow Container if it doesn't exist
             let shadowList = document.getElementById('menuScarListInteractive');
             if (!shadowList) {
                 shadowList = document.createElement('div'); // Div for flex behavior
                 shadowList.id = 'menuScarListInteractive';
                 shadowList.className = 'interactive-scar-container';
-                
-                // Insert immediately after the original list
+
                 if (originalList.nextSibling) {
                     originalList.parentNode.insertBefore(shadowList, originalList.nextSibling);
                 } else {
                     originalList.parentNode.appendChild(shadowList);
                 }
-                
-                // Visually hide the original list
+
                 originalList.style.display = 'none';
             }
 
-            // Function to sync the text from original list to our buttons
             const syncScars = () => {
-                const text = originalList.textContent || '';
-                
-                // Optimization: Don't re-render if text hasn't changed
-                if (shadowList.dataset.lastText === text) return;
-                shadowList.dataset.lastText = text;
 
-                // Clear current buttons
+                const gameState = (typeof state !== 'undefined') ? state : (typeof window.state !== 'undefined' ? window.state : null);
+                const currentScars = (gameState && Array.isArray(gameState.scars)) ? gameState.scars : [];
+
+                const scarKey = currentScars.join(',');
+
+                if (shadowList.dataset.lastScars === scarKey) return;
+                shadowList.dataset.lastScars = scarKey;
+
                 shadowList.innerHTML = '';
+
+                const parent = document.getElementById('menuScars');
                 
-                // Identify scars from text
-                const scarIds = inferScarIdsFromText(text);
-                
-                if (scarIds.length > 0) {
-                    scarIds.forEach(scarId => {
+                if (currentScars.length > 0) {
+                    currentScars.forEach(scarId => {
                         const info = SCAR_HEALINGS[scarId];
                         if (info) {
                             const btn = document.createElement('button');
@@ -165,10 +148,13 @@
                             shadowList.appendChild(btn);
                         }
                     });
+                    if (parent) parent.style.display = 'block';
+                } else {
+
+                    if (parent) parent.style.display = 'none';
                 }
             };
 
-            // Watch for changes to the original list's text
             const observer = new MutationObserver((mutations) => {
                 syncScars();
             });
@@ -178,20 +164,18 @@
                 characterData: true, 
                 subtree: true 
             });
-            
-            // Also watch the parent to see if the whole section gets hidden/shown
+
             const parent = document.getElementById('menuScars');
             if (parent) {
                 const parentObserver = new MutationObserver(() => {
-                    if (parent.style.display !== 'none') {
-                        syncScars();
-                    }
+                    syncScars();
                 });
                 parentObserver.observe(parent, { attributes: true, attributeFilter: ['style', 'class'] });
             }
 
-            // Initial sync
             syncScars();
+
+            window.syncScarDisplay = syncScars;
         };
 
         checkForElement();
@@ -200,19 +184,17 @@
     function inferScarIdsFromText(text) {
         const t = (text || '').trim();
         if (!t) return [];
-        
-        // Build map of Name -> ID (e.g., "Wilted" -> "wilt")
+
         const nameToId = {};
         Object.entries(SCAR_HEALINGS).forEach(([id, info]) => {
             nameToId[info.name.toLowerCase()] = id;
         });
 
-        // Split text by commas and map to IDs
         const parts = t.split(/,|&/).map(s => s.trim().toLowerCase());
         const ids = [];
         
         parts.forEach(p => {
-            // Check exact match or partial match
+
             for (const [name, id] of Object.entries(nameToId)) {
                 if (p.includes(name) || name.includes(p)) {
                     ids.push(id);
@@ -224,9 +206,8 @@
         return [...new Set(ids)];
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // UI SETUP
-    // ═══════════════════════════════════════════════════════════════════════
+
+
 
     function createHealingOverlay() {
         if (document.getElementById('healingOverlay')) return;
@@ -260,15 +241,12 @@
         
         document.body.appendChild(overlay);
         healingState.overlay = overlay;
-        
-        // Setup canvas
+
         healingState.canvas = document.getElementById('healingCanvas');
         healingState.ctx = healingState.canvas.getContext('2d');
-        
-        // Close button
+
         document.getElementById('healingClose').addEventListener('click', cancelHealing);
-        
-        // Resize handler
+
         window.addEventListener('resize', resizeCanvas);
     }
 
@@ -278,19 +256,16 @@
         healingState.canvas.height = window.innerHeight;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // HEALING FLOW
-    // ═══════════════════════════════════════════════════════════════════════
+
+
     
     function beginHealing(scarId) {
         const scarInfo = SCAR_HEALINGS[scarId];
         if (!scarInfo) return;
-        
-        // Close menu
+
         const menuOverlay = document.getElementById('menuOverlay');
         if (menuOverlay) menuOverlay.classList.remove('open');
-        
-        // Setup state
+
         healingState.activeHealing = scarId;
         healingState.progress = 0;
         healingState.phase = 'intro';
@@ -300,52 +275,40 @@
         healingState.touchData = {};  // Clear legacy data
         healingState.startTime = Date.now();
         healingState.lastFrameTime = Date.now();
-        
-        // Setup overlay appearance
+
         const overlay = healingState.overlay;
         const backdrop = overlay.querySelector('.healing-backdrop');
         backdrop.style.background = `linear-gradient(135deg, ${scarInfo.bgGradient[0]}, ${scarInfo.bgGradient[1]})`;
-        
-        // Set color theme
+
         overlay.style.setProperty('--healing-color', scarInfo.color);
         overlay.style.setProperty('--healing-accent', scarInfo.accentColor);
-        
-        // Set icon
+
         const iconMap = { wilt: '💧', bend: '☀️', pale: '🎨', dormant: '🌙' };
         document.getElementById('healingIcon').textContent = iconMap[scarId] || '✨';
-        
-        // Set whisper text
+
         document.getElementById('healingWhisper').textContent = scarInfo.description;
-        
-        // Reset progress ring
+
         const ring = document.getElementById('healingProgressRing');
         ring.style.strokeDashoffset = 283;
-        
-        // Hide success
+
         document.getElementById('healingSuccess').classList.remove('visible');
-        
-        // Show overlay
+
         overlay.classList.add('open');
         overlay.dataset.scar = scarId;
         resizeCanvas();
-        
-        // Initialize audio
+
         initHealingAudio();
-        
-        // Initialize game
+
         if (scarInfo.initGame) scarInfo.initGame();
-        
-        // Setup Input Handlers immediately so we don't miss touches
+
         setupInputHandlers();
 
-        // Start intro phase
         setTimeout(() => {
             if (healingState.activeHealing) {
                 healingState.phase = 'active';
             }
         }, 1500);
-        
-        // Start animation loop
+
         if (!healingState.animationId) {
             healingState.animationId = requestAnimationFrame(healingLoop);
         }
@@ -357,28 +320,23 @@
         const scarInfo = SCAR_HEALINGS[healingState.activeHealing];
         const dt = Math.min(50, timestamp - healingState.lastFrameTime);
         healingState.lastFrameTime = timestamp;
-        
-        // Clear canvas
+
         const ctx = healingState.ctx;
         const w = healingState.canvas.width;
         const h = healingState.canvas.height;
         ctx.clearRect(0, 0, w, h);
-        
-        // Update and render particles
+
         updateParticles(dt);
         renderParticles(ctx);
-        
-        // Update game logic
+
         if (healingState.phase === 'active' && scarInfo) {
             scarInfo.updateGame(dt);
             scarInfo.renderGame(ctx, w, h);
-            
-            // Update progress ring
+
             const ring = document.getElementById('healingProgressRing');
             const offset = 283 * (1 - healingState.progress / 100);
             ring.style.strokeDashoffset = offset;
-            
-            // Check completion
+
             if (healingState.progress >= 100) {
                 completeHealing();
             }
@@ -393,36 +351,49 @@
         
         const scarId = healingState.activeHealing;
         const scarInfo = SCAR_HEALINGS[scarId];
-        
-        // Check if this was a Tuesday growth ritual (not a real scar healing)
+
         const isGrowthRitual = (typeof window.daySystem !== 'undefined' && window.daySystem.dayState && window.daySystem.dayState.isGrowthRitual);
-        
-        // Cleanup game specific things (like audio loops)
+
         if (scarInfo && scarInfo.cleanupGame) {
             scarInfo.cleanupGame();
         }
 
         if (isGrowthRitual) {
-            // Handle growth ritual completion - don't remove any scar
+
             if (typeof window.daySystem !== 'undefined') {
                 window.daySystem.completeGrowthRitual();
             }
         } else {
-            // Remove scar from state (normal scar healing)
+
             if (typeof state !== 'undefined' && state.scars) {
                 const index = state.scars.indexOf(scarId);
                 if (index > -1) {
                     state.scars.splice(index, 1);
+                    console.log('[ScarHealing] Removed scar:', scarId, 'Remaining:', state.scars);
                 }
-                
-                // Reset timers
+
                 if (state.neglect) {
                     if (scarId === 'wilt') state.neglect.waterLowMs = 0;
-                    if (scarId === 'pale') state.neglect.sunLowMs = 0;
-                    if (scarId === 'dormant') state.neglect.crisisMs = 0;
+                    if (scarId === 'bend') state.neglect.sunLowMs = 0;
+                    if (scarId === 'pale') state.neglect.loveLowMs = 0;
+                    if (scarId === 'dormant') {
+                        state.neglect.crisisMs = 0;
+                        state.neglect.partialDormant = false;
+                    }
                 }
                 
                 if (typeof saveState === 'function') saveState();
+
+                if (typeof window.syncScarDisplay === 'function') {
+                    window.syncScarDisplay();
+                }
+
+                if (typeof updateMenuStats === 'function') {
+                    setTimeout(updateMenuStats, 50);
+                }
+                if (typeof updateUI === 'function') {
+                    setTimeout(updateUI, 100);
+                }
             }
         }
         
@@ -445,8 +416,7 @@
         if (typeof renderPlant === 'function' && typeof state !== 'undefined') {
             renderPlant('plantGroup', state.dna, state.stage);
         }
-        
-        // Remove visual DOM classes (only for real scar healing)
+
         if (!isGrowthRitual) {
             const plantHero = document.getElementById('plantHero');
             if (plantHero) {
@@ -486,24 +456,25 @@
         stopAllPersistentAudio();
         
         if (healingState.overlay) healingState.overlay.classList.remove('open');
+
+        if (typeof window.syncScarDisplay === 'function') {
+            window.syncScarDisplay();
+        }
         if (typeof updateMenuStats === 'function') updateMenuStats(); 
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // MULTI-TOUCH INPUT HANDLERS
-    // ═══════════════════════════════════════════════════════════════════════
+
+
     
     function setupInputHandlers() {
         const canvas = healingState.canvas;
-        
-        // Mouse Events
+
         const handleMouseDown = (e) => {
             if (e.target.closest('.healing-close')) return;
             e.preventDefault();
             const pos = { x: e.clientX, y: e.clientY };
             healingState.touches.set('mouse', pos);
-            
-            // Legacy support
+
             healingState.touchData.isDown = true;
             healingState.touchData.currentPos = pos;
         };
@@ -521,8 +492,7 @@
             healingState.touches.delete('mouse');
             healingState.touchData.isDown = false;
         };
-        
-        // Touch Events
+
         const handleTouchStart = (e) => {
             if (e.target.closest('.healing-close')) return;
             e.preventDefault();
@@ -531,8 +501,7 @@
                 const t = e.changedTouches[i];
                 healingState.touches.set(t.identifier, { x: t.clientX, y: t.clientY });
             }
-            
-            // Legacy support (use first touch)
+
             if (e.touches.length > 0) {
                 healingState.touchData.isDown = true;
                 healingState.touchData.currentPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -593,9 +562,8 @@
         healingState.touches.clear();
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // PARTICLES & HELPERS
-    // ═══════════════════════════════════════════════════════════════════════
+
+
     
     function spawnParticle(x, y, type = 'default') {
         const scarInfo = SCAR_HEALINGS[healingState.activeHealing];
@@ -640,9 +608,8 @@
         ctx.quadraticCurveTo(x, y, x+r, y); ctx.closePath();
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // AUDIO SYSTEM
-    // ═══════════════════════════════════════════════════════════════════════
+
+
     
     function initHealingAudio() {
         if (!healingState.audioCtx) {
@@ -705,11 +672,9 @@
         healingState.activeNodes = [];
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // GAME IMPLS
-    // ═══════════════════════════════════════════════════════════════════════
 
-    // -- MISTING (Wilt) --
+
+
     function initMistingGame() {
         const leafHue = (typeof state !== 'undefined' && state.dna) 
             ? ((state.dna.colorH + (state.dna.leafHueOffset || 0)) % 360 + 360) % 360 
@@ -745,12 +710,18 @@
         });
         gd.leafGlow = Math.max(0, gd.leafGlow - dt * 0.003);
         gd.leafWilt = 1 - (healingState.progress / 100);
+
+        const isTouching = healingState.touchData.isDown || healingState.touches.size > 0;
         
-        if (healingState.touchData.isDown) {
+        if (isTouching) {
             gd.isHolding = true;
             gd.mistLevel = Math.min(100, gd.mistLevel + dt * 0.08);
-            if (Math.random() < 0.4) {
-                const pos = healingState.touchData.currentPos;
+
+            let pos = healingState.touchData.currentPos;
+            if (!pos && healingState.touches.size > 0) {
+                pos = healingState.touches.values().next().value;
+            }
+            if (pos && Math.random() < 0.4) {
                 gd.droplets.push({
                     x: pos.x + (Math.random() - 0.5) * 80, y: pos.y,
                     vy: -1.5 - Math.random() * 2.5, size: 2 + Math.random() * 5, life: 1
@@ -833,12 +804,10 @@
         }
     }
 
-    // -- GUIDING (Bend) -- RETHOUGHT: MAGNETIC SUN
     function initGuidingGame() {
         const w = healingState.canvas.width;
         const h = healingState.canvas.height;
-        
-        // Start drone sound
+
         startContinuousDrone();
 
         healingState.gameData = {
@@ -856,8 +825,7 @@
     function startContinuousDrone() {
         const ctx = healingState.audioCtx;
         if (!ctx) return;
-        
-        // Low rumble drone
+
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         const filter = ctx.createBiquadFilter();
@@ -880,8 +848,7 @@
         healingState.gameData.droneOsc = osc;
         healingState.gameData.droneFilter = filter;
         healingState.gameData.droneGain = gain;
-        
-        // High shimmer (fades in when close)
+
         const osc2 = ctx.createOscillator();
         const gain2 = ctx.createGain();
         osc2.type = 'sine';
@@ -905,82 +872,77 @@
         const gd = healingState.gameData;
         const w = healingState.canvas.width;
         const h = healingState.canvas.height;
-        
-        // Physics constants
+
         const springK = 0.05;    // Plant wants to stay bent
         const damping = 0.92;    // Air resistance
         const magneticForce = 0.15; // Power of the sun beam
         const restingAngle = 45; // Natural bent state
         
         let force = 0;
-        
-        // 1. Natural spring force towards resting angle (bent)
+
         force += (restingAngle - gd.stemAngle) * springK;
+
+        const isTouching = healingState.touchData.isDown || healingState.touches.size > 0;
         
-        // 2. Magnetic force from user
-        if (healingState.touchData.isDown) {
+        if (isTouching) {
             gd.isMagnetic = true;
-            const pos = healingState.touchData.currentPos;
-            
-            // Move light towards finger
+
+            let pos = healingState.touchData.currentPos;
+            if (!pos && healingState.touches.size > 0) {
+                pos = healingState.touches.values().next().value;
+            }
+            if (!pos) pos = { x: w/2, y: h/2 };
+
             gd.lightX += (pos.x - gd.lightX) * 0.2;
             gd.lightY += (pos.y - gd.lightY) * 0.2;
-            
-            // Calculate pull
-            // The "Sun" pulls the tip of the plant.
-            // Simplified: X distance creates torque
+
+
+
             const centerOffset = (gd.lightX - w/2);
-            // Map offset to angle pull (-60 to +60 degrees influence)
+
             const magneticPull = (centerOffset / (w/2)) * 80; 
             
             force += (magneticPull - gd.stemAngle) * magneticForce;
-            
-            // Visual tension
+
             gd.tension = Math.min(1, Math.abs(magneticPull - gd.stemAngle) / 40);
         } else {
             gd.isMagnetic = false;
             gd.tension *= 0.9;
         }
-        
-        // Physics integration
+
         gd.stemVelocity += force;
         gd.stemVelocity *= damping;
         gd.stemAngle += gd.stemVelocity;
-        
-        // Healing Logic: Hold near 0
+
         const error = Math.abs(gd.stemAngle);
         const inZone = error < 5; // 5 degrees tolerance
         
         if (inZone && gd.isMagnetic) {
             gd.timeInBalance += dt;
-            // Progress fills up
+
             healingState.progress = Math.min(100, healingState.progress + dt * 0.15);
             
             if (Math.random() < 0.2) {
                 spawnParticle(w/2, h*0.6, 'rise');
             }
         } else {
-            // Decay progress slowly if lost
-            // healingState.progress = Math.max(0, healingState.progress - dt * 0.05);
+
+
         }
-        
-        // Audio Update
+
         if (gd.droneFilter) {
-            // Filter opens up as you get closer to 0
-            // error 45 -> filter 100hz
-            // error 0 -> filter 800hz
+
+
+
             const openness = 1 - Math.min(1, error / 45);
             const freq = 100 + openness * 700;
             gd.droneFilter.frequency.setTargetAtTime(freq, healingState.audioCtx.currentTime, 0.1);
-            
-            // Shimmer volume
+
             gd.shimmerGain.gain.setTargetAtTime(inZone ? 0.1 : 0, healingState.audioCtx.currentTime, 0.2);
-            
-            // Pitch bend based on tension
+
             const pitch = 55 + openness * 22; // A1 to approx C#2
             gd.droneOsc.frequency.setTargetAtTime(pitch, healingState.audioCtx.currentTime, 0.1);
-            
-            // Harmonic shimmer pitch
+
             const shimPitch = 440 + (inZone ? 0 : Math.random()*10); // Stable when healed
             gd.shimmerOsc.frequency.setTargetAtTime(shimPitch, healingState.audioCtx.currentTime, 0.1);
         }
@@ -989,12 +951,11 @@
     function renderGuidingGame(ctx, w, h) {
         const gd = healingState.gameData;
         const pX = w/2, pY = h*0.6+50;
-        
-        // Beam
+
         if (gd.isMagnetic) {
             ctx.beginPath();
             ctx.moveTo(gd.lightX, gd.lightY);
-            // Calculate tip of plant roughly
+
             const rad = gd.stemAngle * Math.PI / 180;
             const tipX = pX + Math.sin(rad) * 30; // approx tip x
             const tipY = pY - 100;
@@ -1006,14 +967,12 @@
             ctx.lineWidth = width;
             ctx.lineCap = 'round';
             ctx.stroke();
-            
-            // Beam Core
+
             ctx.lineWidth = 2;
             ctx.strokeStyle = `rgba(255, 255, 255, ${alpha + 0.2})`;
             ctx.stroke();
         }
-        
-        // Sun
+
         ctx.beginPath(); 
         ctx.arc(gd.lightX, gd.lightY, 25, 0, Math.PI*2);
         ctx.fillStyle = `rgba(251,191,36,${0.6 + gd.tension*0.4})`; 
@@ -1022,12 +981,10 @@
         ctx.arc(gd.lightX, gd.lightY, 12, 0, Math.PI*2);
         ctx.fillStyle = '#fef3c7'; 
         ctx.fill();
-        
-        // Particles
+
         renderParticles(ctx); // Shared particles
-        
-        // Plant
-        // Color shifts from yellow-green to pure green as it straightens
+
+
         const error = Math.abs(gd.stemAngle);
         const r = 74 + (error/45) * 100; // More red/yellow when bent
         const g = 222;
@@ -1035,8 +992,7 @@
         const color = `rgb(${r}, ${g}, ${b})`;
         
         drawBentPlant(ctx, pX, pY, gd.stemAngle, color);
-        
-        // Target Guide Line (dotted line in center)
+
         ctx.beginPath();
         ctx.setLineDash([5, 10]);
         ctx.moveTo(pX, pY);
@@ -1045,8 +1001,7 @@
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.setLineDash([]);
-        
-        // Progress Ring
+
         ctx.beginPath();
         ctx.arc(pX, pY-60, 70, Math.PI, Math.PI + (Math.PI * healingState.progress/100));
         ctx.strokeStyle = `rgba(74,222,128,0.5)`; 
@@ -1054,7 +1009,6 @@
         ctx.stroke();
     }
 
-    // -- COLOR (Pale) -- FASTER
     function initColorGame() {
         const hue = (typeof state !== 'undefined' && state.dna) ? state.dna.colorH : 120;
         healingState.gameData = {
@@ -1063,13 +1017,14 @@
             pulseSpeed: 0.05, 
             pulseDirection: 1,
             successfulMatches: 0, requiredMatches: 6, matchWindow: 25,
-            lastTapTime: 0, rings: [], saturation: 30, misses: 0, maxMisses: 3, shakeAmount: 0, speedMultiplier: 1
+            lastTapTime: 0, rings: [], saturation: 30, misses: 0, maxMisses: 3, shakeAmount: 0, speedMultiplier: 1,
+            wasDown: false  // Track previous frame's touch state for tap detection
         };
     }
 
     function updateColorGame(dt) {
         const gd = healingState.gameData;
-        // FASTER MULTIPLIER (was 0.25)
+
         gd.speedMultiplier = 1 + (gd.successfulMatches * 0.5); 
         gd.pulseSpeed = gd.basePulseSpeed * gd.speedMultiplier;
         
@@ -1079,9 +1034,12 @@
         
         gd.rings = gd.rings.filter(r => { r.radius+=3; r.alpha-=0.02; return r.alpha>0; });
         gd.shakeAmount = Math.max(0, gd.shakeAmount - dt*0.01);
+
+        const isDown = healingState.touchData.isDown || healingState.touches.size > 0;
+        const justTapped = isDown && !gd.wasDown;
+        gd.wasDown = isDown;
         
-        if (healingState.touchData.isDown && Date.now() - gd.lastTapTime > 300) {
-            gd.lastTapTime = Date.now();
+        if (justTapped) {
             const diff = Math.abs(gd.currentHue - gd.targetHue);
             const hueDiff = Math.min(diff, 360 - diff);
             
@@ -1140,7 +1098,6 @@
         }
     }
 
-    // -- WHISPER (Dormant) -- MULTI-TOUCH & SPACED
     function initWhisperGame() {
         const pentatonic = [1, 1.125, 1.25, 1.5, 1.6875];
         const base = 261.63;
@@ -1156,8 +1113,7 @@
     function updateWhisperGame(dt) {
         const gd = healingState.gameData;
         const w=healingState.canvas.width, h=healingState.canvas.height;
-        
-        // SPACED OUT: Using 0.8 spread instead of 0.7, and smaller margins
+
         gd.notes.forEach((n,i) => {
             const t = (i+0.5)/5;
             n.x = w*0.1 + t*w*0.8; // WIDER SPREAD
@@ -1168,17 +1124,16 @@
         gd.breathPhase += dt*0.002;
         gd.sparkles = gd.sparkles.filter(s => { s.y-=s.speed; s.life-=0.012; s.x+=Math.sin(s.phase+s.y*0.02)*0.8; return s.life>0; });
         gd.ripples = gd.ripples.filter(r => { r.radius+=2; r.alpha-=0.02; return r.alpha>0; });
-        
-        // MULTI-TOUCH HIT DETECTION
-        // We create a set of note indices currently being touched by ANY active finger
+
+
         const touching = new Set();
         
         healingState.touches.forEach((pos) => {
             gd.notes.forEach((n,i) => {
-                // Larger hit area (60px radius) for better usability
+
                 if (Math.hypot(pos.x-n.x, pos.y-n.y) < 60) {
                     touching.add(i);
-                    // Trigger if this note wasn't already active
+
                     if (!gd.activeNotes.has(i)) {
                         n.active = true; n.glow = 1; gd.activeNotes.add(i);
                         playHealingTone(n.freq, 1.8, 'sine', 0.12);
@@ -1188,8 +1143,7 @@
                 }
             });
         });
-        
-        // Remove notes that are no longer being touched by ANY finger
+
         gd.activeNotes.forEach(i => { 
             if (!touching.has(i)) { 
                 gd.notes[i].active = false; 
@@ -1261,9 +1215,8 @@
         ctx.strokeStyle = 'rgba(148,163,184,0.5)'; ctx.lineWidth = 4; ctx.stroke();
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // HELPERS
-    // ═══════════════════════════════════════════════════════════════════════
+
+
 
     function roundRect(ctx, x, y, w, h, r) {
         ctx.beginPath(); ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y);
@@ -1333,9 +1286,8 @@
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // INITIALIZATION
-    // ═══════════════════════════════════════════════════════════════════════
+
+
     
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => setTimeout(initHealingSystem, 500));

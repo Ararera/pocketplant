@@ -1,8 +1,4 @@
-/**
- * Community Garden - A shared tree that grows with collective care
- * All Pocket Sprout players contribute to a single magnificent tree
- * Updated for Firebase v9+ Modular SDK (Static Import Version)
- */
+
 
 let fs = null; // lazy-loaded Firestore module (avoids hard failure if CDN import is blocked)
 
@@ -11,25 +7,24 @@ const CommunityGarden = {
     db: null,
     unsubscribe: null,
     contributionCooldowns: {
-        water: 30 * 60 * 1000,
-        sun: 30 * 60 * 1000,
-        love: 15 * 60 * 1000,
+        water: 15 * 60 * 1000,  // 15 min (was 30 min) - more frequent contributions
+        sun: 15 * 60 * 1000,    // 15 min (was 30 min)
+        love: 10 * 60 * 1000,   // 10 min (was 15 min) - love is most frequent
         firefly: 0
     },
-    
-    // Tree grows through 8 distinct stages
+
+
     TREE_STAGES: [
         { name: 'Seed',           threshold: 0,       icon: '🌰', desc: 'A tiny seed, full of potential' },
-        { name: 'Sprouting',      threshold: 500,     icon: '🌱', desc: 'The first green emerges from soil' },
-        { name: 'Sapling',        threshold: 2500,    icon: '🌿', desc: 'Young and eager, reaching upward' },
-        { name: 'Young Tree',     threshold: 8000,    icon: '🌳', desc: 'Taking root, finding strength' },
-        { name: 'Growing Tree',   threshold: 20000,   icon: '🌲', desc: 'Branches spread wide and welcoming' },
-        { name: 'Mature Tree',    threshold: 50000,   icon: '🌴', desc: 'A beacon for all who tend it' },
-        { name: 'Ancient Tree',   threshold: 120000,  icon: '🎄', desc: 'Wisdom gathered through countless seasons' },
-        { name: 'World Tree',     threshold: 300000,  icon: '✨', desc: 'A living legend, touched by all' }
+        { name: 'Sprouting',      threshold: 250,     icon: '🌱', desc: 'The first green emerges from soil' },
+        { name: 'Sapling',        threshold: 1000,    icon: '🌿', desc: 'Young and eager, reaching upward' },
+        { name: 'Young Tree',     threshold: 3500,    icon: '🌳', desc: 'Taking root, finding strength' },
+        { name: 'Growing Tree',   threshold: 10000,   icon: '🌲', desc: 'Branches spread wide and welcoming' },
+        { name: 'Mature Tree',    threshold: 25000,   icon: '🌴', desc: 'A beacon for all who tend it' },
+        { name: 'Ancient Tree',   threshold: 60000,   icon: '🎄', desc: 'Wisdom gathered through countless seasons' },
+        { name: 'World Tree',     threshold: 150000,  icon: '✨', desc: 'A living legend, touched by all' }
     ],
-    
-    // Environment evolves with tree growth
+
     ENVIRONMENT_STAGES: [
         { minStage: 0, features: [] },
         { minStage: 1, features: ['grass'] },
@@ -40,8 +35,7 @@ const CommunityGarden = {
         { minStage: 6, features: ['grass', 'flowers', 'mushrooms', 'birds', 'butterflies', 'pond'] },
         { minStage: 7, features: ['grass', 'flowers', 'mushrooms', 'birds', 'butterflies', 'pond', 'aurora'] }
     ],
-    
-    // Local state mirrors Firestore
+
     treeState: {
         growth: 0,
         stage: 0,
@@ -53,8 +47,7 @@ const CommunityGarden = {
         recentActivity: [],
         lastReset: null
     },
-    
-    // Player's contribution tracking
+
     playerData: {
         username: null, // Generated silly name
         odometer: 0,
@@ -63,15 +56,13 @@ const CommunityGarden = {
         lastLove: 0,
         firefliesGiven: 0
     },
-    
-    // ═══════════════════════════════════════════════════════════════════════
-    // INITIALIZATION & STATE ACCESS
-    // ═══════════════════════════════════════════════════════════════════════
+
+
+
     
     init() {
         this.loadPlayerData();
-        
-        // Generate a silly username if one doesn't exist
+
         if (!this.playerData.username) {
             this.playerData.username = this.generateUsername();
             this.savePlayerData();
@@ -94,13 +85,43 @@ const CommunityGarden = {
             'Petal', 'Twig', 'Gardener', 'Spirit', 'Turnip', 'Potato', 'Radish', 
             'Tulip', 'Cactus', 'Vine', 'Sapling', 'Friend', 'Pal'
         ];
-        
+
         const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
         const noun = nouns[Math.floor(Math.random() * nouns.length)];
         return `${adj} ${noun}`;
     },
 
-    // Helper to access the global state object safely
+    copyUsername() {
+        const name = (this.playerData && this.playerData.username) ? String(this.playerData.username) : '';
+        if (!name) return;
+
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            navigator.clipboard.writeText(name)
+                .then(() => this.showFeedback('📋 Name copied', 'info'))
+                .catch(() => this.fallbackCopyUsername(name));
+            return;
+        }
+        this.fallbackCopyUsername(name);
+    },
+
+    fallbackCopyUsername(text) {
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.setAttribute('readonly', '');
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            ta.style.top = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            ta.remove();
+            this.showFeedback('📋 Name copied', 'info');
+        } catch (e) {
+
+        }
+    },
+
     getGameState() {
         try {
             if (typeof state !== 'undefined') return state;
@@ -111,8 +132,7 @@ const CommunityGarden = {
     
     async initFirebase() {
         if (this.db) return true;
-        
-        // Lazy-load Firestore functions.
+
         if (!fs) {
             try {
                 fs = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
@@ -122,14 +142,12 @@ const CommunityGarden = {
             }
         }
 
-        // Check global instance from firebase-config.js
         if (window.db) {
             this.db = window.db;
             console.log('[CommunityGarden] Firebase connected via global instance');
             return true;
         }
 
-        // Retry once after a short delay
         await new Promise(resolve => setTimeout(resolve, 500));
         if (window.db) {
             this.db = window.db;
@@ -139,10 +157,9 @@ const CommunityGarden = {
         console.warn('[CommunityGarden] Firebase global instance (window.db) not found');
         return false;
     },
-    
-    // ═══════════════════════════════════════════════════════════════════════
-    // OVERLAY CREATION
-    // ═══════════════════════════════════════════════════════════════════════
+
+
+
     
     createOverlay() {
         const overlay = document.createElement('div');
@@ -154,7 +171,16 @@ const CommunityGarden = {
                 <div class="cg-header">
                     <div class="cg-header-info">
                         <h1 class="cg-title"><span class="cg-title-icon">🌳</span> Community Garden</h1>
-                        <p class="cg-subtitle">Tended by <span id="cgUsernameDisplay" style="color:#fbbf24; font-weight:600"></span> & friends</p>
+
+                        <div class="cg-identity-row" aria-label="Your community name">
+                            <span class="cg-identity-label">You are</span>
+                            <div class="cg-username-pill" id="cgUsernamePill">
+                                <span id="cgUsernameDisplay" class="cg-username"></span>
+                                <button class="cg-copy" onclick="CommunityGarden.copyUsername()" aria-label="Copy your name" title="Copy your name">⧉</button>
+                            </div>
+                        </div>
+
+                        <p class="cg-subtitle">A shared tree, tended by many hands.</p>
                     </div>
                     <button class="cg-close" onclick="CommunityGarden.close()" aria-label="Close">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -302,10 +328,9 @@ const CommunityGarden = {
         `;
         document.body.appendChild(overlay);
     },
-    
-    // ═══════════════════════════════════════════════════════════════════════
-    // OPEN / CLOSE
-    // ═══════════════════════════════════════════════════════════════════════
+
+
+
     
     async open() {
         const overlay = document.getElementById('communityGardenOverlay');
@@ -316,18 +341,24 @@ const CommunityGarden = {
 
         const notice = document.getElementById('cgOfflineNotice');
         if (notice) notice.classList.remove('visible');
-        
-        // Show your silly username
+
         const usernameEl = document.getElementById('cgUsernameDisplay');
         if (usernameEl) usernameEl.textContent = this.playerData.username || 'You';
 
-        // Render local state immediately
+        const pill = document.getElementById('cgUsernamePill');
+        if (pill) {
+            pill.classList.remove('pop');
+
+            void pill.offsetWidth;
+            pill.classList.add('pop');
+            setTimeout(() => pill.classList.remove('pop'), 800);
+        }
+
         this.renderFireflySection();
         this.renderPlayerStats();
         this.updateCooldownDisplays();
         this.render();
 
-        // Connect to Firebase
         const connected = await this.initFirebase();
 
         if (connected) {
@@ -369,10 +400,9 @@ const CommunityGarden = {
             setTimeout(() => notice.classList.remove('visible'), 3000);
         }
     },
-    
-    // ═══════════════════════════════════════════════════════════════════════
-    // FIREBASE SYNC
-    // ═══════════════════════════════════════════════════════════════════════
+
+
+
     
     subscribeToTree() {
         if (!this.db) return;
@@ -440,10 +470,9 @@ const CommunityGarden = {
             console.error('[CommunityGarden] Failed to initialize tree:', e);
         }
     },
-    
-    // ═══════════════════════════════════════════════════════════════════════
-    // CONTRIBUTIONS
-    // ═══════════════════════════════════════════════════════════════════════
+
+
+
     
     async contribute(type) {
         const cooldownKey = `last${type.charAt(0).toUpperCase() + type.slice(1)}`;
@@ -467,11 +496,11 @@ const CommunityGarden = {
         
         try {
             const treeRef = fs.doc(this.db, 'communityGarden', 'mainTree');
-            const baseGrowth = 3;
-            const vitalityBonus = this.treeState[`${type}Level`] < 30 ? 2 : 
-                                  this.treeState[`${type}Level`] < 60 ? 1 : 0;
-            
-            // Use silly name instead of "A gardener"
+
+            const baseGrowth = 5;
+            const vitalityBonus = this.treeState[`${type}Level`] < 30 ? 4 : 
+                                  this.treeState[`${type}Level`] < 60 ? 2 : 0;
+
             const contributorName = this.playerData.username || 'Mystery Sprout';
             
             const activityEntry = {
@@ -484,7 +513,7 @@ const CommunityGarden = {
             await fs.updateDoc(treeRef, {
                 growth: fs.increment(baseGrowth + vitalityBonus),
                 totalContributions: fs.increment(1),
-                [`${type}Level`]: fs.increment(8),
+                [`${type}Level`]: fs.increment(10), // Increased from 8
                 recentActivity: fs.arrayUnion(activityEntry)
             });
             
@@ -497,10 +526,9 @@ const CommunityGarden = {
         
         this.updateCooldownDisplays();
     },
-    
-    // ═══════════════════════════════════════════════════════════════════════
-    // FIREFLY RELEASE (FIXED SYNC LOGIC)
-    // ═══════════════════════════════════════════════════════════════════════
+
+
+
 
     async releaseFireflies(amount) {
         const state = this.getGameState();
@@ -533,8 +561,9 @@ const CommunityGarden = {
         let toRelease = amount === 'all' ? available : Math.min(amount, available);
         
         if (toRelease <= 0) return;
-        
-        const growthGain = (toRelease * 5) + Math.floor(toRelease / 5);
+
+
+        const growthGain = (toRelease * 8) + Math.floor(toRelease / 3);
         
         let remaining = toRelease;
         let passes = 0;
@@ -583,8 +612,7 @@ const CommunityGarden = {
         if (this.db) {
             try {
                 const treeRef = fs.doc(this.db, 'communityGarden', 'mainTree');
-                
-                // Use silly name
+
                 const contributorName = this.playerData.username || 'Mystery Sprout';
 
                 const activityEntry = {
@@ -608,10 +636,9 @@ const CommunityGarden = {
         }
         this.render();
     },
-    
-    // ═══════════════════════════════════════════════════════════════════════
-    // RENDERING
-    // ═══════════════════════════════════════════════════════════════════════
+
+
+
     
     render() {
         this.renderStageInfo();
@@ -667,16 +694,14 @@ const CommunityGarden = {
         const circumference = 2 * Math.PI * 15.5;
         ['water', 'sun', 'love'].forEach(type => {
             const level = Math.max(0, Math.min(100, this.treeState[`${type}Level`] || 50));
-            
-            // Old ring style (for backward compatibility)
+
             const ring = document.getElementById(`cg${type.charAt(0).toUpperCase() + type.slice(1)}Ring`);
             if (ring) {
                 const offset = circumference - (level / 100) * circumference;
                 ring.style.strokeDasharray = circumference;
                 ring.style.strokeDashoffset = offset;
             }
-            
-            // New compact bar style
+
             const bar = document.getElementById(`cg${type.charAt(0).toUpperCase() + type.slice(1)}Bar`);
             if (bar) {
                 bar.style.width = `${level}%`;
@@ -1061,8 +1086,7 @@ const CommunityGarden = {
             feed.innerHTML = '<div class="cg-activity-empty">Waiting for gardeners...</div>';
             return;
         }
-        
-        // Show last 10 entries
+
         const recent = [...activity].reverse().slice(0, 10);
         
         feed.innerHTML = recent.map(entry => {
@@ -1089,8 +1113,7 @@ const CommunityGarden = {
     
     renderFireflySection() {
         const state = this.getGameState();
-        
-        // FIX: Calculate 'available' directly from families to be safe
+
         let available = 0;
         if (state && state.fireflies) {
             const families = state.fireflies;
@@ -1122,10 +1145,9 @@ const CommunityGarden = {
         if (contribEl) contribEl.textContent = this.playerData.odometer.toLocaleString();
         if (firefliesEl) firefliesEl.textContent = this.playerData.firefliesGiven.toLocaleString();
     },
-    
-    // ═══════════════════════════════════════════════════════════════════════
-    // COOLDOWNS
-    // ═══════════════════════════════════════════════════════════════════════
+
+
+
     
     updateCooldownDisplays() {
         ['water', 'sun', 'love'].forEach(type => {
@@ -1167,10 +1189,9 @@ const CommunityGarden = {
         const seconds = Math.floor((ms % 60000) / 1000);
         return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
     },
-    
-    // ═══════════════════════════════════════════════════════════════════════
-    // VISUAL EFFECTS
-    // ═══════════════════════════════════════════════════════════════════════
+
+
+
     
     playContributionAnimation(type) {
         const treeArea = document.getElementById('cgTreeArea');
@@ -1229,10 +1250,9 @@ const CommunityGarden = {
             setTimeout(() => toast.remove(), 300);
         }, 2500);
     },
-    
-    // ═══════════════════════════════════════════════════════════════════════
-    // UTILITIES
-    // ═══════════════════════════════════════════════════════════════════════
+
+
+
     
     calculateStage(growth) {
         for (let i = this.TREE_STAGES.length - 1; i >= 0; i--) {
@@ -1262,10 +1282,9 @@ const CommunityGarden = {
     createSVGElement(tag) {
         return document.createElementNS('http://www.w3.org/2000/svg', tag);
     },
-    
-    // ═══════════════════════════════════════════════════════════════════════
-    // PERSISTENCE
-    // ═══════════════════════════════════════════════════════════════════════
+
+
+
     
     loadPlayerData() {
         try {
@@ -1285,10 +1304,9 @@ const CommunityGarden = {
             console.warn('[CommunityGarden] Failed to save player data:', e);
         }
     },
-    
-    // ═══════════════════════════════════════════════════════════════════════
-    // EVENT BINDING
-    // ═══════════════════════════════════════════════════════════════════════
+
+
+
     
     bindEvents() {
         window.addEventListener('popstate', () => {
@@ -1300,12 +1318,10 @@ const CommunityGarden = {
     }
 };
 
-// Expose to window immediately for HTML onclick handlers
 window.CommunityGarden = CommunityGarden;
 window.openCommunityGarden = () => CommunityGarden.open();
 window.closeCommunityGarden = () => CommunityGarden.close();
 
-// Auto-initialize
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => CommunityGarden.init());
 } else {

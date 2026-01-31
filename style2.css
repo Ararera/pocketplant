@@ -1,21 +1,19 @@
-/* REPLACED: Old Grid System 
-   NEW: Horizontal "Ribbon" Scroll System 
-*/
+
 .firefly-family-grid {
     display: flex;
     overflow-x: auto;
     overflow-y: hidden;
     gap: 12px;
-    padding: 25px 50% 30px 20px; /* Right padding allows last item to center */
-    margin: 0 -25px 5px -25px; /* Pull to edges of card, reduced bottom margin */
+    padding: 25px 50% 30px 20px; 
+    margin: 0 -25px 5px -25px; 
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
     
-    /* Fade mask for edges */
+    
     mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
     -webkit-mask-image: linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%);
     
-    /* Hide scrollbar */
+    
     scrollbar-width: none;
     -ms-overflow-style: none;
 }
@@ -25,12 +23,12 @@
 }
 
 .family-card {
-    flex: 0 0 72px; /* Fixed pill width */
+    flex: 0 0 72px; 
     height: 110px;
     scroll-snap-align: center;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 40px; /* Pill shape */
+    border-radius: 40px; 
     padding: 12px 4px;
     display: flex;
     flex-direction: column;
@@ -43,7 +41,7 @@
     cursor: pointer;
 }
 
-/* Selected State - Pop Effect */
+
 .family-card.selected {
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
     border-color: var(--family-color);
@@ -89,13 +87,13 @@
     font-size: 1.1rem;
     font-weight: 700;
     color: white;
-    margin-top: auto; /* Push to bottom */
+    margin-top: auto; 
     margin-bottom: 8px;
     text-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
 
 .family-card .family-power {
-    display: none; /* Hide power text in card to save space, show in detail panel */
+    display: none; 
 }
 
 .family-mini-progress {
@@ -108,7 +106,7 @@
     opacity: 0.8;
 }
 
-/* Detail Panel Tuned for Compactness */
+
 .family-detail-panel {
     background: linear-gradient(180deg, rgba(30, 32, 35, 0.95), rgba(20, 22, 25, 0.98));
     border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -125,12 +123,12 @@
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Hide the large orb image in the detail panel */
+
 .family-detail-header .family-orb, #detailOrb {
     display: none !important; 
 }
 
-/* Compact Header Layout */
+
 .family-detail-header {
     display: flex;
     justify-content: space-between;
@@ -206,7 +204,7 @@
     letter-spacing: 0.5px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     
-    /* Default / Disabled State */
+    
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.4);
@@ -214,7 +212,7 @@
     cursor: not-allowed;
 }
 
-/* Active state - Lights up with the family color! */
+
 .release-btn:not(:disabled) {
     background: linear-gradient(135deg, var(--family-color), color-mix(in srgb, var(--family-color) 60%, black));
     border: 1px solid rgba(255, 255, 255, 0.4);
@@ -230,7 +228,7 @@
     box-shadow: 0 2px 8px color-mix(in srgb, var(--family-color) 40%, transparent);
 }
 
-/* --- Unchanged below, keeping existing styles --- */
+
 
 .vitals-ring {
     position: absolute;
@@ -422,7 +420,7 @@
 .menu-card.firefly-card {
     max-width: 380px;
     width: 92%;
-    /* Keep overflow hidden for outer card, we scroll the ribbon instead */
+    
     overflow-x: hidden; 
 }
 
@@ -2046,9 +2044,7 @@ body:has(.menu-overlay.open) .rain-clouds {
     }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   REDESIGNED MENU - Mobile-First Single Panel Layout
-   ═══════════════════════════════════════════════════════════════════════ */
+
 
 .menu-header {
     display: flex;
@@ -2089,7 +2085,7 @@ body:has(.menu-overlay.open) .rain-clouds {
     margin-bottom: 12px;
 }
 
-/* Identity Section - Compact Stats Row */
+
 .menu-identity {
     background: rgba(0, 0, 0, 0.2);
     border-radius: 12px;
@@ -2129,7 +2125,7 @@ body:has(.menu-overlay.open) .rain-clouds {
     color: rgba(255, 255, 255, 0.9);
 }
 
-/* Scars Section */
+
 .menu-scars {
     background: rgba(251, 146, 60, 0.1);
     border: 1px solid rgba(251, 146, 60, 0.25);
@@ -2157,7 +2153,7 @@ body:has(.menu-overlay.open) .rain-clouds {
     font-style: italic;
 }
 
-/* Evolution Section */
+
 .menu-evolution {
     background: rgba(0, 0, 0, 0.15);
     border-radius: 10px;
@@ -2182,7 +2178,7 @@ body:has(.menu-overlay.open) .rain-clouds {
     color: var(--accent-growth);
 }
 
-/* Primary Actions */
+
 .menu-actions-primary {
     display: flex;
     flex-direction: column;
@@ -2200,7 +2196,7 @@ body:has(.menu-overlay.open) .rain-clouds {
     font-size: 0.8rem;
 }
 
-/* Collection Grid */
+
 .menu-collections {
     background: rgba(0, 0, 0, 0.1);
     border-radius: 12px;
@@ -2246,7 +2242,7 @@ body:has(.menu-overlay.open) .rain-clouds {
     letter-spacing: 0.3px;
 }
 
-/* Traits Section */
+
 .menu-traits {
     background: rgba(74, 222, 128, 0.08);
     border: 1px solid rgba(74, 222, 128, 0.2);
@@ -2262,12 +2258,12 @@ body:has(.menu-overlay.open) .rain-clouds {
     color: var(--accent-growth);
 }
 
-/* Lineage Section */
+
 .menu-lineage .greenhouse-list {
     max-height: 80px;
 }
 
-/* Settings Grid */
+
 .menu-settings {
     background: rgba(0, 0, 0, 0.15);
     border-radius: 12px;
@@ -2330,13 +2326,13 @@ body:has(.menu-overlay.open) .rain-clouds {
     color: #f87171;
 }
 
-/* Menu Card Adjustments for new layout */
+
 .menu-card {
     max-height: 85vh;
     padding: 18px;
 }
 
-/* Hide old tabs - we're using single panel now */
+
 .menu-tabs {
     display: none;
 }
@@ -2345,7 +2341,7 @@ body:has(.menu-overlay.open) .rain-clouds {
     display: block !important;
 }
 
-/* Responsive adjustments */
+
 @media (max-width: 360px) {
     .identity-stats {
         grid-template-columns: repeat(2, 1fr);
@@ -2392,18 +2388,19 @@ body:has(.menu-overlay.open) .rain-clouds {
     }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   ACTION READY INDICATORS - Below Status Panel
-   ═══════════════════════════════════════════════════════════════════════ */
+
 
 .action-indicators {
     position: absolute;
     top: calc(env(safe-area-inset-top, 12px) + 10px);
     left: 12px;
-    margin-top: 145px; /* Position below status panel */
+    
+    margin-top: 155px; 
     display: flex;
     gap: 6px;
-    z-index: 99;
+    z-index: 98; 
+    pointer-events: auto;
+    transition: margin-top 0.2s ease;
 }
 
 .action-indicator {
@@ -2427,7 +2424,7 @@ body:has(.menu-overlay.open) .rain-clouds {
     transition: all 0.4s ease;
 }
 
-/* Ready state - glows and becomes visible */
+
 .action-indicator.ready {
     opacity: 1;
     background: rgba(40, 35, 28, 0.85);
@@ -2438,7 +2435,7 @@ body:has(.menu-overlay.open) .rain-clouds {
     filter: grayscale(0%) brightness(1);
 }
 
-/* Sing indicator when ready */
+
 .action-indicator#singIndicator.ready {
     background: linear-gradient(145deg, rgba(92, 124, 250, 0.25), rgba(60, 90, 200, 0.15));
     border-color: rgba(116, 143, 252, 0.5);
@@ -2448,7 +2445,7 @@ body:has(.menu-overlay.open) .rain-clouds {
     animation: indicatorPulse 2.5s ease-in-out infinite;
 }
 
-/* Fertilize indicator when ready */
+
 .action-indicator#fertilizeIndicator.ready {
     background: linear-gradient(145deg, rgba(121, 85, 72, 0.35), rgba(90, 60, 50, 0.2));
     border-color: rgba(141, 110, 99, 0.5);
@@ -2470,7 +2467,7 @@ body:has(.menu-overlay.open) .rain-clouds {
     }
 }
 
-/* Hover state */
+
 .action-indicator.ready:hover {
     transform: scale(1.1);
     opacity: 1;
@@ -2480,10 +2477,10 @@ body:has(.menu-overlay.open) .rain-clouds {
     transform: scale(0.95);
 }
 
-/* Responsive - adjust position for smaller screens */
+
 @media (max-width: 380px) {
     .action-indicators {
-        margin-top: 130px;
+        margin-top: 140px;
         gap: 4px;
     }
     
@@ -2497,7 +2494,18 @@ body:has(.menu-overlay.open) .rain-clouds {
     }
 }
 
-/* Hide indicators when menu is open */
+
+body:has(.status-urgency.visible) .action-indicators {
+    margin-top: 175px;
+}
+
+@media (max-width: 380px) {
+    body:has(.status-urgency.visible) .action-indicators {
+        margin-top: 160px;
+    }
+}
+
+
 body:has(.menu-overlay.open) .action-indicators {
     opacity: 0;
     pointer-events: none;

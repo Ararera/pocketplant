@@ -74,7 +74,7 @@ function showHintBubble(htmlOrText) {
     const bubble = els.hintBubble || document.getElementById('hintBubble');
     const content = els.hintContent || document.getElementById('hintContent');
     if (!bubble || !content) {
-        // Fallback: last resort, but always show the full message
+
         alert(String(htmlOrText || ''));
         return;
     }
@@ -92,16 +92,14 @@ function handleVisibility() {
         } else {
             restoreAudioState();
         }
-        
-        // Sync moonbeam state when returning to the game
+
         if (typeof updateMoonbeam === 'function') {
             updateMoonbeam();
         }
     } else {
         if (typeof saveDebounceTimer !== 'undefined' && saveDebounceTimer) { try { clearTimeout(saveDebounceTimer); } catch (e) { } saveDebounceTimer = null; }
         stopAudioForBackground();
-        
-        // Turn off moonbeam visual when leaving (state persists but visual should reset)
+
         const beam = document.getElementById('moonlightBeam');
         if (beam) beam.classList.remove('active');
         
@@ -110,7 +108,14 @@ function handleVisibility() {
 }
 
 function restoreAudioState() {
-    if (state.isRainOn && typeof audio !== 'undefined') audio.startRainSound(); 
+
+    if (state.isRainOn && typeof audio !== 'undefined' && !audio.isRainPlaying) {
+        audio.startRainSound();
+    }
+
+    if (!state.isRainOn && typeof audio !== 'undefined' && audio.isRainPlaying) {
+        audio.stopRainSound();
+    }
     if (state.isMusicPlaying && typeof audio !== 'undefined') audio.playBackgroundMusic();
 }
 
@@ -129,7 +134,7 @@ function stopAudioForBackground() {
 
 function saveState() { state.lastSave = Date.now(); try { localStorage.setItem('pocketSprout', JSON.stringify(state)); } catch (e) { } }
 function ensureStateDefaults() {
-    // Core defaults
+
     if (!state.neglect) state.neglect = { waterLowMs: 0, sunLowMs: 0, loveLowMs: 0, crisisMs: 0, partialDormant: false };
     if (typeof state.lastWhisperAt !== 'number') state.lastWhisperAt = 0;
     if (typeof state.dayProgress !== 'number') state.dayProgress = 0;
@@ -137,16 +142,14 @@ function ensureStateDefaults() {
     if (typeof state.nameSuggestion !== 'string') state.nameSuggestion = '';
     if (typeof state.lastWhisperText !== 'string') state.lastWhisperText = '';
 
-    // Firefly inventory normalization (prevents Community Garden showing 0 when you actually have fireflies)
-    // - state.fireflies should be an array of counts indexed by family
-    // - state.totalFireflies should match the sum of those counts
+
+
     const FAMILY_COUNT = (typeof FIREFLY_FAMILIES !== 'undefined' && Array.isArray(FIREFLY_FAMILIES)) ? FIREFLY_FAMILIES.length : 16;
 
-    // Normalize state.fireflies shape
     if (!state.fireflies) {
         state.fireflies = new Array(FAMILY_COUNT).fill(0);
     } else if (Array.isArray(state.fireflies)) {
-        // Ensure correct length and numeric counts
+
         if (state.fireflies.length < FAMILY_COUNT) {
             for (let i = state.fireflies.length; i < FAMILY_COUNT; i++) state.fireflies[i] = 0;
         }
@@ -155,7 +158,7 @@ function ensureStateDefaults() {
             state.fireflies[i] = Number.isFinite(v) && v > 0 ? Math.floor(v) : 0;
         }
     } else if (typeof state.fireflies === 'object') {
-        // Convert legacy object form to array
+
         const arr = new Array(FAMILY_COUNT).fill(0);
         try {
             Object.keys(state.fireflies).forEach((k) => {
@@ -169,13 +172,11 @@ function ensureStateDefaults() {
         state.fireflies = arr;
     }
 
-    // Normalize state.totalFireflies
     const computedTotal = (Array.isArray(state.fireflies) ? state.fireflies.reduce((a, b) => a + (Number(b) || 0), 0) : 0);
     if (!Number.isFinite(state.totalFireflies)) state.totalFireflies = computedTotal;
-    // If total drifted (common after older saves / partial migrations), fix it.
+
     if (Math.abs((state.totalFireflies || 0) - computedTotal) > 0) state.totalFireflies = computedTotal;
 
-    // Ensure guardian state arrays exist
     if (!Array.isArray(state.activeGuardians)) state.activeGuardians = [];
 }
 function loadState() { try { const s = localStorage.getItem('pocketSprout'); if (s) state = { ...state, ...JSON.parse(s) }; ensureStateDefaults(); } catch (e) { } }
@@ -210,7 +211,19 @@ function resetGame(preserveHistory = true) {
 
 function handleBackButton(e) {
     if (!e.state || !e.state.pocketSprout) { history.pushState({ pocketSprout: true, depth: 1 }, ''); return; }
-    const overlays = [{ el: els.fireflyOverlay, close: closeFireflyLog }, { el: els.potOverlay, close: closePotDesigner }, { el: els.harvestOverlay, close: closeHarvestModal }, { el: els.archiveOverlay, close: closeArchive }, { el: els.traitOverlay, close: closeTraitGlossary }, { el: els.helpOverlay, close: closeHelp }, { el: els.logOverlay, close: closeCareLog }, { el: els.seasonOverlay, close: closeSeasonInfo }, { el: els.resetOverlay, close: closeResetOverlay }, { el: els.menuOverlay, close: toggleMenu }];
+    const overlays = [
+        { el: els.fireflyOverlay, close: closeFireflyLog }, 
+        { el: els.potOverlay, close: closePotDesigner }, 
+        { el: els.harvestOverlay, close: closeHarvestModal }, 
+        { el: els.archiveOverlay, close: closeArchive }, 
+        { el: els.traitOverlay, close: closeTraitGlossary }, 
+        { el: els.helpOverlay, close: closeHelp }, 
+        { el: els.logOverlay, close: closeCareLog }, 
+        { el: els.seasonOverlay, close: closeSeasonInfo }, 
+        { el: els.resetOverlay, close: closeResetOverlay }, 
+        { el: els.menuOverlay, close: toggleMenu },
+        { el: els.privacyOverlay, close: closePrivacy }
+    ];
     for (const o of overlays) if (o.el && o.el.classList.contains('open')) { o.close(); break; }
     pushHistoryState();
 }
@@ -286,8 +299,7 @@ function init() {
     renderPlant('plantGroup', state.dna, state.stage); renderPotPreview();
     updateTimeOfDay(); updateMoonPhase(); updateSeason(); updateUI();
     if (state.isRainOn) applyTheme();
-    
-    // Sync moonbeam state on init (handles case where player left with moonbeam active)
+
     if (typeof updateMoonbeam === 'function') {
         setTimeout(updateMoonbeam, 100);
     }
@@ -299,7 +311,7 @@ function init() {
 }
 
 function cacheElements() {
-    ['skyLayer', 'starsContainer', 'moonElement', 'moonlightBeam', 'seasonalContainer', 'rainContainer', 'rainbowContainer', 'statusArea', 'genBadge', 'plantNameDisplay', 'plantMoodDisplay', 'seasonIndicator', 'evolutionBar', 'menuOverlay', 'fireflyOverlay', 'potOverlay', 'helpOverlay', 'traitOverlay', 'harvestOverlay', 'deathOverlay', 'archiveOverlay', 'resetOverlay', 'welcomeToast', 'toastBody', 'hintBubble', 'hintContent', 'traitGlossaryList', 'plantHero', 'plantGraphics', 'potGroup', 'plantGroup', 'vitals', 'ringWater', 'ringSun', 'ringLove', 'nameInput', 'menuGen', 'menuAge', 'menuStage', 'menuHealth', 'menuProgressBar', 'menuScars', 'menuScarList', 'menuInherited', 'menuInheritedList', 'greenhouseList', 'btnHarvest', 'btnSing', 'btnFertilize', 'btnMusic', 'btnReset', 'btnRain', 'btnSun', 'btnMenu', 'fireflyFamilyGrid', 'familyDetailPanel', 'detailOrb', 'detailFamilyName', 'detailFamilyPower', 'detailFireflyCount', 'releaseBtn', 'guardianProgressText', 'potColorGrid', 'potPatternGrid', 'patternColorGrid', 'potPreviewGroup', 'harvestPlantGroup', 'inheritedTraitDisplay', 'archivePlantGroup', 'archivePotGroup', 'archiveTitle', 'archiveStats', 'debugPanel', 'debugLog', 'debugState', 'whisperStack', 'logOverlay', 'logSub', 'logList', 'seasonOverlay', 'seasonNow', 'seasonNowBody', 'dayNameDisplay', 'seasonIcon', 'weatherIcon', 'stageBadge', 'growthPercent', 'urgencyWarning', 'urgencyText'].forEach(id => els[id] = document.getElementById(id));
+    ['skyLayer', 'starsContainer', 'moonElement', 'moonlightBeam', 'seasonalContainer', 'rainContainer', 'rainbowContainer', 'statusArea', 'genBadge', 'plantNameDisplay', 'plantMoodDisplay', 'seasonIndicator', 'evolutionBar', 'menuOverlay', 'fireflyOverlay', 'potOverlay', 'helpOverlay', 'traitOverlay', 'harvestOverlay', 'deathOverlay', 'archiveOverlay', 'resetOverlay', 'welcomeToast', 'toastBody', 'hintBubble', 'hintContent', 'traitGlossaryList', 'plantHero', 'plantGraphics', 'potGroup', 'plantGroup', 'vitals', 'ringWater', 'ringSun', 'ringLove', 'nameInput', 'menuGen', 'menuAge', 'menuStage', 'menuHealth', 'menuProgressBar', 'menuScars', 'menuScarList', 'menuInherited', 'menuInheritedList', 'greenhouseList', 'btnHarvest', 'btnSing', 'btnFertilize', 'btnMusic', 'btnReset', 'btnRain', 'btnSun', 'btnMenu', 'fireflyFamilyGrid', 'familyDetailPanel', 'detailOrb', 'detailFamilyName', 'detailFamilyPower', 'detailFireflyCount', 'releaseBtn', 'guardianProgressText', 'potColorGrid', 'potPatternGrid', 'patternColorGrid', 'potPreviewGroup', 'harvestPlantGroup', 'inheritedTraitDisplay', 'archivePlantGroup', 'archivePotGroup', 'archiveTitle', 'archiveStats', 'debugPanel', 'debugLog', 'debugState', 'whisperStack', 'logOverlay', 'logSub', 'logList', 'seasonOverlay', 'seasonNow', 'seasonNowBody', 'dayNameDisplay', 'seasonIcon', 'weatherIcon', 'stageBadge', 'growthPercent', 'urgencyWarning', 'urgencyText', 'snailOverlay', 'privacyOverlay'].forEach(id => els[id] = document.getElementById(id));
 }
 
 function setupEventListeners() {
@@ -314,7 +326,7 @@ function setupEventListeners() {
         pot.addEventListener('mousedown', () => handlePress(true)); pot.addEventListener('mouseup', () => handlePress(false)); pot.addEventListener('mouseleave', () => handlePress(false));
         pot.addEventListener('touchstart', e => { e.preventDefault(); handlePress(true); }, { passive: false }); pot.addEventListener('touchend', e => { e.preventDefault(); handlePress(false); });
     }
-    // Tap the status mood message to see it in full (no ticker, no reset)
+
     if (els.plantMoodDisplay) {
         const openFullMood = (e) => {
             if (e) { try { e.stopPropagation(); } catch (_) {} }
@@ -325,8 +337,7 @@ function setupEventListeners() {
         els.plantMoodDisplay.addEventListener('click', openFullMood);
         els.plantMoodDisplay.addEventListener('touchend', openFullMood, { passive: true });
     }
-    
-    // Action indicator click handlers - trigger action when ready
+
     const singIndicator = document.getElementById('singIndicator');
     const fertilizeIndicator = document.getElementById('fertilizeIndicator');
     

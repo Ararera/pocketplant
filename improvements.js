@@ -57,7 +57,7 @@ const DISCOVERIES = Object.freeze([
     { id: 'all_families', name: 'Firefly Collector', desc: 'Collected at least one of each firefly family', icon: '✨' },
     { id: 'sang_to_plant', name: 'Plant Whisperer', desc: 'Sang to your plant', icon: '🎵' },
     { id: 'scar_healed', name: 'Healed', desc: 'Completed a healing ritual for a scar', icon: '🩹' },
-    // Day of Week discoveries
+
     { id: 'growth_ritual', name: 'Tuesday\'s Blessing', desc: 'Completed a Growth Day ritual', icon: '🌱' },
     { id: 'fashion_friday', name: 'Fashion Statement', desc: 'Changed pot style on Fashion Friday', icon: '👗' },
     { id: 'snail_exchange', name: 'Snail\'s Bargain', desc: 'Made an exchange with the Saturday snail', icon: '🐌' },
@@ -84,8 +84,7 @@ function openDiscoveries() {
     if (overlay) {
         overlay.classList.add('open');
         renderDiscoveries();
-        
-        // Show wisdom message on Wednesday
+
         const wisdomContainer = document.getElementById('wisdomMessage');
         const wisdomText = document.getElementById('wisdomMessageText');
         if (wisdomContainer && wisdomText && typeof window.daySystem !== 'undefined') {
@@ -216,8 +215,7 @@ function updateActiveModifiers() {
     if (!modifiers || !container) return;
     
     const mods = [];
-    
-    // Day of Week effects
+
     if (typeof window.daySystem !== 'undefined') {
         const dayEffects = window.daySystem.getDayEffects();
         if (dayEffects && dayEffects.length > 0) {
@@ -376,8 +374,7 @@ function dismissHint() {
 function renderFireflyLogImproved() {
     const grid = getEl('fireflyFamilyGrid');
     if (!grid || typeof FIREFLY_FAMILIES === 'undefined') return;
-    
-    // Auto-select first family if none selected, so the details panel isn't empty
+
     if (selectedFamily === null) {
         selectedFamily = 0;
     }
@@ -408,7 +405,7 @@ function renderFireflyLogImproved() {
         card.onclick = () => {
             selectedFamily = i;
             renderFireflyLogImproved();
-            // Scroll selected item into view smoothly
+
             card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
         };
         
@@ -465,7 +462,7 @@ function renderFamilyDetail() {
     
     const btn = getEl('releaseBtn');
     if (btn) {
-        // Set the family color directly on the button so our CSS can pick it up
+
         btn.style.setProperty('--family-color', col);
         
         btn.disabled = cnt < 1;

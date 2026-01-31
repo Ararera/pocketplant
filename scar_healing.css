@@ -1,11 +1,6 @@
-/**
- * Scar Healing System Styles
- * Contemplative, atmospheric mini-game overlays
- */
 
-/* ═══════════════════════════════════════════════════════════════════════
-   HEALING OVERLAY - BASE
-   ═══════════════════════════════════════════════════════════════════════ */
+
+
 
 .healing-overlay {
     position: fixed;
@@ -50,9 +45,7 @@
     pointer-events: none;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   CANVAS
-   ═══════════════════════════════════════════════════════════════════════ */
+
 
 #healingCanvas {
     position: absolute;
@@ -62,9 +55,7 @@
     touch-action: none;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   UI ELEMENTS
-   ═══════════════════════════════════════════════════════════════════════ */
+
 
 .healing-ui {
     position: absolute;
@@ -132,9 +123,7 @@
     50% { opacity: 0.8; }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   CLOSE BUTTON
-   ═══════════════════════════════════════════════════════════════════════ */
+
 
 .healing-close {
     position: absolute;
@@ -165,9 +154,7 @@
     height: 20px;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   SUCCESS STATE
-   ═══════════════════════════════════════════════════════════════════════ */
+
 
 .healing-success {
     position: absolute;
@@ -230,11 +217,9 @@
     }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   INTERACTIVE SCAR ITEMS IN MENU
-   ═══════════════════════════════════════════════════════════════════════ */
 
-/* New container for the interactive buttons that sits next to the hidden text */
+
+
 .interactive-scar-container {
     display: inline-flex;
     flex-wrap: wrap;
@@ -253,15 +238,15 @@
     align-items: center;
     justify-content: center;
     
-    /* Look like the original text but clickable */
+    
     background: rgba(251, 146, 60, 0.15);
     border: 1px solid rgba(251, 146, 60, 0.3);
-    color: #fdba74; /* Orange-300 */
+    color: #fdba74; 
     font-size: 0.75rem;
     font-weight: 500;
     text-shadow: 0 1px 2px rgba(0,0,0,0.3);
     
-    /* Reset button styles */
+    
     -webkit-appearance: none;
     appearance: none;
     line-height: 1.4;
@@ -282,7 +267,7 @@
     background: rgba(251, 146, 60, 0.4);
 }
 
-/* Subtle pulse to indicate interactivity */
+
 @keyframes scarPulse {
     0%, 100% { box-shadow: 0 0 0 0 rgba(251, 146, 60, 0.0); }
     50% { box-shadow: 0 0 8px rgba(251, 146, 60, 0.2); }
@@ -292,9 +277,7 @@
     animation: scarPulse 3s infinite;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   HEALING INTRO ANIMATION
-   ═══════════════════════════════════════════════════════════════════════ */
+
 
 .healing-overlay.open .healing-ui {
     animation: healingUIEnter 0.8s ease-out forwards;
@@ -324,9 +307,7 @@
     }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   RESPONSIVE ADJUSTMENTS
-   ═══════════════════════════════════════════════════════════════════════ */
+
 
 @media (max-width: 480px) {
     .healing-progress-ring {
@@ -349,9 +330,7 @@
     }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   SCAR TYPE SPECIFIC COLORS
-   ═══════════════════════════════════════════════════════════════════════ */
+
 
 .healing-overlay[data-scar="wilt"] {
     --healing-color: #60a5fa;

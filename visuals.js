@@ -156,11 +156,9 @@ _playSixMinuteZenLoop() {
     const startTime = ctx.currentTime + 0.1;
     const LOOP_LENGTH = 360; // seconds (6 minutes)
 
-    // Deterministic per-season seed so the loop is truly the same each time.
     const seasonIdx = this._getSeasonIndex();
     const rand = this._mulberry32(0xC0FFEE + (seasonIdx | 0) * 1337);
 
-    // D major / B minor-friendly palette (calm, "no wrong notes").
     const SCALE = [62, 64, 66, 69, 71, 74]; // D E F# A B D (upper)
     const CHORDS = [
         [62, 66, 69], // D
@@ -169,7 +167,6 @@ _playSixMinuteZenLoop() {
         [55, 62, 64], // G
     ];
 
-    // Gentle 4-part arc: sparse → bloom → plateau → thin.
     const sectionLen = LOOP_LENGTH / 4; // 90s each
     const densityAt = (sec) => {
         if (sec < sectionLen) return 0.65;
@@ -184,16 +181,14 @@ _playSixMinuteZenLoop() {
     while (t < startTime + LOOP_LENGTH) {
         const chord = CHORDS[chordIndex % CHORDS.length];
 
-        // Pad bed: slow swells, routed through bgFilter/bgMasterGain for consistent level.
         this._playPadChordAt(t, chord, 16, 0.02);
 
-        // Droplets: sparse, gentle, and never percussive-heavy.
         const rel = t - startTime;
         const dens = densityAt(rel);
         const dropletCount = Math.max(2, Math.min(6, Math.floor((3 + rand() * 3) * dens)));
 
         for (let i = 0; i < dropletCount; i++) {
-            // keep droplets away from the exact loop boundary to avoid perceptible "clicks" at restart
+
             const dt = t + 1.5 + rand() * 9.0;
             if (dt > startTime + LOOP_LENGTH - 2.0) continue;
 
@@ -204,12 +199,10 @@ _playSixMinuteZenLoop() {
             this._playPianoDropletAt(dt, note, amp, brightness);
         }
 
-        // Harmonic rhythm: slow enough to feel like breathing.
         t += 12.0;
         chordIndex++;
     }
 
-    // Exact loop restart at 6 minutes.
     const tid = setTimeout(() => {
         if (this.isMusicPlaying) this._playSixMinuteZenLoop();
     }, LOOP_LENGTH * 1000);
@@ -365,7 +358,7 @@ function updateNightMotes(timeOfDay) {
 }
 
 function getMoonPhaseDetailed() {
-    // Continuous lunar phase + illumination (0..1), plus an 8-bucket label/icon for UI.
+
     const now = new Date();
     const knownNewMoon = new Date(Date.UTC(2000, 0, 6, 18, 14, 0)); // reference new moon
     const synodicMonth = 29.53058867 * 24 * 60 * 60 * 1000;
@@ -373,13 +366,10 @@ function getMoonPhaseDetailed() {
     const cycles = (now.getTime() - knownNewMoon.getTime()) / synodicMonth;
     const phaseFrac = cycles - Math.floor(cycles); // 0..1 (0=new, 0.5=full)
 
-    // Illumination fraction (0..1). 0=new, 1=full.
     const illum = (1 - Math.cos(2 * Math.PI * phaseFrac)) / 2;
 
-    // Waxing from new->full, waning from full->new.
     const waxing = phaseFrac < 0.5;
 
-    // Keep the traditional 8-phase label/icon available (doesn't drive the visual anymore).
     const phaseIndex = Math.floor(phaseFrac * 8) % 8;
     const meta = (typeof MOON_PHASES !== 'undefined' && MOON_PHASES[phaseIndex]) ? MOON_PHASES[phaseIndex] : { name: 'Moon', icon: '🌙' };
 
@@ -387,7 +377,7 @@ function getMoonPhaseDetailed() {
 }
 
 function getMoonPhase() {
-    // Backward-compatible helper: returns the 8-phase metadata, with extra fields for display if needed.
+
     const d = getMoonPhaseDetailed();
     return { ...d.meta, illum: d.illum, waxing: d.waxing, phaseFrac: d.phaseFrac, phaseIndex: d.phaseIndex };
 }
@@ -397,8 +387,8 @@ function updateMoonPhase() {
     const me = document.getElementById('moonElement');
 
     if (me) {
-        // Your CSS moon uses a dark disk that translates on X:
-        // positive values put the shadow to the RIGHT (waxing), negative to the LEFT (waning).
+
+
         const sign = d.waxing ? -1 : 1; // flip terminator side
         const shift = Math.max(0, Math.min(100, d.illum * 100));
         me.style.setProperty('--moon-phase', (sign * shift).toFixed(1) + '%');
@@ -407,7 +397,6 @@ function updateMoonPhase() {
     updateSeason();
 }
 
-// Treat "new moon" as very low illumination to avoid label flicker at boundaries.
 function isNewMoon() { return getMoonPhaseDetailed().illum < 0.03; }
 
 function updateSeason() {

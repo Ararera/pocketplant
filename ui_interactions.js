@@ -5,8 +5,7 @@ function updateMenuStats() {
     if (els.menuStage) els.menuStage.textContent = STAGES[state.stage - 1] || 'Seed';
     const ps = getPlantState();
     if (els.menuHealth) { els.menuHealth.textContent = ps.label; els.menuHealth.style.color = ps.color; }
-    
-    // Evolution progress bar and percent
+
     let evolutionPercent = 0;
     if (els.menuProgressBar) {
         if (state.stage < 6) {
@@ -18,14 +17,12 @@ function updateMenuStats() {
             els.menuProgressBar.style.width = '100%';
         }
     }
-    
-    // Update evolution percent display
+
     const evolutionPercentEl = document.getElementById('menuEvolutionPercent');
     if (evolutionPercentEl) {
         evolutionPercentEl.textContent = Math.floor(evolutionPercent) + '%';
     }
-    
-    // Scars - now rendered as interactive buttons
+
     if (els.menuScars && els.menuScarList) {
         if (state.scars && state.scars.length > 0) {
             els.menuScars.style.display = 'block';
@@ -47,8 +44,7 @@ function updateMenuStats() {
             els.menuScars.style.display = 'none';
         }
     }
-    
-    // Inherited traits
+
     if (els.menuInherited && els.menuInheritedList) {
         if (state.inheritedTraits && state.inheritedTraits.length > 0) {
             els.menuInherited.style.display = 'block';
@@ -60,11 +56,9 @@ function updateMenuStats() {
             els.menuInherited.style.display = 'none';
         }
     }
-    
-    // Harvest button visibility
+
     if (els.btnHarvest) els.btnHarvest.classList.toggle('visible', state.stage >= 5);
-    
-    // Lineage list
+
     const lineageSection = document.getElementById('menuLineageSection');
     if (els.greenhouseList) {
         if (state.history && state.history.length > 0) {
@@ -82,8 +76,7 @@ function updateMenuStats() {
             if (lineageSection) lineageSection.style.display = 'none';
         }
     }
-    
-    // Music button state
+
     if (els.btnMusic) {
         els.btnMusic.classList.toggle('active', state.isMusicPlaying);
     }
@@ -122,7 +115,7 @@ function interact(type, e) {
             if (state.isSunLampOn && typeof unlockDiscovery === 'function') unlockDiscovery('first_sun');
             spawnFloatingText(state.isSunLampOn ? "🌙 Moonlight ON" : "🌙 OFF", "#fef9c3");
         }
-        // Use centralized moonbeam update
+
         updateMoonbeam();
         audio.sun(); applyTheme();
         if (state.isRainOn && state.isSunLampOn && typeof unlockDiscovery === 'function') unlockDiscovery('made_rainbow');
@@ -153,32 +146,28 @@ function interact(type, e) {
 
 let _applyThemeTimer = null;
 
-// Global moonbeam update function - ensures moonbeam is in sync with game state
 function updateMoonbeam() {
     const beam = document.getElementById('moonlightBeam');
     if (!beam) return;
-    
-    // Moonbeam should only be active when:
-    // 1. It's nighttime (not daytime)
-    // 2. Sun lamp is on
-    // 3. Sun stat is not at 100 (if sun is maxed, lamp auto-turns off)
+
+
+
+
     const shouldBeActive = !isDaytime() && state.isSunLampOn && state.sun < 100;
     beam.classList.toggle('active', shouldBeActive);
 }
 
-// Make updateMoonbeam globally available
 window.updateMoonbeam = updateMoonbeam;
 
 function applyTheme() {
-    // Cancel pending theme application to prevent rapid-fire calls
+
     if (_applyThemeTimer) {
         clearTimeout(_applyThemeTimer);
     }
     
     _applyThemeTimer = setTimeout(() => {
         _applyThemeTimer = null;
-        
-        // Skip theme updates if a menu overlay is open (prevents flash)
+
         const anyOverlayOpen = document.querySelector('.menu-overlay.open');
         if (anyOverlayOpen) return;
         
@@ -189,8 +178,7 @@ function applyTheme() {
         if (rb) rb.classList.toggle('visible', state.isSunLampOn && state.isRainOn);
         
         audio.toggleRainSound(state.isRainOn);
-        
-        // Use centralized moonbeam update
+
         updateMoonbeam();
         
         const envScene = document.getElementById('environmentScene');
@@ -290,7 +278,6 @@ function attemptSpawnFirefly() {
 
     const base = (state.dna?.fireflyChance || 0.05);
 
-    // Luck + Bloom increase visitation (buffs and active guardians)
     const buffCount = (t) => {
         if (!state.buffs) return 0;
         let c = 0;
@@ -310,25 +297,22 @@ function attemptSpawnFirefly() {
     const luck = buffCount('luck') + guardianCount('luck');
     const bloom = buffCount('bloom') + guardianCount('bloom');
 
-    // Day of week firefly multiplier
     const dayFireflyMult = (typeof window.daySystem !== 'undefined') ? window.daySystem.getFireflySpawnMultiplier() : 1;
 
     const mult = (1 + (0.22 * luck) + (0.18 * bloom)) * dayFireflyMult;
     const chance = Math.min(0.35, base * mult);
 
     if (Math.random() < chance) {
-        // Determine which family to spawn
+
         let familyIdx = Math.floor(Math.random() * FIREFLY_FAMILIES.length);
-        
-        // Pearl firefly bonus on Monday
+
         if (typeof window.daySystem !== 'undefined') {
             const pearlMult = window.daySystem.getPearlFireflyMultiplier();
             if (pearlMult > 1 && Math.random() < (pearlMult - 1)) {
-                // Find Pearl family (index 7, effect 'random')
+
                 familyIdx = 7; // Pearl family
             }
-            
-            // Fashion Friday bonus family
+
             const fashionFamily = window.daySystem.getFashionFridayBonusFamily();
             if (fashionFamily >= 0 && Math.random() < 0.3) {
                 familyIdx = fashionFamily;
@@ -391,8 +375,7 @@ function closePotDesigner() {
         if (_potDesignerSnapshot) {
             const changed = (_potDesignerSnapshot.potColor !== state.potColor) || (_potDesignerSnapshot.potPattern !== state.potPattern) || (_potDesignerSnapshot.potPatternColor !== state.potPatternColor);
             if (changed && typeof unlockDiscovery === 'function') unlockDiscovery('pot_customized');
-            
-            // Check for Fashion Friday bonus
+
             if (changed && typeof window.daySystem !== 'undefined' && window.daySystem.isFriday()) {
                 window.daySystem.checkFashionFriday(_potDesignerSnapshot.potColor, state.potColor);
             }
@@ -561,7 +544,11 @@ function singToPlant() {
     if (Date.now() < state.singCooldownUntil) return;
     state.singCooldownUntil = Date.now() + CONFIG.singCooldown;
     if (typeof unlockDiscovery === 'function') unlockDiscovery('sang_to_plant'); checkSingCooldown();
-    toggleMenu(); spawnFloatingText("🎵 Singing...", "#748ffc");
+
+    if (els.menuOverlay && els.menuOverlay.classList.contains('open')) {
+        toggleMenu();
+    }
+    spawnFloatingText("🎵 Singing...", "#748ffc");
     let needed = STAGE_THRESHOLDS[state.stage] || 1000;
     if (state.stage < 4) needed = STAGE_THRESHOLDS[state.stage + 1] - STAGE_THRESHOLDS[state.stage];
     const boost = needed * 0.1;
@@ -574,7 +561,11 @@ function fertilizePlant() {
     if (Date.now() < state.fertilizeCooldownUntil) return;
     state.fertilizeCooldownUntil = Date.now() + CONFIG.fertilizeCooldown;
     if (typeof unlockDiscovery === 'function') unlockDiscovery('first_fertilize'); checkFertilizeCooldown();
-    toggleMenu(); spawnFloatingText("🌿 Fertilized!", "#795548");
+
+    if (els.menuOverlay && els.menuOverlay.classList.contains('open')) {
+        toggleMenu();
+    }
+    spawnFloatingText("🌿 Fertilized!", "#795548");
     state.growthMultiplier = 2; setTimeout(() => { state.growthMultiplier = 1; }, 60000); state.growth += 50;
 }
 
@@ -591,8 +582,7 @@ function checkSingCooldown() {
             els.btnSing.textContent = '🎵 Sing'; 
         }
     }
-    
-    // Update indicator
+
     const indicator = document.getElementById('singIndicator');
     if (indicator) {
         indicator.classList.toggle('ready', isReady);
@@ -612,8 +602,7 @@ function checkFertilizeCooldown() {
             els.btnFertilize.textContent = '🌿 Fertilize'; 
         }
     }
-    
-    // Update indicator
+
     const indicator = document.getElementById('fertilizeIndicator');
     if (indicator) {
         indicator.classList.toggle('ready', isReady);
@@ -675,19 +664,22 @@ function toggleBackgroundMusic() {
 function toggleMusicLogic() {
     state.isMusicPlaying = !state.isMusicPlaying;
 
-    if (typeof window.forceStopAllAudio === 'function') {
-        window.forceStopAllAudio();
-    }
-
     if (state.isMusicPlaying) { 
         audio.playBackgroundMusic(); 
         if (els.btnMusic) els.btnMusic.classList.add('active'); 
     } else { 
         audio.stopBackgroundMusic(); 
-        // IMPORTANT: Suspend the AudioContext to immediately silence any already-scheduled WebAudio nodes
-        // (the zen loop schedules notes far into the future, and stopping nodes individually can miss some).
+
+
+        if (!state.isRainOn && audio.isRainPlaying) {
+            audio.stopRainSound();
+        }
+
+
         try {
-            if (audio && audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend();
+            if (audio && audio.ctx && audio.ctx.state === 'running') {
+                audio.ctx.suspend();
+            }
         } catch (_) {}
         if (els.btnMusic) els.btnMusic.classList.remove('active'); 
     }
@@ -743,26 +735,26 @@ function releaseFirefly() {
     if (cnt < 1) { spawnFloatingText('No fireflies to release.', null, 'warn'); return; }
     state.fireflies[i] = cnt - 1; state.totalFireflies = Math.max(0, (state.totalFireflies || 0) - 1);
     const f = FIREFLY_FAMILIES[i]; const col = getFireflyColor(i);
-    
-    if (f.effect === 'water') state.buffs.push({ type: 'water', strength: 2, remaining: 15, color: col, familyIndex: i });
-    else if (f.effect === 'sun') state.buffs.push({ type: 'sun', strength: 2, remaining: 15, color: col, familyIndex: i });
-    else if (f.effect === 'love') state.buffs.push({ type: 'love', strength: 2, remaining: 15, color: col, familyIndex: i });
-    else if (f.effect === 'growth') state.buffs.push({ type: 'growth', strength: 5, remaining: 15, color: col, familyIndex: i });
-    else if (f.effect === 'health') state.buffs.push({ type: 'health', strength: 3, remaining: 15, color: col, familyIndex: i });
-    else if (f.effect === 'slow') state.buffs.push({ type: 'slow', strength: 1, remaining: 30, color: col, familyIndex: i });
-    else if (f.effect === 'luck') state.buffs.push({ type: 'luck', strength: 1, remaining: 30, color: col, familyIndex: i });
-    else if (f.effect === 'harmony') state.buffs.push({ type: 'harmony', strength: 1.2, remaining: 30, color: col, familyIndex: i });
-    else if (f.effect === 'bloom') state.buffs.push({ type: 'bloom', strength: 1, remaining: 35, color: col, familyIndex: i });
-    else if (f.effect === 'rejuvenate') state.buffs.push({ type: 'rejuvenate', strength: 1, remaining: 35, color: col, familyIndex: i });
-    else if (f.effect === 'focus') state.buffs.push({ type: 'focus', strength: 1, remaining: 35, color: col, familyIndex: i });
-    else if (f.effect === 'shield') state.buffs.push({ type: 'shield', strength: 1, remaining: 40, color: col, familyIndex: i });
-    else if (f.effect === 'ward') state.buffs.push({ type: 'ward', strength: 1, remaining: 40, color: col, familyIndex: i });
-    else if (f.effect === 'mend') state.buffs.push({ type: 'mend', strength: 1, remaining: 45, color: col, familyIndex: i });
-    else if (f.effect === 'clarity') state.buffs.push({ type: 'clarity', strength: 1, remaining: 45, color: col, familyIndex: i });
+
+    if (f.effect === 'water') state.buffs.push({ type: 'water', strength: 2.5, remaining: 20, color: col, familyIndex: i });
+    else if (f.effect === 'sun') state.buffs.push({ type: 'sun', strength: 2.5, remaining: 20, color: col, familyIndex: i });
+    else if (f.effect === 'love') state.buffs.push({ type: 'love', strength: 2.5, remaining: 20, color: col, familyIndex: i });
+    else if (f.effect === 'growth') state.buffs.push({ type: 'growth', strength: 6, remaining: 20, color: col, familyIndex: i });
+    else if (f.effect === 'health') state.buffs.push({ type: 'health', strength: 4, remaining: 20, color: col, familyIndex: i });
+    else if (f.effect === 'slow') state.buffs.push({ type: 'slow', strength: 1, remaining: 40, color: col, familyIndex: i });
+    else if (f.effect === 'luck') state.buffs.push({ type: 'luck', strength: 1, remaining: 40, color: col, familyIndex: i });
+    else if (f.effect === 'harmony') state.buffs.push({ type: 'harmony', strength: 1.5, remaining: 40, color: col, familyIndex: i });
+    else if (f.effect === 'bloom') state.buffs.push({ type: 'bloom', strength: 1, remaining: 45, color: col, familyIndex: i });
+    else if (f.effect === 'rejuvenate') state.buffs.push({ type: 'rejuvenate', strength: 1, remaining: 45, color: col, familyIndex: i });
+    else if (f.effect === 'focus') state.buffs.push({ type: 'focus', strength: 1, remaining: 45, color: col, familyIndex: i });
+    else if (f.effect === 'shield') state.buffs.push({ type: 'shield', strength: 1, remaining: 50, color: col, familyIndex: i });
+    else if (f.effect === 'ward') state.buffs.push({ type: 'ward', strength: 1, remaining: 50, color: col, familyIndex: i });
+    else if (f.effect === 'mend') state.buffs.push({ type: 'mend', strength: 1, remaining: 55, color: col, familyIndex: i });
+    else if (f.effect === 'clarity') state.buffs.push({ type: 'clarity', strength: 1, remaining: 55, color: col, familyIndex: i });
     else if (f.effect === 'random') { 
         const types = ['water', 'sun', 'love', 'growth', 'health', 'slow', 'luck', 'harmony', 'bloom', 'rejuvenate', 'focus', 'shield', 'ward', 'mend', 'clarity']; 
         const rt = types[Math.floor(Math.random() * types.length)]; 
-        state.buffs.push({ type: rt, strength: 1.5, remaining: 30, color: col, familyIndex: i }); 
+        state.buffs.push({ type: rt, strength: 2, remaining: 40, color: col, familyIndex: i }); 
     }applyBuffVisualFeedback(col);
     
     spawnFloatingText(f.name + ' released! ' + f.desc, col, 'good'); renderFireflyLog(); saveState();
@@ -828,4 +820,15 @@ function activateGuardian(fam, el) {
     const rect = el.getBoundingClientRect(); el.style.animation = 'none'; el.style.left = rect.left + 'px'; el.style.top = rect.top + 'px'; el.style.transform = 'none'; el.offsetHeight; el.classList.add('guardian-tapped'); el.style.pointerEvents = 'none';
     setTimeout(() => { el.classList.remove('guardian-tapped'); el.classList.add('guardian-active'); }, 600);
     setTimeout(() => { el.remove(); activeBigFireflies = activeBigFireflies.filter(x => x !== fam); state.activeGuardians = state.activeGuardians.filter(x => x !== fam); saveState(); }, 59000);
+}
+
+function openPrivacy() {
+    if (els.menuOverlay) els.menuOverlay.classList.remove('open');
+    if (els.privacyOverlay) els.privacyOverlay.classList.add('open');
+    pushHistoryState();
+}
+
+function closePrivacy() {
+    if (els.privacyOverlay) els.privacyOverlay.classList.remove('open');
+    if (els.menuOverlay) els.menuOverlay.classList.add('open');
 }

@@ -1,7 +1,4 @@
-/**
- * Garden of Time (GoT) - A browsable collection of memories
- * Displays fireflies, ascended plants, and discoveries as flippable index cards
- */
+
 
 const GOT = {
     isOpen: false,
@@ -10,13 +7,12 @@ const GOT = {
     touchStartX: 0,
     touchStartY: 0,
 
-    // Tracks which lore lines have already been shown this session (to avoid repeats)
     usedLore: {
         fireflies: new Set(),
         discoveries: new Set(),
         plants: new Set()
     },
-    // Firefly fun facts and lore
+
     fireflyFacts: {
         0: [
             "Ember fireflies carry a cozy warmth in their light.",
@@ -84,7 +80,6 @@ const GOT = {
         ]
     },
 
-    // Color descriptions for fireflies
     fireflyColorDescriptions: {
         0: "Warm orange-red, like embers in a hearth",
         1: "Bright golden yellow, like crystallized sunshine",
@@ -104,8 +99,6 @@ const GOT = {
         15: "Warm crystal-white with peach highlights"
     },
 
-
-    // Unique footer quotes for each family
     fireflyQuotes: {
         0: "A small warmth that refuses to go out.",
         1: "Sunlight remembered after the day is gone.",
@@ -125,8 +118,6 @@ const GOT = {
         15: "Clarity makes the fragile steady."
     },
 
-
-    // Discovery unlock stories
     discoveryStories: {
         'first_water': "You learned that even the smallest rain shower can bring tremendous relief. Your plant's first drink was a moment of pure joy.",
         'first_sun': "The moment you gave your plant light, you could almost see it stretch toward the warmth. A simple gift with profound effects.",
@@ -146,15 +137,13 @@ const GOT = {
         'sang_to_plant': "Science may debate it, but you know the truth: your plant heard you, and it grew a little taller.",
         'scar_healed': "Scars tell stories, but they don't have to define us. You helped your plant move past its wounds."
     },
-    
-    // Initialize the Garden of Time
+
     init() {
         this.normalizeAndDedupeLore();
         this.createOverlay();
         this.bindEvents();
     },
-    
-    // Create the main overlay HTML
+
     createOverlay() {
         const overlay = document.createElement('div');
         overlay.id = 'gotOverlay';
@@ -165,6 +154,29 @@ const GOT = {
                     <button class="got-close" onclick="GOT.close()" aria-label="Close">×</button>
                     <h1 class="got-title">Garden of Time</h1>
                     <p class="got-subtitle">Memories preserved in amber light</p>
+                </div>
+                
+                <!-- Player Identity Card -->
+                <div class="got-identity-card" id="gotIdentityCard">
+                    <div class="got-identity-glow"></div>
+                    <div class="got-identity-content">
+                        <div class="got-identity-label">You are known as</div>
+                        <div class="got-identity-name" id="gotPlayerName">Wandering Gardener</div>
+                        <div class="got-identity-stats">
+                            <div class="got-identity-stat">
+                                <span class="got-identity-stat-value" id="gotTotalGenerations">0</span>
+                                <span class="got-identity-stat-label">Generations</span>
+                            </div>
+                            <div class="got-identity-stat">
+                                <span class="got-identity-stat-value" id="gotTotalFireflies">0</span>
+                                <span class="got-identity-stat-label">Fireflies</span>
+                            </div>
+                            <div class="got-identity-stat">
+                                <span class="got-identity-stat-value" id="gotTotalDiscoveries">0</span>
+                                <span class="got-identity-stat-label">Discoveries</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="got-tabs">
@@ -211,8 +223,7 @@ const GOT = {
         `;
         document.body.appendChild(overlay);
     },
-    
-    // Bind touch/swipe events
+
     bindEvents() {
         const stack = document.getElementById('gotCardStack');
         if (!stack) return;
@@ -231,8 +242,7 @@ const GOT = {
                 else this.nextCard();
             }
         }, { passive: true });
-        
-        // Keyboard navigation
+
         document.addEventListener('keydown', (e) => {
             if (!this.isOpen) return;
             if (e.key === 'ArrowLeft') this.prevCard();
@@ -240,8 +250,7 @@ const GOT = {
             else if (e.key === 'Escape') this.close();
         });
     },
-    
-    // Open the Garden of Time
+
     open() {
         this.isOpen = true;
         this.currentIndex = 0;
@@ -249,36 +258,88 @@ const GOT = {
         const overlay = document.getElementById('gotOverlay');
         if (overlay) {
             overlay.classList.add('open');
+            this.updateIdentityCard();
             this.render();
         }
-        // Close the menu if it's open
+
         const menuOverlay = document.getElementById('menuOverlay');
         if (menuOverlay) menuOverlay.classList.remove('open');
         
         if (typeof pushHistoryState === 'function') pushHistoryState();
     },
-    
-    // Close the Garden of Time
+
+    updateIdentityCard() {
+
+        let playerName = 'Wandering Gardener';
+        try {
+            const cgData = localStorage.getItem('pocketSprout_communityGarden');
+            if (cgData) {
+                const parsed = JSON.parse(cgData);
+                if (parsed.username) playerName = parsed.username;
+            }
+        } catch (e) {}
+
+        if (playerName === 'Wandering Gardener') {
+            playerName = this.generateGardenerName();
+            try {
+                const cgData = localStorage.getItem('pocketSprout_communityGarden');
+                const parsed = cgData ? JSON.parse(cgData) : {};
+                parsed.username = playerName;
+                localStorage.setItem('pocketSprout_communityGarden', JSON.stringify(parsed));
+            } catch (e) {}
+        }
+        
+        const nameEl = document.getElementById('gotPlayerName');
+        if (nameEl) nameEl.textContent = playerName;
+
+        const totalGenerations = (state.history ? state.history.length : 0) + 1; // +1 for current
+        const totalFireflies = state.totalFireflies || 0;
+        const totalDiscoveries = state.discoveries ? Object.keys(state.discoveries).filter(k => state.discoveries[k]).length : 0;
+        
+        const genEl = document.getElementById('gotTotalGenerations');
+        const ffEl = document.getElementById('gotTotalFireflies');
+        const discEl = document.getElementById('gotTotalDiscoveries');
+        
+        if (genEl) genEl.textContent = totalGenerations;
+        if (ffEl) ffEl.textContent = totalFireflies;
+        if (discEl) discEl.textContent = totalDiscoveries;
+    },
+
+    generateGardenerName() {
+        const adjectives = [
+            'Happy', 'Sleepy', 'Bouncy', 'Cosmic', 'Fluffy', 'Green', 'Sunny', 
+            'Misty', 'Quiet', 'Lucky', 'Wandering', 'Gentle', 'Wiggly', 'Cheery', 
+            'Drowsy', 'Radiant', 'Dusty', 'Golden', 'Silver', 'Tiny', 'Giant',
+            'Dreamy', 'Peaceful', 'Curious', 'Whimsical', 'Serene', 'Cozy'
+        ];
+        const nouns = [
+            'Sprout', 'Leaf', 'Fern', 'Moss', 'Root', 'Seed', 'Bud', 'Bloom', 
+            'Petal', 'Twig', 'Gardener', 'Spirit', 'Turnip', 'Potato', 'Radish', 
+            'Tulip', 'Cactus', 'Vine', 'Sapling', 'Friend', 'Keeper', 'Tender'
+        ];
+        
+        const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+        const noun = nouns[Math.floor(Math.random() * nouns.length)];
+        return `${adj} ${noun}`;
+    },
+
     close() {
         this.isOpen = false;
         const overlay = document.getElementById('gotOverlay');
         if (overlay) overlay.classList.remove('open');
     },
-    
-    // Switch between sections
+
     switchSection(section) {
         this.currentSection = section;
         this.currentIndex = 0;
-        
-        // Update tab styling
+
         document.querySelectorAll('.got-tab').forEach(tab => {
             tab.classList.toggle('active', tab.dataset.section === section);
         });
         
         this.render();
     },
-    
-    // Get data for current section
+
     getData() {
         switch (this.currentSection) {
             case 'plants':
@@ -291,8 +352,7 @@ const GOT = {
                 return [];
         }
     },
-    
-    // Build firefly card data
+
     getFireflyData() {
         if (typeof FIREFLY_FAMILIES === 'undefined') return [];
         
@@ -303,15 +363,13 @@ const GOT = {
             hasGuardian: typeof hasGuardian === 'function' ? hasGuardian(index) : false
         })).filter(f => f.count > 0 || f.hasGuardian);
     },
-    
-    // Build discovery card data
+
     getDiscoveryData() {
         if (!state.discoveries || typeof DISCOVERIES === 'undefined') return [];
         
         return DISCOVERIES.filter(d => state.discoveries.includes(d.id));
     },
-    
-    // Main render function
+
     render() {
         const data = this.getData();
         const stack = document.getElementById('gotCardStack');
@@ -334,37 +392,30 @@ const GOT = {
         document.querySelector('.got-nav-next')?.style.setProperty('display', '');
         pagination.style.display = 'flex';
         empty.style.display = 'none';
-        
-        // Clamp index
+
         this.currentIndex = Math.max(0, Math.min(this.currentIndex, data.length - 1));
-        
-        // Render the current card
+
         stack.innerHTML = this.renderCard(data[this.currentIndex], this.currentIndex);
-        
-        // Render pagination dots
+
         pagination.innerHTML = data.map((_, i) => 
             `<span class="got-dot${i === this.currentIndex ? ' active' : ''}" onclick="GOT.goToCard(${i})"></span>`
         ).join('');
-        
-        // Update nav button states
+
         const prevBtn = document.querySelector('.got-nav-prev');
         const nextBtn = document.querySelector('.got-nav-next');
         if (prevBtn) prevBtn.classList.toggle('disabled', this.currentIndex === 0);
         if (nextBtn) nextBtn.classList.toggle('disabled', this.currentIndex === data.length - 1);
-        
-        // Animate card entrance
+
         requestAnimationFrame(() => {
             const card = stack.querySelector('.got-card');
             if (card) card.classList.add('visible');
         });
 
-        // FIX: Ensure plant SVG is rendered immediately if in plants section
         if (this.currentSection === 'plants') {
             this.renderPlantSVG();
         }
     },
-    
-    // Render a single card based on section type
+
     renderCard(item, index) {
         switch (this.currentSection) {
             case 'plants':
@@ -377,24 +428,20 @@ const GOT = {
                 return '';
         }
     },
-    
-    // Render an ascended plant card
+
     renderPlantCard(plant, index) {
         const dna = plant.dna || {};
         const scars = plant.scars || [];
-        
-        // Build feature descriptions
+
         const features = [];
-        
-        // Stem features
+
         if (dna.stemTexture && dna.stemTexture !== 'smooth') {
             features.push(`${this.capitalize(dna.stemTexture)} stem`);
         }
         if (dna.stemSurface && dna.stemSurface !== 'none') {
             features.push(`${this.capitalize(dna.stemSurface)} on stem`);
         }
-        
-        // Leaf features
+
         if (dna.leafShape) {
             features.push(`${this.capitalize(dna.leafShape)} leaves`);
         }
@@ -404,16 +451,14 @@ const GOT = {
         if (dna.leafVariegation && dna.leafVariegation > 0.1) {
             features.push('Variegated foliage');
         }
-        
-        // Flower features
+
         if (dna.flowerType) {
             features.push(`${this.capitalize(dna.flowerType)} flower`);
         }
         if (dna.petalCount) {
             features.push(`${dna.petalCount} petals`);
         }
-        
-        // Scars
+
         const scarLabels = {
             'wilt': 'Weathered by thirst',
             'bend': 'Shaped by hardship',
@@ -422,15 +467,12 @@ const GOT = {
         };
         
         const scarDescriptions = scars.map(s => scarLabels[s] || s).filter(Boolean);
-        
-        // Stats
+
         const stage = (typeof STAGES !== 'undefined' && STAGES[plant.stage - 1]) || `Stage ${plant.stage}`;
-        
-        // Color info
+
         const stemColor = `hsl(${dna.colorH || 120}, ${dna.colorS || 50}%, ${dna.colorL || 40}%)`;
         const flowerColor = dna.flowerColor || `hsl(${dna.flowerH || 0}, ${dna.flowerS || 70}%, ${dna.flowerL || 60}%)`;
-        
-        // Pot Info
+
         const potColor = plant.potColor || '#e07a5f';
         const potPattern = plant.potPattern && plant.potPattern !== 'patNone' ? plant.potPattern : null;
 
@@ -510,8 +552,7 @@ const GOT = {
             </div>
         `;
     },
-    
-    // Render a firefly card
+
     renderFireflyCard(data) {
         const family = data.family;
         const index = data.index;
@@ -525,8 +566,7 @@ const GOT = {
         const colorDesc = this.fireflyColorDescriptions[index] || 'A beautiful, mysterious glow';
         const facts = this.fireflyFacts[index] || [];
         const randomFact = this.pickUniqueLoreLine('fireflies', facts, `${family.name} fireflies are easiest to spot when the garden is perfectly still.`);
-        
-        // Fetch specific quote or fallback
+
         const quote = this.fireflyQuotes[index] || `${family.name} fireflies remember every garden they've visited.`;
         
         const totalFireflies = this.getFireflyData().length;
@@ -577,8 +617,7 @@ const GOT = {
             </div>
         `;
     },
-    
-    // Render a discovery card
+
     renderDiscoveryCard(discovery) {
         const storyBase = this.discoveryStories[discovery.id] || 'A moment worth remembering.';
         const story = this.pickUniqueLoreLine('discoveries', [storyBase], storyBase);
@@ -614,8 +653,7 @@ const GOT = {
             </div>
         `;
     },
-    
-    // Navigation
+
     nextCard() {
         const data = this.getData();
         if (this.currentIndex < data.length - 1) {
@@ -639,8 +677,7 @@ const GOT = {
             this.animateCardTransition(direction);
         }
     },
-    
-    // Animate card transitions
+
     animateCardTransition(direction) {
         const stack = document.getElementById('gotCardStack');
         if (!stack) return;
@@ -652,15 +689,13 @@ const GOT = {
         
         setTimeout(() => {
             this.render();
-            
-            // Render plant SVG if needed
+
             if (this.currentSection === 'plants') {
                 this.renderPlantSVG();
             }
         }, 150);
     },
-    
-    // Render the plant SVG for plant cards
+
     renderPlantSVG() {
         const data = this.getData();
         if (data.length === 0) return;
@@ -670,18 +705,16 @@ const GOT = {
         
         if (typeof renderPlant === 'function' && plant.dna) {
             setTimeout(() => {
-                // Ensure the SVG container exists before trying to render
+
                 if (document.getElementById(groupId)) {
                     renderPlant(groupId, plant.dna, plant.stage, plant.scars || []);
                 }
             }, 50);
         }
     },
-    
 
-// Lore uniqueness + dedupe helpers
 resetLoreSession() {
-    // Fresh session each time the overlay opens
+
     this.usedLore.fireflies = new Set();
     this.usedLore.discoveries = new Set();
     this.usedLore.plants = new Set();
@@ -695,11 +728,10 @@ normalizeLoreLine(str) {
 },
 
 normalizeAndDedupeLore() {
-    // Enforce: no duplicate lore lines across firefly families and other entries.
-    // We keep the first occurrence and remove later duplicates.
+
+
     const seen = new Set();
 
-    // Firefly facts (across ALL families)
     if (this.fireflyFacts && typeof this.fireflyFacts === 'object') {
         Object.keys(this.fireflyFacts).forEach((k) => {
             const arr = Array.isArray(this.fireflyFacts[k]) ? this.fireflyFacts[k] : [];
@@ -715,14 +747,13 @@ normalizeAndDedupeLore() {
         });
     }
 
-    // Quotes
     if (this.fireflyQuotes && typeof this.fireflyQuotes === 'object') {
         Object.keys(this.fireflyQuotes).forEach((k) => {
             const line = this.fireflyQuotes[k];
             const key = this.normalizeLoreLine(line);
             if (!key) return;
             if (seen.has(key)) {
-                // If a quote duplicates something else, give it a family-specific twist
+
                 this.fireflyQuotes[k] = `${line} (${(this.getFireflyFamilyNameSafe && this.getFireflyFamilyNameSafe(k)) || 'A family'}.)`;
             } else {
                 seen.add(key);
@@ -730,7 +761,6 @@ normalizeAndDedupeLore() {
         });
     }
 
-    // Discovery stories
     if (this.discoveryStories && typeof this.discoveryStories === 'object') {
         Object.keys(this.discoveryStories).forEach((k) => {
             const line = this.discoveryStories[k];
@@ -755,7 +785,7 @@ getFireflyFamilyNameSafe(index) {
 pickUniqueLoreLine(bucket, candidates, fallback) {
     const set = this.usedLore[bucket] || (this.usedLore[bucket] = new Set());
     const list = Array.isArray(candidates) ? candidates : [];
-    // Try a few random draws first
+
     for (let tries = 0; tries < Math.min(10, list.length); tries++) {
         const line = list[Math.floor(Math.random() * list.length)];
         const key = this.normalizeLoreLine(line);
@@ -764,7 +794,7 @@ pickUniqueLoreLine(bucket, candidates, fallback) {
         set.add(key);
         return line;
     }
-    // Deterministic fallback: first unseen
+
     for (const line of list) {
         const key = this.normalizeLoreLine(line);
         if (!key) continue;
@@ -772,14 +802,13 @@ pickUniqueLoreLine(bucket, candidates, fallback) {
         set.add(key);
         return line;
     }
-    // If everything is exhausted, return a bucket-specific fallback that will still be unique in practice
+
     const fb = fallback || 'A quiet truth of the garden.';
     const fbKey = this.normalizeLoreLine(fb);
     if (!set.has(fbKey)) set.add(fbKey);
     return fb;
 },
 
-    // Utility functions
     capitalize(str) {
         if (!str) return '';
         return str.charAt(0).toUpperCase() + str.slice(1);
@@ -793,14 +822,12 @@ pickUniqueLoreLine(bucket, candidates, fallback) {
     }
 };
 
-// Initialize when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => GOT.init());
 } else {
     GOT.init();
 }
 
-// Export for global access
 window.GOT = GOT;
 window.openGardenOfTime = () => GOT.open();
 window.closeGardenOfTime = () => GOT.close();

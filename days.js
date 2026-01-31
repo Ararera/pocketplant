@@ -1,14 +1,10 @@
-/**
- * Day of the Week System for Pocket Sprout
- * Each day brings unique bonuses and special features
- */
+
 
 (function() {
     'use strict';
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // DAY DEFINITIONS
-    // ═══════════════════════════════════════════════════════════════════════
+
+
     
     const DAYS_OF_WEEK = Object.freeze({
         0: {
@@ -88,7 +84,6 @@
         }
     });
 
-    // Wisdom messages for Wisdom Wednesday
     const WISDOM_MESSAGES = Object.freeze([
         "Growth is not always visible, but it is always happening.",
         "The strongest roots are formed in patient soil.",
@@ -112,7 +107,6 @@
         "The journey of a thousand blooms begins with one bud."
     ]);
 
-    // Snail dialog options
     const SNAIL_DIALOGS = {
         greeting: [
             "A weathered snail emerges from behind the pot, leaving a faint silvery trail...",
@@ -163,9 +157,8 @@
         ]
     };
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // DAY STATE
-    // ═══════════════════════════════════════════════════════════════════════
+
+
     
     const dayState = {
         currentDay: new Date().getDay(),
@@ -181,9 +174,8 @@
         wisdomMessageIndex: -1
     };
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // CORE FUNCTIONS
-    // ═══════════════════════════════════════════════════════════════════════
+
+
     
     function getCurrentDay() {
         return new Date().getDay();
@@ -210,7 +202,6 @@
         return getCurrentDay() === dayNum;
     }
 
-    // Convenience checks
     function isSunDay() { return isDayOfWeek(0); }
     function isMoonDay() { return isDayOfWeek(1); }
     function isTuesday() { return isDayOfWeek(2); }
@@ -219,22 +210,17 @@
     function isFriday() { return isDayOfWeek(5); }
     function isSaturday() { return isDayOfWeek(6); }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // MODIFIER CALCULATIONS
-    // ═══════════════════════════════════════════════════════════════════════
+
+
     
-    /**
-     * Get sun recovery multiplier based on day
-     */
+    
     function getSunRecoveryMultiplier() {
         if (isSunDay()) return 2.0;
         if (isMoonDay() && typeof isDaytime === 'function' && !isDaytime()) return 2.0;
         return 1.0;
     }
 
-    /**
-     * Get water decay multiplier (lower = slower decay)
-     */
+    
     function getWaterDecayMultiplier() {
         if (isWednesday()) return 0.5; // Water retained 2x longer
         if (isThursday()) return 1.15; // Slightly faster thirst
@@ -242,33 +228,25 @@
         return 1.0;
     }
 
-    /**
-     * Get sun decay multiplier
-     */
+    
     function getSunDecayMultiplier() {
         if (isSaturday()) return 0.85;
         return 1.0;
     }
 
-    /**
-     * Get love decay multiplier
-     */
+    
     function getLoveDecayMultiplier() {
         if (isSaturday()) return 0.85;
         return 1.0;
     }
 
-    /**
-     * Get fertilizer duration multiplier
-     */
+    
     function getFertilizerDurationMultiplier() {
         if (isTuesday()) return 2.0;
         return 1.0;
     }
 
-    /**
-     * Get firefly spawn multiplier
-     */
+    
     function getFireflySpawnMultiplier() {
         let mult = 1.0;
         if (isFriday()) mult *= 1.5;
@@ -281,22 +259,16 @@
         return mult;
     }
 
-    /**
-     * Get Pearl firefly spawn multiplier (for Monday)
-     */
+    
     function getPearlFireflyMultiplier() {
         if (isMoonDay()) return 1.5;
         return 1.0;
     }
 
-    /**
-     * Check if pot color matches a firefly family
-     * Returns the family index if matched, -1 otherwise
-     */
+    
     function getMatchingFireflyFamily(potColor) {
         if (!potColor || typeof FIREFLY_FAMILIES === 'undefined') return -1;
-        
-        // Parse pot color to get hue
+
         let potHue = -1;
         if (potColor.startsWith('hsl')) {
             const match = potColor.match(/hsl\((\d+)/);
@@ -307,7 +279,6 @@
         
         if (potHue < 0) return -1;
 
-        // Find closest firefly family by hue
         let closestIdx = -1;
         let closestDiff = 360;
         
@@ -347,14 +318,12 @@
         return Math.round(h * 360);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // TUESDAY GROWTH RITUAL
-    // ═══════════════════════════════════════════════════════════════════════
+
+
     
     function canPerformGrowthRitual() {
         if (!isTuesday()) return false;
-        
-        // Reset counter if it's a new Tuesday
+
         const today = new Date().toDateString();
         if (dayState.lastTuesdayReset !== today) {
             dayState.tuesdayRitualsUsed = 0;
@@ -380,14 +349,12 @@
             }
             return false;
         }
-        
-        // Close any open menus
+
         const menuOverlay = document.getElementById('menuOverlay');
         if (menuOverlay) menuOverlay.classList.remove('open');
-        
-        // Start the wilt healing mini-game with special reward callback
+
         if (typeof window.beginHealing === 'function') {
-            // Store that this is a growth ritual, not a real scar healing
+
             dayState.isGrowthRitual = true;
             window.beginHealing('wilt');
             return true;
@@ -401,8 +368,7 @@
         
         dayState.isGrowthRitual = false;
         dayState.tuesdayRitualsUsed++;
-        
-        // Apply growth ritual bonuses
+
         if (typeof state !== 'undefined') {
             state.water = Math.min(100, state.water + 25);
             state.growth += 150;
@@ -416,14 +382,12 @@
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // WISDOM WEDNESDAY
-    // ═══════════════════════════════════════════════════════════════════════
+
+
     
     function getWisdomMessage() {
         if (!isWednesday()) return null;
-        
-        // Get a deterministic but varying message based on the date
+
         const today = new Date();
         const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
         const index = dayOfYear % WISDOM_MESSAGES.length;
@@ -431,15 +395,13 @@
         return WISDOM_MESSAGES[index];
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // FASHION FRIDAY
-    // ═══════════════════════════════════════════════════════════════════════
+
+
     
     function checkFashionFriday(oldPotColor, newPotColor) {
         if (!isFriday()) return;
         if (oldPotColor === newPotColor) return;
-        
-        // Unlock fashion discovery
+
         if (typeof unlockDiscovery === 'function') {
             unlockDiscovery('fashion_friday');
         }
@@ -447,8 +409,7 @@
         if (typeof spawnFloatingText === 'function') {
             spawnFloatingText('✨ Fashion Friday style unlocked!', '#f472b6', 'good');
         }
-        
-        // Find matching firefly family
+
         const matchIdx = getMatchingFireflyFamily(newPotColor);
         if (matchIdx >= 0 && typeof FIREFLY_FAMILIES !== 'undefined') {
             dayState.fashionFridayMatchedFamily = matchIdx;
@@ -466,17 +427,15 @@
         return dayState.fashionFridayMatchedFamily ?? -1;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // SATURDAY SNAIL
-    // ═══════════════════════════════════════════════════════════════════════
+
+
     
     function shouldShowSnail() {
         if (!isSaturday()) return false;
         
         const today = new Date().toDateString();
         if (dayState.lastSnailDay === today && dayState.snailInteracted) return false;
-        
-        // Reset for new Saturday
+
         if (dayState.lastSnailDay !== today) {
             dayState.snailInteracted = false;
             dayState.lastSnailDay = today;
@@ -509,8 +468,7 @@
         } else {
             document.body.appendChild(snail);
         }
-        
-        // Animate in after a moment
+
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 snail.classList.add('visible');
@@ -529,7 +487,7 @@
     }
 
     function openSnailDialog() {
-        // Close any open menus
+
         const menuOverlay = document.getElementById('menuOverlay');
         if (menuOverlay) menuOverlay.classList.remove('open');
         
@@ -615,8 +573,7 @@
             }
             return;
         }
-        
-        // Deduct fireflies (spread across families)
+
         let remaining = cost;
         for (let i = 0; i < 16 && remaining > 0; i++) {
             const have = state.fireflies[i] || 0;
@@ -627,8 +584,7 @@
             }
         }
         state.totalFireflies = Math.max(0, (state.totalFireflies || 0) - cost);
-        
-        // Apply the offer
+
         switch (offerId) {
             case 'heal_scar':
                 if (state.scars && state.scars.length > 0) {
@@ -660,7 +616,7 @@
                 
             case 'attract_fireflies':
                 dayState.fireflyBeaconActive = true;
-                // Expires at midnight
+
                 const tomorrow = new Date();
                 tomorrow.setHours(24, 0, 0, 0);
                 dayState.fireflyBeaconExpires = tomorrow.getTime();
@@ -690,8 +646,7 @@
         }
         
         if (typeof saveState === 'function') saveState();
-        
-        // Show farewell and close
+
         const farewell = SNAIL_DIALOGS.farewell[Math.floor(Math.random() * SNAIL_DIALOGS.farewell.length)];
         const greeting = document.getElementById('snailGreeting');
         const offers = document.getElementById('snailOffers');
@@ -705,9 +660,8 @@
         }, 2500);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // UI UPDATES
-    // ═══════════════════════════════════════════════════════════════════════
+
+
     
     function createGrowthRitualButton() {
         if (!isTuesday()) {
@@ -758,9 +712,8 @@
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // INITIALIZATION & DAY CHANGE HANDLING
-    // ═══════════════════════════════════════════════════════════════════════
+
+
     
     function checkDayChange() {
         const currentDay = getCurrentDay();
@@ -772,15 +725,14 @@
     }
 
     function onDayChanged() {
-        // Reset daily state
+
         dayState.tuesdayRitualsUsed = 0;
         dayState.snailInteracted = false;
         dayState.fashionFridayStyleChanged = false;
         dayState.fashionFridayMatchedFamily = -1;
         dayState.fireflyBeaconActive = false;
         dayState.fireflyBeaconExpires = null;
-        
-        // Handle day-specific elements
+
         if (isTuesday()) {
             createGrowthRitualButton();
         } else {
@@ -792,8 +744,7 @@
         } else {
             removeSnailElement();
         }
-        
-        // Notify player of the new day
+
         if (typeof spawnFloatingText === 'function') {
             const info = getDayInfo();
             spawnFloatingText(`${info.icon} ${info.name}`, info.color, 'info');
@@ -802,8 +753,7 @@
 
     function initDaySystem() {
         console.log('[DaySystem] Initializing day of week system...');
-        
-        // Load saved day state
+
         try {
             const saved = localStorage.getItem('pocketSprout_dayState');
             if (saved) {
@@ -813,11 +763,9 @@
         } catch (e) {
             console.warn('[DaySystem] Could not load day state', e);
         }
-        
-        // Check for day changes
+
         checkDayChange();
-        
-        // Setup day-specific elements
+
         if (isTuesday()) {
             createGrowthRitualButton();
         }
@@ -825,11 +773,9 @@
         if (isSaturday()) {
             setTimeout(createSnailElement, 3000);
         }
-        
-        // Check for day changes periodically
+
         setInterval(checkDayChange, 60000);
-        
-        // Save day state periodically
+
         setInterval(saveDayState, 30000);
         
         console.log('[DaySystem] Day system initialized. Today is ' + getDayName());
@@ -843,9 +789,8 @@
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // EXPORT TO GLOBAL SCOPE
-    // ═══════════════════════════════════════════════════════════════════════
+
+
     
     window.daySystem = {
         getCurrentDay,
@@ -887,11 +832,9 @@
         WISDOM_MESSAGES,
         dayState
     };
-    
-    // Expose close function globally for onclick
+
     window.closeSnailDialog = closeSnailDialog;
 
-    // Initialize when DOM is ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => setTimeout(initDaySystem, 600));
     } else {
