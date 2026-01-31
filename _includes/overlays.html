@@ -1,67 +1,136 @@
 <div class="menu-overlay" id="menuOverlay">
     <div class="menu-card">
-        <div class="menu-title">Pocket Sprout <span class="version-tag">v1.2</span></div>
-        
-        <div class="menu-tabs">
-            <button class="menu-tab active" data-tab="care" onclick="switchMenuTab('care')">Care</button>
-            <button class="menu-tab" data-tab="collect" onclick="switchMenuTab('collect')">Collect</button>
-            <button class="menu-tab" data-tab="info" onclick="switchMenuTab('info')">Info</button>
+        <div class="menu-header">
+            <div class="menu-title">Pocket Sprout <span class="version-tag">v1.2</span></div>
+            <button class="menu-close-x" onclick="toggleMenu()" aria-label="Close menu">×</button>
         </div>
         
-        <div class="menu-tab-content active" id="tabCare">
+        <!-- Plant Identity Section -->
+        <div class="menu-section menu-identity">
             <input type="text" id="nameInput" class="name-input" placeholder="Name your plant" maxlength="16" onchange="updateName(this.value)">
-            
-            <div class="active-modifiers" id="activeModifiers">
-                <div class="modifier-label">Active Effects</div>
-                <div class="modifier-list" id="modifierList"></div>
-            </div>
-            
-            <div class="menu-stat"><span>🌱 Generation</span><span id="menuGen">1</span></div>
-            <div class="menu-stat"><span>⏳ Age</span><span id="menuAge">1 Day</span></div>
-            <div class="menu-stat"><span>🌿 Stage</span><span id="menuStage">Sprout</span></div>
-            <div class="menu-stat"><span>❤️ Health</span><span id="menuHealth" style="color:var(--accent-growth)">Thriving</span></div>
-            
-            <div class="growth-wrapper">
-                <span class="growth-label">Evolution Progress</span>
-                <div class="progress-container">
-                    <div class="progress-bar" id="menuProgressBar"></div>
+            <div class="identity-stats">
+                <div class="identity-stat">
+                    <span class="identity-label">Gen</span>
+                    <span class="identity-value" id="menuGen">1</span>
+                </div>
+                <div class="identity-stat">
+                    <span class="identity-label">Age</span>
+                    <span class="identity-value" id="menuAge">1 Day</span>
+                </div>
+                <div class="identity-stat">
+                    <span class="identity-label">Stage</span>
+                    <span class="identity-value" id="menuStage">Sprout</span>
+                </div>
+                <div class="identity-stat">
+                    <span class="identity-label">Health</span>
+                    <span class="identity-value" id="menuHealth" style="color:var(--accent-growth)">Thriving</span>
                 </div>
             </div>
-            
-            <div class="menu-stat" id="menuScars" style="display:none; margin-top:12px;">
-                <span>🩹 Scars</span><span id="menuScarList" style="color:#fb923c; font-size:0.75rem;"></span>
-            </div>
-            
-            <button class="btn-base harvest-btn" id="btnHarvest" onclick="harvestPlant()">🌸 Ascend & Harvest</button>
-            <button class="btn-base sing-btn" id="btnSing" onclick="singToPlant()">🎵 Sing to Plant</button>
-            <button class="btn-base fertilize-btn" id="btnFertilize" onclick="fertilizePlant()">🌿 Fertilize</button>
         </div>
-
-        <div class="menu-tab-content" id="tabCollect">
-            <button class="btn-base got-btn" onclick="openGardenOfTime()">🕰️ Garden of Time</button>
-            <button class="btn-base community-btn" onclick="openCommunityGarden()">🌳 Community             Garden</button>
-            <button class="btn-base firefly-btn" onclick="openFireflyLog()">🦋 Firefly Sanctuary</button>
-            <button class="btn-base" onclick="openDiscoveries()">✨ Discoveries</button>
-            <button class="btn-base style-btn" onclick="openPotDesigner()">🎨 Customize Pot</button>
-            
+        
+        <!-- Active Effects (conditional) -->
+        <div class="menu-section active-modifiers" id="activeModifiers">
+            <div class="modifier-label">Active Effects</div>
+            <div class="modifier-list" id="modifierList"></div>
+        </div>
+        
+        <!-- Scars Section (conditional) -->
+        <div class="menu-section menu-scars" id="menuScars" style="display:none;">
+            <div class="scar-label">🩹 Scars</div>
+            <div class="scar-list" id="menuScarList"></div>
+            <div class="scar-hint">Tap a scar to begin healing</div>
+        </div>
+        
+        <!-- Evolution Progress -->
+        <div class="menu-section menu-evolution">
+            <div class="evolution-header">
+                <span class="evolution-label">Evolution Progress</span>
+                <span class="evolution-percent" id="menuEvolutionPercent"></span>
+            </div>
+            <div class="progress-container">
+                <div class="progress-bar" id="menuProgressBar"></div>
+            </div>
+        </div>
+        
+        <!-- Primary Actions -->
+        <div class="menu-section menu-actions-primary">
+            <button class="btn-base harvest-btn" id="btnHarvest" onclick="harvestPlant()">🌸 Ascend & Harvest</button>
+            <div class="action-row">
+                <button class="btn-base sing-btn btn-half" id="btnSing" onclick="singToPlant()">🎵 Sing</button>
+                <button class="btn-base fertilize-btn btn-half" id="btnFertilize" onclick="fertilizePlant()">🌿 Fertilize</button>
+            </div>
+        </div>
+        
+        <!-- Collections Grid -->
+        <div class="menu-section menu-collections">
+            <div class="menu-section-title">Collections</div>
+            <div class="collection-grid">
+                <button class="collection-btn" onclick="openFireflyLog()">
+                    <span class="collection-icon">🦋</span>
+                    <span class="collection-name">Fireflies</span>
+                </button>
+                <button class="collection-btn" onclick="openGardenOfTime()">
+                    <span class="collection-icon">🕰️</span>
+                    <span class="collection-name">Garden</span>
+                </button>
+                <button class="collection-btn" onclick="openDiscoveries()">
+                    <span class="collection-icon">✨</span>
+                    <span class="collection-name">Discoveries</span>
+                </button>
+                <button class="collection-btn" onclick="openPotDesigner()">
+                    <span class="collection-icon">🎨</span>
+                    <span class="collection-name">Pot Style</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Inherited Traits (conditional) -->
+        <div class="menu-section menu-traits" id="menuInherited" style="display:none;">
+            <div class="menu-section-title">🧬 Inherited Traits</div>
+            <div class="traits-list" id="menuInheritedList"></div>
+        </div>
+        
+        <!-- Lineage (conditional) -->
+        <div class="menu-section menu-lineage" id="menuLineageSection">
             <div class="menu-section-title">Lineage</div>
             <div class="greenhouse-list" id="greenhouseList"></div>
         </div>
-
-        <div class="menu-tab-content" id="tabInfo">
-            <div class="menu-stat" id="menuInherited" style="display:none;">
-                <span>🧬 Traits</span><span id="menuInheritedList" style="color:var(--accent-growth)"></span>
+        
+        <!-- Settings Row -->
+        <div class="menu-section menu-settings">
+            <div class="settings-row">
+                <button class="settings-btn" id="btnMusic" onclick="toggleBackgroundMusic()">
+                    <span class="settings-icon">🎶</span>
+                    <span class="settings-label">Music</span>
+                </button>
+                <button class="settings-btn" onclick="openHelp()">
+                    <span class="settings-icon">❓</span>
+                    <span class="settings-label">Help</span>
+                </button>
+                <button class="settings-btn" onclick="openSeasonInfo()">
+                    <span class="settings-icon">📅</span>
+                    <span class="settings-label">Season</span>
+                </button>
+                <button class="settings-btn" onclick="openTraitGlossary()">
+                    <span class="settings-icon">📖</span>
+                    <span class="settings-label">Traits</span>
+                </button>
             </div>
-            
-            <button class="btn-base" onclick="openTraitGlossary()">📖 Trait Glossary</button>
-            <button class="btn-base" onclick="openCareLog()">📜 Care Log</button>
-            <button class="btn-base" onclick="openSeasonInfo()">📅 Season Info</button>
-            <button class="btn-base music-btn" id="btnMusic" onclick="toggleBackgroundMusic()">🎶 Background Music</button>
-            <button class="btn-base help-btn" onclick="openHelp()">❓ How to Play</button>
-            <button class="btn-base reset-btn" onclick="openResetConfirm()">🗑️ Reset Save</button>
+            <div class="settings-row">
+                <button class="settings-btn" onclick="openCareLog()">
+                    <span class="settings-icon">📜</span>
+                    <span class="settings-label">Log</span>
+                </button>
+                <button class="settings-btn community-btn" onclick="openCommunityGarden()">
+                    <span class="settings-icon">🌳</span>
+                    <span class="settings-label">Community</span>
+                </button>
+                <button class="settings-btn reset-btn-icon" onclick="openResetConfirm()">
+                    <span class="settings-icon">🗑️</span>
+                    <span class="settings-label">Reset</span>
+                </button>
+            </div>
         </div>
-
-        <button class="btn-base close-btn" style="margin-top:15px;" onclick="toggleMenu()">Close</button>
     </div>
 </div>
 
