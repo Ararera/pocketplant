@@ -92,9 +92,19 @@ function handleVisibility() {
         } else {
             restoreAudioState();
         }
+        
+        // Sync moonbeam state when returning to the game
+        if (typeof updateMoonbeam === 'function') {
+            updateMoonbeam();
+        }
     } else {
         if (typeof saveDebounceTimer !== 'undefined' && saveDebounceTimer) { try { clearTimeout(saveDebounceTimer); } catch (e) { } saveDebounceTimer = null; }
         stopAudioForBackground();
+        
+        // Turn off moonbeam visual when leaving (state persists but visual should reset)
+        const beam = document.getElementById('moonlightBeam');
+        if (beam) beam.classList.remove('active');
+        
         saveState(); 
     }
 }
@@ -276,6 +286,12 @@ function init() {
     renderPlant('plantGroup', state.dna, state.stage); renderPotPreview();
     updateTimeOfDay(); updateMoonPhase(); updateSeason(); updateUI();
     if (state.isRainOn) applyTheme();
+    
+    // Sync moonbeam state on init (handles case where player left with moonbeam active)
+    if (typeof updateMoonbeam === 'function') {
+        setTimeout(updateMoonbeam, 100);
+    }
+    
     processOfflineProgress(); startGameLoop(); setupEventListeners();
     setInterval(() => { updateTimeOfDay(); updateMoonPhase(); }, 60000);
     audio.init(); ensureNamePrompt(true);
@@ -309,6 +325,31 @@ function setupEventListeners() {
         els.plantMoodDisplay.addEventListener('click', openFullMood);
         els.plantMoodDisplay.addEventListener('touchend', openFullMood, { passive: true });
     }
+    
+    // Action indicator click handlers - trigger action when ready
+    const singIndicator = document.getElementById('singIndicator');
+    const fertilizeIndicator = document.getElementById('fertilizeIndicator');
+    
+    const handleIndicatorTap = (indicator, action) => {
+        return (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            if (indicator.classList.contains('ready') && typeof action === 'function') {
+                action();
+            }
+        };
+    };
+    
+    if (singIndicator) {
+        singIndicator.addEventListener('click', handleIndicatorTap(singIndicator, singToPlant));
+        singIndicator.addEventListener('touchend', handleIndicatorTap(singIndicator, singToPlant), { passive: false });
+    }
+    
+    if (fertilizeIndicator) {
+        fertilizeIndicator.addEventListener('click', handleIndicatorTap(fertilizeIndicator, fertilizePlant));
+        fertilizeIndicator.addEventListener('touchend', handleIndicatorTap(fertilizeIndicator, fertilizePlant), { passive: false });
+    }
+    
     setInterval(() => { checkSingCooldown(); checkFertilizeCooldown(); }, 1000);
     checkSingCooldown(); checkFertilizeCooldown();
     window.addEventListener('popstate', handleBackButton);

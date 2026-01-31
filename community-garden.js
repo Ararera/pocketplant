@@ -150,142 +150,144 @@ const CommunityGarden = {
         overlay.className = 'cg-overlay';
         overlay.innerHTML = `
             <div class="cg-container">
+                <!-- FIXED HEADER -->
                 <div class="cg-header">
+                    <div class="cg-header-info">
+                        <h1 class="cg-title"><span class="cg-title-icon">🌳</span> Community Garden</h1>
+                        <p class="cg-subtitle">Tended by <span id="cgUsernameDisplay" style="color:#fbbf24; font-weight:600"></span> & friends</p>
+                    </div>
                     <button class="cg-close" onclick="CommunityGarden.close()" aria-label="Close">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M18 6L6 18M6 6l12 12"/>
                         </svg>
                     </button>
-                    <h1 class="cg-title">Community Garden</h1>
-                    <p class="cg-subtitle">Tended by <span id="cgUsernameDisplay" style="color:#fbbf24; font-weight:600"></span> & friends</p>
                 </div>
                 
-                <div class="cg-stage-display">
-                    <div class="cg-stage-icon" id="cgStageIcon">🌰</div>
-                    <div class="cg-stage-info">
-                        <div class="cg-stage-name" id="cgStageName">Seed</div>
-                        <div class="cg-stage-desc" id="cgStageDesc">A tiny seed, full of potential</div>
-                    </div>
-                </div>
-                
-                <div class="cg-tree-area" id="cgTreeArea">
-                    <div class="cg-environment" id="cgEnvironment"></div>
-                    <svg class="cg-tree-svg" id="cgTreeSVG" viewBox="0 0 300 400">
-                        <defs>
-                            <linearGradient id="cgTrunkGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" style="stop-color:#5D4037"/>
-                                <stop offset="50%" style="stop-color:#795548"/>
-                                <stop offset="100%" style="stop-color:#5D4037"/>
-                            </linearGradient>
-                            <radialGradient id="cgLeafGrad" cx="30%" cy="30%">
-                                <stop offset="0%" style="stop-color:#81C784"/>
-                                <stop offset="100%" style="stop-color:#388E3C"/>
-                            </radialGradient>
-                            <filter id="cgGlow">
-                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                                <feMerge>
-                                    <feMergeNode in="coloredBlur"/>
-                                    <feMergeNode in="SourceGraphic"/>
-                                </feMerge>
-                            </filter>
-                        </defs>
-                        <g id="cgTreeGroup"></g>
-                    </svg>
-                    <div class="cg-fireflies-layer" id="cgFirefliesLayer"></div>
-                </div>
-                
-                <div class="cg-progress-section">
-                    <div class="cg-progress-header">
-                        <span class="cg-progress-label">Growth Progress</span>
-                        <span class="cg-progress-value" id="cgProgressValue">0 / 500</span>
-                    </div>
-                    <div class="cg-progress-bar">
-                        <div class="cg-progress-fill" id="cgProgressFill"></div>
-                        <div class="cg-progress-glow" id="cgProgressGlow"></div>
-                    </div>
-                    <div class="cg-next-stage" id="cgNextStage">Next: Sprouting</div>
-                </div>
-                
-                <div class="cg-vitals">
-                    <div class="cg-vital" data-type="water">
-                        <div class="cg-vital-ring">
-                            <svg viewBox="0 0 36 36">
-                                <circle class="cg-ring-bg" cx="18" cy="18" r="15.5"/>
-                                <circle class="cg-ring-fill" id="cgWaterRing" cx="18" cy="18" r="15.5"/>
-                            </svg>
-                            <span class="cg-vital-icon">💧</span>
+                <!-- SCROLLABLE CONTENT -->
+                <div class="cg-scroll-content">
+                    <!-- Tree Section with Stage & Progress -->
+                    <div class="cg-tree-section">
+                        <div class="cg-stage-badge">
+                            <span class="cg-stage-icon" id="cgStageIcon">🌰</span>
+                            <span class="cg-stage-name" id="cgStageName">Seed</span>
+                            <span class="cg-stage-desc" id="cgStageDesc">A tiny seed, full of potential</span>
                         </div>
-                        <span class="cg-vital-label">Water</span>
-                    </div>
-                    <div class="cg-vital" data-type="sun">
-                        <div class="cg-vital-ring">
-                            <svg viewBox="0 0 36 36">
-                                <circle class="cg-ring-bg" cx="18" cy="18" r="15.5"/>
-                                <circle class="cg-ring-fill" id="cgSunRing" cx="18" cy="18" r="15.5"/>
+                        
+                        <div class="cg-tree-area" id="cgTreeArea">
+                            <div class="cg-environment" id="cgEnvironment"></div>
+                            <svg class="cg-tree-svg" id="cgTreeSVG" viewBox="0 0 300 400">
+                                <defs>
+                                    <linearGradient id="cgTrunkGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <stop offset="0%" style="stop-color:#5D4037"/>
+                                        <stop offset="50%" style="stop-color:#795548"/>
+                                        <stop offset="100%" style="stop-color:#5D4037"/>
+                                    </linearGradient>
+                                    <radialGradient id="cgLeafGrad" cx="30%" cy="30%">
+                                        <stop offset="0%" style="stop-color:#81C784"/>
+                                        <stop offset="100%" style="stop-color:#388E3C"/>
+                                    </radialGradient>
+                                    <filter id="cgGlow">
+                                        <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                                        <feMerge>
+                                            <feMergeNode in="coloredBlur"/>
+                                            <feMergeNode in="SourceGraphic"/>
+                                        </feMerge>
+                                    </filter>
+                                </defs>
+                                <g id="cgTreeGroup"></g>
                             </svg>
-                            <span class="cg-vital-icon">☀️</span>
+                            <div class="cg-fireflies-layer" id="cgFirefliesLayer"></div>
                         </div>
-                        <span class="cg-vital-label">Sun</span>
-                    </div>
-                    <div class="cg-vital" data-type="love">
-                        <div class="cg-vital-ring">
-                            <svg viewBox="0 0 36 36">
-                                <circle class="cg-ring-bg" cx="18" cy="18" r="15.5"/>
-                                <circle class="cg-ring-fill" id="cgLoveRing" cx="18" cy="18" r="15.5"/>
-                            </svg>
-                            <span class="cg-vital-icon">❤️</span>
+                        
+                        <div class="cg-progress-inline">
+                            <div class="cg-progress-header">
+                                <span class="cg-progress-label">Growth</span>
+                                <span class="cg-progress-value" id="cgProgressValue">0 / 500</span>
+                            </div>
+                            <div class="cg-progress-bar">
+                                <div class="cg-progress-fill" id="cgProgressFill"></div>
+                                <div class="cg-progress-glow" id="cgProgressGlow"></div>
+                            </div>
+                            <div class="cg-next-stage" id="cgNextStage">Next: Sprouting</div>
                         </div>
-                        <span class="cg-vital-label">Love</span>
+                    </div>
+                    
+                    <!-- Compact Vitals Bar -->
+                    <div class="cg-vitals-bar">
+                        <div class="cg-vital-compact">
+                            <span class="cg-vital-icon-small">💧</span>
+                            <div class="cg-vital-bar-wrap">
+                                <div class="cg-vital-bar-fill water" id="cgWaterBar" style="width: 50%"></div>
+                            </div>
+                        </div>
+                        <div class="cg-vital-compact">
+                            <span class="cg-vital-icon-small">☀️</span>
+                            <div class="cg-vital-bar-wrap">
+                                <div class="cg-vital-bar-fill sun" id="cgSunBar" style="width: 50%"></div>
+                            </div>
+                        </div>
+                        <div class="cg-vital-compact">
+                            <span class="cg-vital-icon-small">❤️</span>
+                            <div class="cg-vital-bar-wrap">
+                                <div class="cg-vital-bar-fill love" id="cgLoveBar" style="width: 50%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="cg-actions-section">
+                        <div class="cg-actions">
+                            <button class="cg-action-btn" data-type="water" id="cgBtnWater" onclick="CommunityGarden.contribute('water')">
+                                <span class="cg-action-icon">💧</span>
+                                <span class="cg-action-label">Water</span>
+                                <span class="cg-action-cooldown" id="cgWaterCooldown"></span>
+                            </button>
+                            <button class="cg-action-btn" data-type="sun" id="cgBtnSun" onclick="CommunityGarden.contribute('sun')">
+                                <span class="cg-action-icon">☀️</span>
+                                <span class="cg-action-label">Sunlight</span>
+                                <span class="cg-action-cooldown" id="cgSunCooldown"></span>
+                            </button>
+                            <button class="cg-action-btn" data-type="love" id="cgBtnLove" onclick="CommunityGarden.contribute('love')">
+                                <span class="cg-action-icon">❤️</span>
+                                <span class="cg-action-label">Love</span>
+                                <span class="cg-action-cooldown" id="cgLoveCooldown"></span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Firefly Section -->
+                    <div class="cg-firefly-section">
+                        <div class="cg-firefly-header">
+                            <span class="cg-firefly-title">✨ Release Fireflies</span>
+                            <span class="cg-firefly-count" id="cgFireflyAvailable">0 available</span>
+                        </div>
+                        <p class="cg-firefly-desc">Release fireflies to accelerate growth. Each adds lasting energy.</p>
+                        <div class="cg-firefly-controls">
+                            <button class="cg-firefly-btn" id="cgBtnRelease1" onclick="CommunityGarden.releaseFireflies(1)">
+                                Release 1 <span class="cg-ff-cost">(+5)</span>
+                            </button>
+                            <button class="cg-firefly-btn" id="cgBtnRelease5" onclick="CommunityGarden.releaseFireflies(5)">
+                                Release 5 <span class="cg-ff-cost">(+30)</span>
+                            </button>
+                            <button class="cg-firefly-btn cg-release-all" id="cgBtnReleaseAll" onclick="CommunityGarden.releaseFireflies('all')">
+                                Release All
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Activity Feed -->
+                    <div class="cg-activity-section">
+                        <div class="cg-activity-header">
+                            <span>🌍 Recent Activity</span>
+                            <span class="cg-total-contributions" id="cgTotalContributions">0 total</span>
+                        </div>
+                        <div class="cg-activity-feed" id="cgActivityFeed">
+                            <div class="cg-activity-empty">Waiting for gardeners...</div>
+                        </div>
                     </div>
                 </div>
                 
-                <div class="cg-actions">
-                    <button class="cg-action-btn" id="cgBtnWater" onclick="CommunityGarden.contribute('water')">
-                        <span class="cg-action-icon">💧</span>
-                        <span class="cg-action-label">Water</span>
-                        <span class="cg-action-cooldown" id="cgWaterCooldown"></span>
-                    </button>
-                    <button class="cg-action-btn" id="cgBtnSun" onclick="CommunityGarden.contribute('sun')">
-                        <span class="cg-action-icon">☀️</span>
-                        <span class="cg-action-label">Sunlight</span>
-                        <span class="cg-action-cooldown" id="cgSunCooldown"></span>
-                    </button>
-                    <button class="cg-action-btn" id="cgBtnLove" onclick="CommunityGarden.contribute('love')">
-                        <span class="cg-action-icon">❤️</span>
-                        <span class="cg-action-label">Love</span>
-                        <span class="cg-action-cooldown" id="cgLoveCooldown"></span>
-                    </button>
-                </div>
-                
-                <div class="cg-firefly-section">
-                    <div class="cg-firefly-header">
-                        <span>✨ Release Fireflies</span>
-                        <span class="cg-firefly-count" id="cgFireflyAvailable">0 available</span>
-                    </div>
-                    <p class="cg-firefly-desc">Release your fireflies to accelerate the tree's growth. Each firefly adds lasting energy.</p>
-                    <div class="cg-firefly-controls">
-                        <button class="cg-firefly-btn" id="cgBtnRelease1" onclick="CommunityGarden.releaseFireflies(1)">
-                            Release 1 <span class="cg-ff-cost">(+5 growth)</span>
-                        </button>
-                        <button class="cg-firefly-btn" id="cgBtnRelease5" onclick="CommunityGarden.releaseFireflies(5)">
-                            Release 5 <span class="cg-ff-cost">(+30 growth)</span>
-                        </button>
-                        <button class="cg-firefly-btn cg-release-all" id="cgBtnReleaseAll" onclick="CommunityGarden.releaseFireflies('all')">
-                            Release All
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="cg-activity-section">
-                    <div class="cg-activity-header">
-                        <span>🌍 Recent Activity</span>
-                        <span class="cg-total-contributions" id="cgTotalContributions">0 contributions</span>
-                    </div>
-                    <div class="cg-activity-feed" id="cgActivityFeed">
-                        <div class="cg-activity-empty">Waiting for gardeners...</div>
-                    </div>
-                </div>
-                
+                <!-- FIXED FOOTER -->
                 <div class="cg-stats-footer">
                     <div class="cg-stat">
                         <span class="cg-stat-value" id="cgYourContributions">0</span>
@@ -664,12 +666,20 @@ const CommunityGarden = {
     renderVitals() {
         const circumference = 2 * Math.PI * 15.5;
         ['water', 'sun', 'love'].forEach(type => {
+            const level = Math.max(0, Math.min(100, this.treeState[`${type}Level`] || 50));
+            
+            // Old ring style (for backward compatibility)
             const ring = document.getElementById(`cg${type.charAt(0).toUpperCase() + type.slice(1)}Ring`);
             if (ring) {
-                const level = Math.max(0, Math.min(100, this.treeState[`${type}Level`] || 50));
                 const offset = circumference - (level / 100) * circumference;
                 ring.style.strokeDasharray = circumference;
                 ring.style.strokeDashoffset = offset;
+            }
+            
+            // New compact bar style
+            const bar = document.getElementById(`cg${type.charAt(0).toUpperCase() + type.slice(1)}Bar`);
+            if (bar) {
+                bar.style.width = `${level}%`;
             }
         });
     },

@@ -60,7 +60,11 @@ function simulateStep(dtSeconds, mode = 'online') {
     
     if (state.isRainOn && state.water < 100) {
         const preWater = state.water;
-        state.water = Math.min(100, state.water + CONFIG.recoveryRate.water * dtSeconds * recoveryFactor * getHealMod(state.water));
+        // Use heal modifier but ensure a minimum recovery rate so critical plants can still recover
+        const healMod = getHealMod(state.water);
+        // Minimum recovery: at least 40% of base rate even when critically low
+        const effectiveHealMod = Math.max(0.4, healMod);
+        state.water = Math.min(100, state.water + CONFIG.recoveryRate.water * dtSeconds * recoveryFactor * effectiveHealMod);
         
         if (!isOffline && preWater < 100 && state.water >= 100) {
             state.rainRestUntil = Date.now() + CONFIG.rainRestCooldown;
@@ -76,13 +80,19 @@ function simulateStep(dtSeconds, mode = 'online') {
         // Apply day of week sun recovery multiplier
         const sunRecoveryMult = (typeof window.daySystem !== 'undefined') ? window.daySystem.getSunRecoveryMultiplier() : 1;
         const rate = baseRate * sunRecoveryMult;
-        state.sun = Math.min(100, state.sun + rate * dtSeconds * recoveryFactor * getHealMod(state.sun));
+        // Use heal modifier but ensure a minimum recovery rate so critical plants can still recover
+        const healMod = getHealMod(state.sun);
+        // Minimum recovery: at least 40% of base rate even when critically low
+        const effectiveHealMod = Math.max(0.4, healMod);
+        state.sun = Math.min(100, state.sun + rate * dtSeconds * recoveryFactor * effectiveHealMod);
         
         if (!isOffline && preSun < 100 && state.sun >= 100) {
             state.sunRestUntil = Date.now() + CONFIG.sunRestCooldown;
             state.isSunLampOn = false;
             if (typeof spawnFloatingText === 'function') spawnFloatingText("☀️ Fully energized! Resting...", "var(--accent-sun)", "good");
             if (typeof applyTheme === 'function') applyTheme();
+            // Also turn off moonbeam when sun reaches max
+            if (typeof updateMoonbeam === 'function') updateMoonbeam();
         }
     }
 

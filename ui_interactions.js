@@ -1,46 +1,91 @@
 function updateMenuStats() {
     if (els.nameInput && document.activeElement !== els.nameInput) els.nameInput.value = (state.name && state.name.toLowerCase() !== 'sprout') ? state.name : getNameSuggestion();
     if (els.menuGen) els.menuGen.textContent = state.generation;
-    if (els.menuAge) els.menuAge.textContent = state.day + " Days";
+    if (els.menuAge) els.menuAge.textContent = state.day + "d";
     if (els.menuStage) els.menuStage.textContent = STAGES[state.stage - 1] || 'Seed';
     const ps = getPlantState();
     if (els.menuHealth) { els.menuHealth.textContent = ps.label; els.menuHealth.style.color = ps.color; }
+    
+    // Evolution progress bar and percent
+    let evolutionPercent = 0;
     if (els.menuProgressBar) {
         if (state.stage < 6) {
             const prev = STAGE_THRESHOLDS[state.stage - 1] || 0, next = STAGE_THRESHOLDS[state.stage];
-            els.menuProgressBar.style.width = Math.min(100, ((state.growth - prev) / (next - prev)) * 100) + '%';
-        } else els.menuProgressBar.style.width = '100%';
+            evolutionPercent = Math.min(100, ((state.growth - prev) / (next - prev)) * 100);
+            els.menuProgressBar.style.width = evolutionPercent + '%';
+        } else {
+            evolutionPercent = 100;
+            els.menuProgressBar.style.width = '100%';
+        }
     }
+    
+    // Update evolution percent display
+    const evolutionPercentEl = document.getElementById('menuEvolutionPercent');
+    if (evolutionPercentEl) {
+        evolutionPercentEl.textContent = Math.floor(evolutionPercent) + '%';
+    }
+    
+    // Scars - now rendered as interactive buttons
     if (els.menuScars && els.menuScarList) {
-        if (state.scars.length > 0) {
-            els.menuScars.style.display = 'flex';
-            const desiredScarText = state.scars
-                .map(s => ({ wilt: 'Wilted', bend: 'Bent', pale: 'Faded', dormant: 'Dormant' }[s] || s))
-                .join(', ');
-            if (els.menuScarList.textContent !== desiredScarText) {
-                els.menuScarList.textContent = desiredScarText;
-            }
+        if (state.scars && state.scars.length > 0) {
+            els.menuScars.style.display = 'block';
+            els.menuScarList.innerHTML = '';
+            state.scars.forEach(s => {
+                const scarName = { wilt: 'Wilted', bend: 'Bent', pale: 'Faded', dormant: 'Dormant' }[s] || s;
+                const btn = document.createElement('button');
+                btn.className = 'scar-item interactive';
+                btn.textContent = scarName;
+                btn.onclick = () => {
+                    if (typeof ScarHealing !== 'undefined' && typeof ScarHealing.start === 'function') {
+                        toggleMenu();
+                        ScarHealing.start(s);
+                    }
+                };
+                els.menuScarList.appendChild(btn);
+            });
         } else {
             els.menuScars.style.display = 'none';
         }
     }
+    
+    // Inherited traits
     if (els.menuInherited && els.menuInheritedList) {
-        if (state.inheritedTraits.length > 0) {
-            els.menuInherited.style.display = 'flex';
-            els.menuInheritedList.textContent = state.inheritedTraits.map(id => { const t = INHERITABLE_TRAITS.find(x => x.id === id); return t ? t.name : id; }).join(', ');
-        } else els.menuInherited.style.display = 'none';
+        if (state.inheritedTraits && state.inheritedTraits.length > 0) {
+            els.menuInherited.style.display = 'block';
+            els.menuInheritedList.textContent = state.inheritedTraits.map(id => { 
+                const t = INHERITABLE_TRAITS.find(x => x.id === id); 
+                return t ? t.name : id; 
+            }).join(', ');
+        } else {
+            els.menuInherited.style.display = 'none';
+        }
     }
+    
+    // Harvest button visibility
     if (els.btnHarvest) els.btnHarvest.classList.toggle('visible', state.stage >= 5);
+    
+    // Lineage list
+    const lineageSection = document.getElementById('menuLineageSection');
     if (els.greenhouseList) {
-        els.greenhouseList.innerHTML = '';
-        [...state.history].reverse().forEach((h, i) => {
-            const item = document.createElement('div');
-            item.className = 'greenhouse-item';
-            const col = h.dna?.flowerColor || `hsl(${h.dna?.flowerH || 0},50%,50%)`;
-            item.innerHTML = `<span><span class="gh-dot" style="background:${col}"></span>${h.name}</span><span style="opacity:0.5">Cycle ${h.gen}</span>`;
-            item.onclick = () => viewArchive(state.history.length - 1 - i);
-            els.greenhouseList.appendChild(item);
-        });
+        if (state.history && state.history.length > 0) {
+            if (lineageSection) lineageSection.style.display = 'block';
+            els.greenhouseList.innerHTML = '';
+            [...state.history].reverse().forEach((h, i) => {
+                const item = document.createElement('div');
+                item.className = 'greenhouse-item';
+                const col = h.dna?.flowerColor || `hsl(${h.dna?.flowerH || 0},50%,50%)`;
+                item.innerHTML = `<span><span class="gh-dot" style="background:${col}"></span>${h.name}</span><span style="opacity:0.5">Cycle ${h.gen}</span>`;
+                item.onclick = () => viewArchive(state.history.length - 1 - i);
+                els.greenhouseList.appendChild(item);
+            });
+        } else {
+            if (lineageSection) lineageSection.style.display = 'none';
+        }
+    }
+    
+    // Music button state
+    if (els.btnMusic) {
+        els.btnMusic.classList.toggle('active', state.isMusicPlaying);
     }
 }
 
@@ -76,9 +121,9 @@ function interact(type, e) {
             state.isSunLampOn = !state.isSunLampOn;
             if (state.isSunLampOn && typeof unlockDiscovery === 'function') unlockDiscovery('first_sun');
             spawnFloatingText(state.isSunLampOn ? "🌙 Moonlight ON" : "🌙 OFF", "#fef9c3");
-            const beam = document.getElementById('moonlightBeam');
-            if (beam) beam.classList.toggle('active', state.isSunLampOn);
         }
+        // Use centralized moonbeam update
+        updateMoonbeam();
         audio.sun(); applyTheme();
         if (state.isRainOn && state.isSunLampOn && typeof unlockDiscovery === 'function') unlockDiscovery('made_rainbow');
     } else if (type === 'love') {
@@ -107,6 +152,23 @@ function interact(type, e) {
 }
 
 let _applyThemeTimer = null;
+
+// Global moonbeam update function - ensures moonbeam is in sync with game state
+function updateMoonbeam() {
+    const beam = document.getElementById('moonlightBeam');
+    if (!beam) return;
+    
+    // Moonbeam should only be active when:
+    // 1. It's nighttime (not daytime)
+    // 2. Sun lamp is on
+    // 3. Sun stat is not at 100 (if sun is maxed, lamp auto-turns off)
+    const shouldBeActive = !isDaytime() && state.isSunLampOn && state.sun < 100;
+    beam.classList.toggle('active', shouldBeActive);
+}
+
+// Make updateMoonbeam globally available
+window.updateMoonbeam = updateMoonbeam;
+
 function applyTheme() {
     // Cancel pending theme application to prevent rapid-fire calls
     if (_applyThemeTimer) {
@@ -128,8 +190,8 @@ function applyTheme() {
         
         audio.toggleRainSound(state.isRainOn);
         
-        const beam = document.getElementById('moonlightBeam');
-        if (beam && !isDaytime()) beam.classList.toggle('active', state.isSunLampOn);
+        // Use centralized moonbeam update
+        updateMoonbeam();
         
         const envScene = document.getElementById('environmentScene');
         const rainClouds = document.getElementById('rainClouds');
@@ -518,17 +580,43 @@ function fertilizePlant() {
 
 function checkSingCooldown() {
     const r = state.singCooldownUntil - Date.now();
+    const isReady = r <= 0;
+    
     if (els.btnSing) {
-        if (r > 0) { els.btnSing.disabled = true; els.btnSing.textContent = `🎵 Sing (${Math.ceil(r / 60000)}m)`; }
-        else { els.btnSing.disabled = false; els.btnSing.textContent = '🎵 Sing to Plant'; }
+        if (!isReady) { 
+            els.btnSing.disabled = true; 
+            els.btnSing.textContent = `🎵 Sing (${Math.ceil(r / 60000)}m)`; 
+        } else { 
+            els.btnSing.disabled = false; 
+            els.btnSing.textContent = '🎵 Sing'; 
+        }
+    }
+    
+    // Update indicator
+    const indicator = document.getElementById('singIndicator');
+    if (indicator) {
+        indicator.classList.toggle('ready', isReady);
     }
 }
 
 function checkFertilizeCooldown() {
     const r = state.fertilizeCooldownUntil - Date.now();
+    const isReady = r <= 0;
+    
     if (els.btnFertilize) {
-        if (r > 0) { els.btnFertilize.disabled = true; els.btnFertilize.textContent = `🌿 Fertilize (${Math.ceil(r / 60000)}m)`; }
-        else { els.btnFertilize.disabled = false; els.btnFertilize.textContent = '🌿 Fertilize'; }
+        if (!isReady) { 
+            els.btnFertilize.disabled = true; 
+            els.btnFertilize.textContent = `🌿 Fertilize (${Math.ceil(r / 60000)}m)`; 
+        } else { 
+            els.btnFertilize.disabled = false; 
+            els.btnFertilize.textContent = '🌿 Fertilize'; 
+        }
+    }
+    
+    // Update indicator
+    const indicator = document.getElementById('fertilizeIndicator');
+    if (indicator) {
+        indicator.classList.toggle('ready', isReady);
     }
 }
 
@@ -593,8 +681,7 @@ function toggleMusicLogic() {
 
     if (state.isMusicPlaying) { 
         audio.playBackgroundMusic(); 
-        els.btnMusic.classList.add('active'); 
-        els.btnMusic.textContent = '🎶 Music ON'; 
+        if (els.btnMusic) els.btnMusic.classList.add('active'); 
     } else { 
         audio.stopBackgroundMusic(); 
         // IMPORTANT: Suspend the AudioContext to immediately silence any already-scheduled WebAudio nodes
@@ -602,8 +689,7 @@ function toggleMusicLogic() {
         try {
             if (audio && audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend();
         } catch (_) {}
-        els.btnMusic.classList.remove('active'); 
-        els.btnMusic.textContent = '🎶 Background Music'; 
+        if (els.btnMusic) els.btnMusic.classList.remove('active'); 
     }
 }
 
