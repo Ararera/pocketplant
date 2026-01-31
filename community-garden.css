@@ -7,10 +7,6 @@
    OVERLAY & CONTAINER
    ═══════════════════════════════════════════════════════════════════════════ */
 
-.btn-base community-btn {
-   padding-bottom:5px;
-}
-
 .cg-overlay {
     position: fixed;
     inset: 0;
