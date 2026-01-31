@@ -129,6 +129,10 @@
                     <span class="settings-icon">🗑️</span>
                     <span class="settings-label">Reset</span>
                 </button>
+                <button class="settings-btn" onclick="openPrivacy()">
+                    <span class="settings-icon">🛡️</span>
+                    <span class="settings-label">Privacy</span>
+                </button>
             </div>
         </div>
     </div>
@@ -295,13 +299,50 @@
 
 <div class="menu-overlay" id="seasonOverlay">
     <div class="menu-card">
-        <div class="menu-title">Seasons</div>
+        <div class="menu-title">Seasons & Growth</div>
         <div class="harvest-text">
             <h3 id="seasonNow" style="margin-top:0;color:var(--accent-growth)"></h3>
             <p id="seasonNowBody" style="opacity:0.8;font-size:0.85rem;line-height:1.5;"></p>
         </div>
-        <div style="font-size:0.75rem;opacity:0.6;margin-top:15px;font-style:italic;">Seasons change every few in-game days, affecting growth rates and the world around your plant.</div>
-        <button class="btn-base close-btn" style="margin-top:20px" onclick="closeSeasonInfo()">Close</button>
+        
+        <div class="season-info-section" style="margin-top:15px;">
+            <div class="season-info-title" style="font-size:0.75rem;font-weight:600;margin-bottom:10px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:1px;">All Seasons</div>
+            
+            <div class="season-item" style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(255,183,178,0.1);border-radius:8px;margin-bottom:6px;">
+                <span style="font-size:1.2rem;">🌸</span>
+                <div>
+                    <div style="font-weight:600;color:#ffb7b2;font-size:0.85rem;">Spring</div>
+                    <div style="font-size:0.7rem;opacity:0.7;">Growth +10% • Blossoms fall gently</div>
+                </div>
+            </div>
+            
+            <div class="season-item" style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(251,191,36,0.1);border-radius:8px;margin-bottom:6px;">
+                <span style="font-size:1.2rem;">☀️</span>
+                <div>
+                    <div style="font-weight:600;color:#fbbf24;font-size:0.85rem;">Summer</div>
+                    <div style="font-size:0.7rem;opacity:0.7;">Growth +20% • Heat waves shimmer</div>
+                </div>
+            </div>
+            
+            <div class="season-item" style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(234,88,12,0.1);border-radius:8px;margin-bottom:6px;">
+                <span style="font-size:1.2rem;">🍂</span>
+                <div>
+                    <div style="font-weight:600;color:#ea580c;font-size:0.85rem;">Autumn</div>
+                    <div style="font-size:0.7rem;opacity:0.7;">Growth -10% • Leaves drift on the wind</div>
+                </div>
+            </div>
+            
+            <div class="season-item" style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(148,163,184,0.1);border-radius:8px;margin-bottom:6px;">
+                <span style="font-size:1.2rem;">❄️</span>
+                <div>
+                    <div style="font-weight:600;color:#94a3b8;font-size:0.85rem;">Winter</div>
+                    <div style="font-size:0.7rem;opacity:0.7;">Growth -30% • Snow falls softly</div>
+                </div>
+            </div>
+        </div>
+        
+        <div style="font-size:0.7rem;opacity:0.5;margin-top:12px;font-style:italic;text-align:center;">Seasons change when you ascend your plant to the next generation.</div>
+        <button class="btn-base close-btn" style="margin-top:15px" onclick="closeSeasonInfo()">Close</button>
     </div>
 </div>
 
@@ -346,3 +387,39 @@
 </div>
 
 <div class="whisper-stack" id="whisperStack"></div>
+
+<div class="menu-overlay" id="privacyOverlay">
+    <div class="menu-card help-card" style="max-height: 80vh; overflow-y: auto;">
+        <div class="menu-title">Privacy Policy</div>
+        
+        <div class="help-section">
+            <p style="font-size: 0.75rem; opacity: 0.6; font-style: italic; margin-bottom: 10px;">Last updated: January 31, 2026</p>
+            <p>Welcome to Pocket Sprout. We are committed to protecting your privacy and being transparent about our practices.</p>
+        </div>
+
+        <div class="help-section">
+            <h3>Information We Collect</h3>
+            <p>For basic gameplay, we do not collect, store, or transmit personal information. However, to enable the <strong>Community Garden</strong> feature, we utilize <strong>Google Firebase</strong> to assign a random, anonymous identifier (ID) to your installation.</p>
+            <div style="margin-top: 8px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                <strong>What the ID is for:</strong> It is used strictly to associate your in-game actions with the specific plant you are caring for. It is not linked to your personal identity.
+            </div>
+        </div>
+
+        <div class="help-section">
+            <h3>Data Storage</h3>
+            <p>Local game data is stored on your device. Community Garden data is stored via Google Firebase to enable real-time interaction.</p>
+        </div>
+
+        <div class="help-section">
+            <h3>Third-Party Services</h3>
+            <p>We use Google Firebase for backend services. We use GitHub Pages to serve static content to you. We do not use advertising or analytics platforms.</p>
+        </div>
+
+        <div class="help-section">
+            <h3>Contact Us</h3>
+            <p>For questions, contact: <span style="color:var(--accent-sun)">randomized47656899@protonmail.com</span></p>
+        </div>
+
+        <button class="btn-base close-btn" onclick="closePrivacy()">Close</button>
+    </div>
+</div>
