@@ -180,7 +180,11 @@ let state = {
     buffs: [], scars: [], crisisCount: 0, inheritedTraits: [],
     lastDream: null, isMusicPlaying: false,
     neglect: { waterLowMs: 0, sunLowMs: 0, loveLowMs: 0, crisisMs: 0, partialDormant: false },
-    lastWhisperAt: 0
+    lastWhisperAt: 0,
+    
+    // Ascension Points - earned when ascending plants, spent in Community Garden
+    ascensionPoints: 0,
+    totalAscensionPointsEarned: 0
 };
 
 let els = {};

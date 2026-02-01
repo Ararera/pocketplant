@@ -13,16 +13,37 @@ const CommunityGarden = {
         firefly: 0
     },
 
+    // AP spending configuration
+    AP_COSTS: {
+        smallBoost: { cost: 5, growth: 25, label: 'Small Boost' },
+        mediumBoost: { cost: 15, growth: 85, label: 'Medium Boost' },
+        largeBoost: { cost: 30, growth: 200, label: 'Large Boost' },
+        megaBoost: { cost: 50, growth: 400, label: 'Mega Boost' }
+    },
 
+    // Rebalanced thresholds for ~10 active players over a week
+    // Goal: World Tree should feel like a real achievement requiring coordinated effort
+    // 
+    // Assumptions for 10 players over 7 days:
+    // - Daily contributions (water/sun/love): ~5-9 growth each, 3x per player = ~15-27/day/player
+    //   With cooldowns, maybe 4-6 contributions/day/player = ~30-50 growth/day/player
+    //   10 players × 40 avg × 7 days = ~2,800 from basic contributions
+    // - Firefly releases: Variable, maybe ~200-500/week total from all players
+    // - AP spending: Each player ascends 1-2x/week earning ~25-40 AP each
+    //   10 players × 30 AP avg = 300 AP/week, if all spent = ~1,500-2,500 growth
+    // 
+    // Total realistic weekly capacity: ~4,500-6,000 growth with good coordination
+    // World Tree at 12,000 means it requires excellent turnout + some luck
+    // Ancient Tree at 7,500 should be reliably achievable with good effort
     TREE_STAGES: [
         { name: 'Seed',           threshold: 0,       icon: '🌰', desc: 'A tiny seed, full of potential' },
-        { name: 'Sprouting',      threshold: 250,     icon: '🌱', desc: 'The first green emerges from soil' },
-        { name: 'Sapling',        threshold: 1000,    icon: '🌿', desc: 'Young and eager, reaching upward' },
-        { name: 'Young Tree',     threshold: 3500,    icon: '🌳', desc: 'Taking root, finding strength' },
-        { name: 'Growing Tree',   threshold: 10000,   icon: '🌲', desc: 'Branches spread wide and welcoming' },
-        { name: 'Mature Tree',    threshold: 25000,   icon: '🌴', desc: 'A beacon for all who tend it' },
-        { name: 'Ancient Tree',   threshold: 60000,   icon: '🎄', desc: 'Wisdom gathered through countless seasons' },
-        { name: 'World Tree',     threshold: 150000,  icon: '✨', desc: 'A living legend, touched by all' }
+        { name: 'Sprouting',      threshold: 150,     icon: '🌱', desc: 'The first green emerges from soil' },
+        { name: 'Sapling',        threshold: 500,     icon: '🌿', desc: 'Young and eager, reaching upward' },
+        { name: 'Young Tree',     threshold: 1200,    icon: '🌳', desc: 'Taking root, finding strength' },
+        { name: 'Growing Tree',   threshold: 2500,    icon: '🌲', desc: 'Branches spread wide and welcoming' },
+        { name: 'Mature Tree',    threshold: 4500,    icon: '🌴', desc: 'A beacon for all who tend it' },
+        { name: 'Ancient Tree',   threshold: 7500,    icon: '🎄', desc: 'Wisdom gathered through countless seasons' },
+        { name: 'World Tree',     threshold: 12000,   icon: '✨', desc: 'A living legend, touched by all' }
     ],
 
     ENVIRONMENT_STAGES: [
@@ -45,7 +66,10 @@ const CommunityGarden = {
         loveLevel: 50,
         firefliesReleased: 0,
         recentActivity: [],
-        lastReset: null
+        lastReset: null,
+        weekNumber: 0,          // Track which week we're in
+        totalAPSpent: 0,        // Track total AP spent this week
+        worldTreesReached: 0    // Hall of fame counter
     },
 
     playerData: {
@@ -54,9 +78,10 @@ const CommunityGarden = {
         lastWater: 0,
         lastSun: 0,
         lastLove: 0,
-        firefliesGiven: 0
+        firefliesGiven: 0,
+        apSpentThisWeek: 0,     // Track player's AP contribution this week
+        totalAPSpent: 0         // Track player's lifetime AP spent
     },
-
 
 
     
@@ -301,6 +326,37 @@ const CommunityGarden = {
                         </div>
                     </div>
                     
+                    <!-- Ascension Points Section -->
+                    <div class="cg-ap-section" id="cgAPSection">
+                        <div class="cg-ap-header">
+                            <span class="cg-ap-title">🌟 Ascension Points</span>
+                            <span class="cg-ap-balance">✨ <span id="cgAPAmount">0</span> AP</span>
+                        </div>
+                        <p class="cg-ap-desc">Spend AP earned from ascending your plants to boost the community tree!</p>
+                        <div class="cg-ap-controls">
+                            <button class="cg-ap-btn" id="cgAPBtn_smallBoost" onclick="CommunityGarden.spendAP('smallBoost')">
+                                Small Boost <span class="cg-ap-cost">5 AP → +25</span>
+                            </button>
+                            <button class="cg-ap-btn" id="cgAPBtn_mediumBoost" onclick="CommunityGarden.spendAP('mediumBoost')">
+                                Medium Boost <span class="cg-ap-cost">15 AP → +85</span>
+                            </button>
+                            <button class="cg-ap-btn" id="cgAPBtn_largeBoost" onclick="CommunityGarden.spendAP('largeBoost')">
+                                Large Boost <span class="cg-ap-cost">30 AP → +200</span>
+                            </button>
+                            <button class="cg-ap-btn cg-ap-mega" id="cgAPBtn_megaBoost" onclick="CommunityGarden.spendAP('megaBoost')">
+                                Mega Boost <span class="cg-ap-cost">50 AP → +400</span>
+                            </button>
+                        </div>
+                        <p class="cg-ap-hint">Ascend plants at Bloom stage or higher to earn more AP!</p>
+                    </div>
+                    
+                    <!-- Week Info Bar -->
+                    <div class="cg-week-bar" id="cgWeekInfo">
+                        <span class="cg-week-number">Week 1</span>
+                        <span class="cg-week-divider">•</span>
+                        <span class="cg-reset-timer">⏰ Calculating...</span>
+                    </div>
+                    
                     <!-- Activity Feed -->
                     <div class="cg-activity-section">
                         <div class="cg-activity-header">
@@ -355,6 +411,7 @@ const CommunityGarden = {
         }
 
         this.renderFireflySection();
+        this.renderAPSection();
         this.renderPlayerStats();
         this.updateCooldownDisplays();
         this.render();
@@ -419,12 +476,22 @@ const CommunityGarden = {
         try {
             const treeRef = fs.doc(this.db, 'communityGarden', 'mainTree');
             
-            this.unsubscribe = fs.onSnapshot(treeRef, (docSnap) => {
+            this.unsubscribe = fs.onSnapshot(treeRef, async (docSnap) => {
                 initialLoadComplete = true;
                 document.getElementById('cgOfflineNotice')?.classList.remove('visible');
 
                 if (docSnap.exists()) {
                     const data = docSnap.data();
+                    
+                    // Check if weekly reset is needed (Sunday midnight UTC)
+                    const shouldReset = this.checkWeeklyReset(data.lastReset);
+                    
+                    if (shouldReset) {
+                        console.log('[CommunityGarden] Weekly reset triggered!');
+                        await this.performWeeklyReset(data);
+                        return; // Will re-trigger snapshot with new data
+                    }
+                    
                     this.treeState = {
                         growth: data.growth || 0,
                         stage: this.calculateStage(data.growth || 0),
@@ -434,7 +501,10 @@ const CommunityGarden = {
                         loveLevel: data.loveLevel || 50,
                         firefliesReleased: data.firefliesReleased || 0,
                         recentActivity: data.recentActivity || [],
-                        lastReset: data.lastReset
+                        lastReset: data.lastReset,
+                        weekNumber: data.weekNumber || 0,
+                        totalAPSpent: data.totalAPSpent || 0,
+                        worldTreesReached: data.worldTreesReached || 0
                     };
                 } else {
                     this.initializeTree();
@@ -451,6 +521,79 @@ const CommunityGarden = {
         }
     },
     
+    // Check if we need to reset the tree (Sunday midnight server time)
+    checkWeeklyReset(lastReset) {
+        const now = new Date();
+        const dayOfWeek = now.getUTCDay(); // 0 = Sunday
+        const hour = now.getUTCHours();
+        
+        // Only reset on Sunday (day 0)
+        if (dayOfWeek !== 0) return false;
+        
+        // Only reset in the first hour of Sunday to avoid repeated resets
+        if (hour > 0) return false;
+        
+        // Check if we already reset this week
+        if (lastReset) {
+            const lastResetDate = lastReset.toDate ? lastReset.toDate() : new Date(lastReset);
+            const msSinceReset = now.getTime() - lastResetDate.getTime();
+            const hoursSinceReset = msSinceReset / (1000 * 60 * 60);
+            
+            // Don't reset if we reset in the last 23 hours
+            if (hoursSinceReset < 23) return false;
+        }
+        
+        return true;
+    },
+    
+    // Perform the weekly reset
+    async performWeeklyReset(oldData) {
+        if (!this.db) return;
+        
+        try {
+            const treeRef = fs.doc(this.db, 'communityGarden', 'mainTree');
+            const wasWorldTree = (oldData.growth || 0) >= this.TREE_STAGES[7].threshold;
+            
+            // Create a record of the previous week's achievement
+            const weekRecord = {
+                weekNumber: (oldData.weekNumber || 0) + 1,
+                finalGrowth: oldData.growth || 0,
+                finalStage: this.calculateStage(oldData.growth || 0),
+                totalContributions: oldData.totalContributions || 0,
+                totalAPSpent: oldData.totalAPSpent || 0,
+                reachedWorldTree: wasWorldTree,
+                endedAt: new Date().toISOString()
+            };
+            
+            console.log('[CommunityGarden] Week ended:', weekRecord);
+            
+            // Reset the tree
+            await fs.setDoc(treeRef, {
+                growth: 0,
+                totalContributions: 0,
+                waterLevel: 50,
+                sunLevel: 50,
+                loveLevel: 50,
+                firefliesReleased: 0,
+                recentActivity: [],
+                lastReset: fs.serverTimestamp(),
+                weekNumber: (oldData.weekNumber || 0) + 1,
+                totalAPSpent: 0,
+                worldTreesReached: (oldData.worldTreesReached || 0) + (wasWorldTree ? 1 : 0),
+                previousWeek: weekRecord
+            });
+            
+            // Reset player's weekly AP tracking
+            this.playerData.apSpentThisWeek = 0;
+            this.savePlayerData();
+            
+            this.showFeedback('🌅 A new week begins! The tree has been replanted.', 'info');
+            
+        } catch (e) {
+            console.error('[CommunityGarden] Weekly reset failed:', e);
+        }
+    },
+    
     async initializeTree() {
         if (!this.db) return;
         
@@ -464,7 +607,10 @@ const CommunityGarden = {
                 firefliesReleased: 0,
                 recentActivity: [],
                 createdAt: fs.serverTimestamp(),
-                lastReset: null
+                lastReset: fs.serverTimestamp(),
+                weekNumber: 1,
+                totalAPSpent: 0,
+                worldTreesReached: 0
             });
         } catch (e) {
             console.error('[CommunityGarden] Failed to initialize tree:', e);
@@ -637,6 +783,143 @@ const CommunityGarden = {
         this.render();
     },
 
+    // Spend Ascension Points to boost the tree
+    async spendAP(boostType) {
+        const boost = this.AP_COSTS[boostType];
+        if (!boost) {
+            this.showFeedback('❌ Unknown boost type', 'error');
+            return;
+        }
+        
+        // Get current AP from game state
+        const gameState = this.getGameState();
+        if (!gameState) {
+            this.showFeedback('❌ Game state not ready', 'error');
+            return;
+        }
+        
+        const currentAP = gameState.ascensionPoints || 0;
+        
+        if (currentAP < boost.cost) {
+            this.showFeedback(`❌ Need ${boost.cost} AP (you have ${currentAP})`, 'warning');
+            return;
+        }
+        
+        // Deduct AP from game state
+        gameState.ascensionPoints -= boost.cost;
+        
+        // Update player tracking
+        this.playerData.apSpentThisWeek = (this.playerData.apSpentThisWeek || 0) + boost.cost;
+        this.playerData.totalAPSpent = (this.playerData.totalAPSpent || 0) + boost.cost;
+        this.playerData.odometer++;
+        this.savePlayerData();
+        
+        // Save game state
+        if (typeof saveState === 'function') saveState();
+        
+        // Play animation
+        this.playAPAnimation(boost.growth);
+        
+        // Update main game UI to reflect AP change
+        if (typeof updateUI === 'function') updateUI();
+        
+        if (!this.db) {
+            this.showFeedback(`📡 Offline - +${boost.growth} growth saved locally`, 'info');
+            return;
+        }
+        
+        try {
+            const treeRef = fs.doc(this.db, 'communityGarden', 'mainTree');
+            const contributorName = this.playerData.username || 'Mystery Sprout';
+            
+            const activityEntry = {
+                type: 'ap_boost',
+                plantName: contributorName,
+                timestamp: Date.now(),
+                amount: boost.growth,
+                apSpent: boost.cost,
+                boostLabel: boost.label
+            };
+            
+            await fs.updateDoc(treeRef, {
+                growth: fs.increment(boost.growth),
+                totalContributions: fs.increment(1),
+                totalAPSpent: fs.increment(boost.cost),
+                recentActivity: fs.arrayUnion(activityEntry)
+            });
+            
+            this.showFeedback(`✨ ${boost.label}! +${boost.growth} growth (${boost.cost} AP)`, 'success');
+            
+        } catch (e) {
+            console.error('[CommunityGarden] AP boost failed:', e);
+            // Refund AP on failure
+            gameState.ascensionPoints += boost.cost;
+            this.playerData.apSpentThisWeek -= boost.cost;
+            this.playerData.totalAPSpent -= boost.cost;
+            this.savePlayerData();
+            if (typeof saveState === 'function') saveState();
+            if (typeof updateUI === 'function') updateUI();
+            this.showFeedback('❌ Failed to apply boost - AP refunded', 'error');
+        }
+        
+        this.render();
+        this.renderAPSection();
+    },
+    
+    // Animation for AP spending
+    playAPAnimation(amount) {
+        const treeArea = document.getElementById('cgTreeArea');
+        if (!treeArea) return;
+        
+        // Create sparkle burst effect
+        for (let i = 0; i < 12; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'cg-ap-particle';
+            particle.textContent = '✨';
+            particle.style.setProperty('--particle-angle', `${(i / 12) * 360}deg`);
+            particle.style.setProperty('--particle-delay', `${i * 0.03}s`);
+            treeArea.appendChild(particle);
+            setTimeout(() => particle.remove(), 1500);
+        }
+        
+        // Tree pulse effect
+        const treeSvg = document.getElementById('cgTreeSVG');
+        if (treeSvg) {
+            treeSvg.classList.add('cg-tree-ap-pulse');
+            setTimeout(() => treeSvg.classList.remove('cg-tree-ap-pulse'), 800);
+        }
+        
+        // Show floating number
+        const floater = document.createElement('div');
+        floater.className = 'cg-ap-floater';
+        floater.textContent = `+${amount}`;
+        treeArea.appendChild(floater);
+        setTimeout(() => floater.remove(), 2000);
+    },
+    
+    // Render the AP spending section
+    renderAPSection() {
+        const container = document.getElementById('cgAPSection');
+        if (!container) return;
+        
+        const gameState = this.getGameState();
+        const currentAP = gameState?.ascensionPoints || 0;
+        
+        // Update AP display
+        const apAmountEl = document.getElementById('cgAPAmount');
+        if (apAmountEl) apAmountEl.textContent = currentAP;
+        
+        // Update boost buttons
+        Object.keys(this.AP_COSTS).forEach(key => {
+            const btn = document.getElementById(`cgAPBtn_${key}`);
+            if (btn) {
+                const boost = this.AP_COSTS[key];
+                btn.disabled = currentAP < boost.cost;
+                btn.classList.toggle('affordable', currentAP >= boost.cost);
+            }
+        });
+    },
+
 
 
     
@@ -649,6 +932,45 @@ const CommunityGarden = {
         this.renderFireflySection();
         this.renderPlayerStats();
         this.renderEnvironment();
+        this.renderAPSection();
+        this.renderWeekInfo();
+    },
+    
+    // Render week info (reset timer, world trees reached)
+    renderWeekInfo() {
+        const weekInfoEl = document.getElementById('cgWeekInfo');
+        if (!weekInfoEl) return;
+        
+        const weekNum = this.treeState.weekNumber || 1;
+        const worldTrees = this.treeState.worldTreesReached || 0;
+        
+        // Calculate time until next Sunday midnight UTC
+        const now = new Date();
+        const daysUntilSunday = (7 - now.getUTCDay()) % 7;
+        const nextSunday = new Date(Date.UTC(
+            now.getUTCFullYear(),
+            now.getUTCMonth(),
+            now.getUTCDate() + (daysUntilSunday === 0 ? 7 : daysUntilSunday),
+            0, 0, 0, 0
+        ));
+        const msUntilReset = nextSunday.getTime() - now.getTime();
+        const hoursUntil = Math.floor(msUntilReset / (1000 * 60 * 60));
+        const daysUntil = Math.floor(hoursUntil / 24);
+        const remainingHours = hoursUntil % 24;
+        
+        let resetText = '';
+        if (daysUntil > 0) {
+            resetText = `${daysUntil}d ${remainingHours}h until reset`;
+        } else {
+            resetText = `${remainingHours}h until reset`;
+        }
+        
+        weekInfoEl.innerHTML = `
+            <span class="cg-week-number">Week ${weekNum}</span>
+            <span class="cg-week-divider">•</span>
+            <span class="cg-reset-timer" title="Tree resets every Sunday at midnight UTC">⏰ ${resetText}</span>
+            ${worldTrees > 0 ? `<span class="cg-week-divider">•</span><span class="cg-world-trees" title="World Trees achieved">🌟 ${worldTrees}</span>` : ''}
+        `;
     },
     
     renderStageInfo() {
@@ -1093,16 +1415,22 @@ const CommunityGarden = {
             const icon = entry.type === 'water' ? '💧' :
                         entry.type === 'sun' ? '☀️' :
                         entry.type === 'love' ? '❤️' :
-                        entry.type === 'firefly' ? '✨' : '🌱';
+                        entry.type === 'firefly' ? '✨' :
+                        entry.type === 'ap_boost' ? '🌟' : '🌱';
             
-            const action = entry.type === 'firefly' 
-                ? `released ${entry.amount} fireflies`
-                : `gave ${entry.type}`;
+            let action;
+            if (entry.type === 'firefly') {
+                action = `released ${entry.amount} fireflies`;
+            } else if (entry.type === 'ap_boost') {
+                action = `used ${entry.boostLabel || 'AP Boost'} (+${entry.amount})`;
+            } else {
+                action = `gave ${entry.type}`;
+            }
             
             const timeAgo = this.formatTimeAgo(entry.timestamp);
             
             return `
-                <div class="cg-activity-item">
+                <div class="cg-activity-item${entry.type === 'ap_boost' ? ' cg-activity-ap' : ''}">
                     <span class="cg-activity-icon">${icon}</span>
                     <span class="cg-activity-text"><strong>${this.escapeHtml(entry.plantName)}</strong> ${action}</span>
                     <span class="cg-activity-time">${timeAgo}</span>

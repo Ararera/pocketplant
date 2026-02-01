@@ -478,7 +478,24 @@ function closeHarvestModal() { els.harvestOverlay.classList.remove('open'); els.
 function confirmHarvest() {
     const _wasWinter = (state.season === 3);
 
-    state.history.push({ name: state.name, gen: state.generation, days: state.day, dna: { ...state.dna }, stage: state.stage, scars: [...state.scars], potColor: state.potColor, potPattern: state.potPattern, essenceFirstTapClaimed: false });
+    // Calculate Ascension Points earned based on stage and days lived
+    // Base: 5 AP per stage reached (max stage 6 = 30 base)
+    // Bonus: +1 AP per 5 days lived (encourages longer care)
+    // Bonus: +5 AP if no scars (pristine care bonus)
+    // Bonus: +2 AP per generation after first (legacy bonus)
+    const stageBonus = state.stage * 5;
+    const daysBonus = Math.floor(state.day / 5);
+    const pristineBonus = (state.scars.length === 0) ? 5 : 0;
+    const legacyBonus = Math.max(0, (state.generation - 1) * 2);
+    const apEarned = stageBonus + daysBonus + pristineBonus + legacyBonus;
+    
+    // Award AP
+    if (typeof state.ascensionPoints === 'undefined') state.ascensionPoints = 0;
+    if (typeof state.totalAscensionPointsEarned === 'undefined') state.totalAscensionPointsEarned = 0;
+    state.ascensionPoints += apEarned;
+    state.totalAscensionPointsEarned += apEarned;
+
+    state.history.push({ name: state.name, gen: state.generation, days: state.day, dna: { ...state.dna }, stage: state.stage, scars: [...state.scars], potColor: state.potColor, potPattern: state.potPattern, essenceFirstTapClaimed: false, apEarned: apEarned });
     const tid = document.getElementById('inheritedTraitDisplay').dataset.traitId;
     if (!state.inheritedTraits.includes(tid)) state.inheritedTraits.push(tid);
     const oldName = state.name;
@@ -492,7 +509,13 @@ function confirmHarvest() {
     state.neglect = { waterLowMs: 0, sunLowMs: 0, loveLowMs: 0, crisisMs: 0, partialDormant: false };
     state.name = 'Sprout'; state.nameSuggestion = ''; state.season = (state.season + 1) % 4; state.dna = generateDNA(state.dna);
     els.harvestOverlay.classList.remove('open');
+    
+    // Show AP earned notification
     spawnFloatingText(`A seed from ${oldName} takes root...`, 'var(--accent-growth)');
+    setTimeout(() => {
+        spawnFloatingText(`+${apEarned} Ascension Points earned! ✨`, '#a78bfa', 'good');
+    }, 1500);
+    
     setupWorld(); renderPlant('plantGroup', state.dna, state.stage); updateSeason(); updateUI(); saveState();
 }
 

@@ -400,6 +400,17 @@ function render() {
 
     if (els.genBadge) els.genBadge.textContent = `Gen ${state.generation}`;
 
+    // Update Ascension Points display
+    const apCountEl = document.getElementById('apCount');
+    const apDisplayEl = document.getElementById('apDisplay');
+    if (apCountEl && apDisplayEl) {
+        const ap = state.ascensionPoints || 0;
+        apCountEl.textContent = ap;
+        // Show/hide based on whether player has earned any AP (use class for CSS control)
+        const hasEarnedAP = (state.totalAscensionPointsEarned > 0 || ap > 0);
+        apDisplayEl.classList.toggle('visible', hasEarnedAP);
+    }
+
     if (els.plantNameDisplay) els.plantNameDisplay.textContent = state.name;
 
     const mood = getMood();
