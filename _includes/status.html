@@ -24,9 +24,14 @@
         <span class="growth-percent" id="growthPercent">0%</span>
     </div>
     
-    <!-- Row 4: Generation & mood (small) -->
+    <!-- Row 4: Generation & AP -->
     <div class="status-row status-row-gen">
         <span class="gen-label" id="genBadge" onclick="handleDebugTap()">Gen 1</span>
+        <span class="ap-display" id="apDisplay" onclick="openCommunityGarden()" title="Ascension Points - tap to spend in Community Garden">✨<span id="apCount">0</span></span>
+    </div>
+    
+    <!-- Row 5: Mood (collapsible on small screens) -->
+    <div class="status-row status-row-mood">
         <span class="plant-mood" id="plantMoodDisplay">awakening...</span>
     </div>
     
